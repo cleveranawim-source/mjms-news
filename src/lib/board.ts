@@ -52,9 +52,10 @@ function li(text: string, grades: number[], href?: string): string {
   return `<li data-grades="${grades.join(' ')}">${body}</li>`;
 }
 
+// '없어요'(list-empty)를 목록보다 앞에 두어야 비었을 때 제목 옆에 붙는다.
 // inline: 준비물처럼 짧은 낱말은 한 줄에 이어 적는다.
 function group(title: string, items: string[], empty: string, inline = false): string {
-  return `<section class="board-group filter-group${inline ? ' board-group--inline' : ''}"><h2>${title}</h2><ul>${items.join('')}</ul><p class="list-empty">${empty}</p></section>`;
+  return `<section class="board-group filter-group${inline ? ' board-group--inline' : ''}"><h2>${title}</h2><p class="list-empty">${empty}</p><ul>${items.join('')}</ul></section>`;
 }
 
 export function boardHTML(board: Board, base: string): string {

@@ -26,7 +26,13 @@ const upcoming = (await getEvents()).filter((e) => (e.end ?? e.date) >= today).s
     <ul class="lined">
       {notices.map((n) => <NoticeRow notice={n} />)}
     </ul>
-    <p class="list-empty">이 학년에 해당하는 최근 알림이 없습니다.</p>
+    {
+      notices.length > 0 ? (
+        <p class="list-empty">이 학년에 해당하는 최근 알림이 없습니다.</p>
+      ) : (
+        <p class="list-empty">아직 올라온 알림이 없습니다.</p>
+      )
+    }
   </section>
 
   <section class="section filter-group" aria-labelledby="upcoming">

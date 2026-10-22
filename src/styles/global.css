@@ -587,8 +587,10 @@ main {
   --empty-display: inline-block;
 }
 
-/* 빈 칸은 제목 옆에 '없어요'만 */
-.board-group .list-empty {
+/* 빈 칸은 제목 옆에 '없어요'만. 목록 페이지의 .filter-group > .list-empty보다 앞서도록 .board를 붙인다. */
+.board .board-group .list-empty {
+  padding: 0;
+  color: var(--chalk-dim);
   margin: 0 0 0 0.625rem;
   font-size: 1.1875rem;
   color: var(--chalk-dim);
