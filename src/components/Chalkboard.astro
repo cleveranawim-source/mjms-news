@@ -1,21 +1,25 @@
 ---
 import GradePicker from './GradePicker.astro';
-import { buildBoard, boardHTML } from '../lib/board.ts';
-import { getBoardData, getNotices } from '../lib/content.ts';
-import { seoulToday, formatDate, weekday, addDays } from '../lib/dates.ts';
+import { boardFromFeed, boardHTML } from '../lib/board.ts';
+import { buildToday, formatDate, weekday, addDays } from '../lib/dates.ts';
+import { getFeed } from '../lib/feed.ts';
 import { base, href } from '../lib/paths.ts';
+import { site } from '../site.config.ts';
 
 // 빌드한 날 기준으로 먼저 그려 두고, 브라우저가 실제 오늘 날짜로 다시 그린다.
-const data = await getBoardData();
-const today = seoulToday();
-const html = boardHTML(buildBoard(today, data.notices, data.events), base);
+const feed = await getFeed();
+const today = buildToday();
+const html = boardHTML(boardFromFeed(today, feed), base);
 const dayLabel = (iso: string) => formatDate(iso).replace(/ \(.\)$/, '');
 
-// 자석으로 붙여 둔 쪽지: 2주 안에 올린 '중요' 알림. 매일 아침 다시 빌드하므로 날짜는 빌드한 날 기준이면 된다.
-const notes = (await getNotices())
-  .filter((n) => n.data.important && n.data.date >= addDays(today, -14))
+// 자석으로 붙여 둔 쪽지: 2주 안에 홈페이지에 올라온 가정통신문 최근 3건. 매일 아침 다시 빌드하므로 빌드한 날 기준이면 된다.
+const notes = [...feed.letters]
+  .filter((l) => l.publishedOn >= addDays(today, -14) && l.publishedOn <= today)
+  .sort((a, b) => b.publishedOn.localeCompare(a.publishedOn))
   .slice(0, 3);
-const magnet = (grades: number[]) => (grades.length === 1 ? `g${grades[0]}` : 'gall');
+const magnet = (grades: number[]) => (grades.length === 1 ? `g${grades[0]}` : '');
+// <script> 안의 JSON이 </script>로 끊기지 않도록 <를 이스케이프한다.
+const boardJson = JSON.stringify({ base, letters: feed.letters, events: feed.events, daysOff: feed.daysOff }).replace(/</g, '\\u003c');
 ---
 
 <script is:inline>
@@ -29,7 +33,7 @@ const magnet = (grades: number[]) => (grades.length === 1 ? `g${grades[0]}` : 'g
 </script>
 
 <div class="board-wrap">
-  <section class="board" aria-label="오늘의 알림" data-today={today}>
+  <section class="board" aria-label="오늘의 알림" data-today={today} data-tt-api={site.timetableApi || undefined}>
     <img class="board-emblem" src={href('emblem-chalk.png')} alt="" width="80" height="82" />
     <p class="board-date">
       <span class="board-day" data-board-day>{dayLabel(today)}</span>
@@ -38,35 +42,56 @@ const magnet = (grades: number[]) => (grades.length === 1 ? `g${grades[0]}` : 'g
     <div class="board-groups" data-board-groups set:html={html} />
     {
       notes.length > 0 && (
-        <ul class="notes" aria-label="중요 알림">
+        <ul class="notes" aria-label="새 가정통신문">
           {notes.map((n) => (
-            <li data-grades={n.data.grades.join(' ')}>
+            <li data-grades={(n.grades.length > 0 ? n.grades : [1, 2, 3]).join(' ')}>
               <a class="note" href={href(`notices/${n.id}/`)}>
-                <span class:list={['magnet', magnet(n.data.grades)]} aria-hidden="true" />
-                <span class="note-meta">{n.data.category}</span>
-                <span class="note-title">{n.data.title}</span>
+                <span class:list={['magnet', magnet(n.grades)]} aria-hidden="true" />
+                {n.number && <span class="note-meta">{n.number}</span>}
+                <span class="note-title">{n.subject}</span>
               </a>
             </li>
           ))}
         </ul>
       )
     }
-    <script type="application/json" data-board-json set:html={JSON.stringify({ base, ...data })} />
+    <script type="application/json" data-board-json set:html={boardJson} />
   </section>
   <GradePicker attached />
 </div>
 
 <script>
-  import { buildBoard, boardHTML } from '../lib/board.ts';
+  import { boardFromFeed, boardHTML } from '../lib/board.ts';
   import { seoulToday, formatDate, weekday } from '../lib/dates.ts';
+  import { loadTimetable, changeLines } from '../lib/timetable.ts';
+  import { escapeHTML } from '../lib/html.ts';
 
   const board = document.querySelector<HTMLElement>('.board');
   const today = seoulToday();
   if (board && board.dataset.today !== today) {
-    const { base, notices, events } = JSON.parse(board.querySelector('[data-board-json]')!.textContent!);
+    const { base, letters, events, daysOff } = JSON.parse(board.querySelector('[data-board-json]')!.textContent!);
     board.dataset.today = today;
     board.querySelector('[data-board-day]')!.textContent = formatDate(today).replace(/ \(.\)$/, '');
     board.querySelector('[data-board-weekday]')!.textContent = `${weekday(today)}요일`;
-    board.querySelector('[data-board-groups]')!.innerHTML = boardHTML(buildBoard(today, notices, events), base);
+    board.querySelector('[data-board-groups]')!.innerHTML = boardHTML(boardFromFeed(today, { letters, events, daysOff, meals: [] }), base);
+  }
+
+  // 반을 골랐고 오늘 바뀐 수업이 있으면 「오늘 챙길 것」 앞에 칸을 끼운다. 빌드 결과는 시간표와 무관하다.
+  let picked = '';
+  try {
+    picked = localStorage.getItem('mjms-class') ?? '';
+  } catch {}
+  if (board && board.dataset.ttApi && picked) {
+    const feed = await loadTimetable(board.dataset.ttApi);
+    const cls = feed?.classes.find((c) => c.id === picked);
+    const changes = feed && cls ? changeLines(feed, cls.id, today) : [];
+    const groups = board.querySelector<HTMLElement>('[data-board-groups]');
+    if (cls && changes.length > 0 && groups) {
+      const items = changes.map((line) => `<li>${escapeHTML(line)}</li>`).join('');
+      const html = `<section class="board-group board-group--changes" data-class-grade="${cls.grade}"><h2>${escapeHTML(cls.name)} 오늘 바뀐 수업</h2><ul>${items}</ul></section>`;
+      const first = groups.querySelector('.board-group');
+      if (first) first.insertAdjacentHTML('beforebegin', html);
+      else groups.insertAdjacentHTML('beforeend', html);
+    }
   }
 </script>

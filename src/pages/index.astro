@@ -4,19 +4,21 @@ import Chalkboard from '../components/Chalkboard.astro';
 import NoticeRow from '../components/NoticeRow.astro';
 import EventRow from '../components/EventRow.astro';
 import LostStrip from '../components/LostStrip.astro';
-import { getNotices, getEvents } from '../lib/content.ts';
-import { seoulToday } from '../lib/dates.ts';
+import MealCard from '../components/MealCard.astro';
+import { getLetters, getScheduleEntries } from '../lib/content.ts';
+import { buildToday } from '../lib/dates.ts';
 import { href } from '../lib/paths.ts';
 
-const today = seoulToday();
-const notices = (await getNotices()).slice(0, 8);
-const upcoming = (await getEvents()).filter((e) => (e.end ?? e.date) >= today).slice(0, 5);
+const today = buildToday();
+const notices = (await getLetters()).slice(0, 8);
+const upcoming = (await getScheduleEntries()).filter((e) => e.end >= today).slice(0, 5);
 ---
 
 <Base>
   <h1 class="sr-only">오늘의 알림</h1>
   <Chalkboard />
   <LostStrip />
+  <MealCard />
 
   <section class="section filter-group" aria-labelledby="recent">
     <div class="section-head">
@@ -24,7 +26,7 @@ const upcoming = (await getEvents()).filter((e) => (e.end ?? e.date) >= today).s
       <a href={href('notices/')}>알림 모두 보기</a>
     </div>
     <ul class="lined">
-      {notices.map((n) => <NoticeRow notice={n} />)}
+      {notices.map((n) => <NoticeRow letter={n} />)}
     </ul>
     {
       notices.length > 0 ? (

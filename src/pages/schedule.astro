@@ -2,10 +2,10 @@
 import Base from '../layouts/Base.astro';
 import GradePicker from '../components/GradePicker.astro';
 import EventRow from '../components/EventRow.astro';
-import { getEvents, groupByMonth } from '../lib/content.ts';
+import { getScheduleEntries, groupByMonth } from '../lib/content.ts';
 import { formatMonth } from '../lib/dates.ts';
 
-const months = groupByMonth(await getEvents(), (e) => e.date);
+const months = groupByMonth(await getScheduleEntries(), (e) => e.start);
 ---
 
 <Base title="학사일정">

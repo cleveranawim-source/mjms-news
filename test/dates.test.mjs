@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { seoulToday, addDays, nextSchoolDay, formatDate, toISODate } from '../src/lib/dates.ts';
+import { buildToday, seoulToday, addDays, nextSchoolDay, formatDate, toISODate } from '../src/lib/dates.ts';
 
 test('seoulToday uses Korea time, not UTC', () => {
   // 2026-10-22 16:00 UTC is already 10-23 01:00 in Seoul
@@ -42,4 +42,55 @@ test('formatRange drops the repeated month', () => {
   assert.equal(formatRange('2026-10-20', '2026-10-22'), '10월 20일 (화) ~ 22일 (목)');
   assert.equal(formatRange('2026-10-30', '2026-11-02'), '10월 30일 (금) ~ 11월 2일 (월)');
   assert.equal(formatRange('2026-10-23'), '10월 23일 (금)');
+});
+
+import { isDayOff } from '../src/lib/dates.ts';
+
+test('nextSchoolDay skips a day off', () => {
+  assert.equal(nextSchoolDay('2026-11-18', [{ start: '2026-11-19', end: '2026-11-19' }]), '2026-11-20');
+});
+
+test('nextSchoolDay: Friday before a Monday holiday lands on Tuesday', () => {
+  assert.equal(nextSchoolDay('2026-10-23', [{ start: '2026-10-26', end: '2026-10-26' }]), '2026-10-27');
+});
+
+test('nextSchoolDay jumps over a whole vacation', () => {
+  const off = [
+    { start: '2026-12-31', end: '2027-02-28' },
+    { start: '2027-03-01', end: '2027-03-01' },
+  ];
+  assert.equal(nextSchoolDay('2026-12-30', off), '2027-03-02');
+});
+
+test('isDayOff checks inclusive ranges', () => {
+  const off = [{ start: '2026-11-19', end: '2026-11-20' }];
+  assert.equal(isDayOff('2026-11-19', off), true);
+  assert.equal(isDayOff('2026-11-20', off), true);
+  assert.equal(isDayOff('2026-11-21', off), false);
+});
+
+test('buildToday: NEWS_TODAY overrides, invalid falls back to Seoul today', () => {
+  const prev = process.env.NEWS_TODAY;
+  try {
+    process.env.NEWS_TODAY = '2026-10-22';
+    assert.equal(buildToday(), '2026-10-22');
+    process.env.NEWS_TODAY = 'tomorrow';
+    assert.equal(buildToday(), seoulToday());
+    delete process.env.NEWS_TODAY;
+    assert.equal(buildToday(), seoulToday());
+  } finally {
+    if (prev === undefined) delete process.env.NEWS_TODAY; else process.env.NEWS_TODAY = prev;
+  }
+});
+
+test('mergeDaysOff: 같은 날짜 범위의 쉬는 날은 짧은 이름 하나로 합친다', async () => {
+  const { mergeDaysOff } = await import('../src/lib/dates.ts');
+  const merged = mergeDaysOff([
+    { title: '추석 연휴', start: '2026-09-24', end: '2026-09-26' },
+    { title: '추석 연휴', start: '2026-09-24', end: '2026-09-26' },
+    { title: '개천절', start: '2026-10-03', end: '2026-10-03' },
+    { title: '쉬는 날 개천절', start: '2026-10-03', end: '2026-10-03' },
+    { title: '개천절 대체', start: '2026-10-05', end: '2026-10-05' },
+  ]);
+  assert.deepEqual(merged.map((d) => d.title), ['추석 연휴', '개천절', '개천절 대체']);
 });
