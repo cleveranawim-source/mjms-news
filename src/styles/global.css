@@ -1273,3 +1273,11 @@ a.row:hover .row-title {
     color: var(--ink);
   }
 }
+
+/* 가정통신문 호수 */
+.row-no {
+  margin-right: 0.5em;
+  font-size: 0.85em;
+  font-weight: 400;
+  color: var(--muted, inherit);
+}

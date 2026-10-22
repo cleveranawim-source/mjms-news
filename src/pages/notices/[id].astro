@@ -1,0 +1,55 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getLetters, gradesOrAll } from '../../lib/content.ts';
+import { formatDate, formatRange } from '../../lib/dates.ts';
+import { gradeLabel } from '../../lib/grades.ts';
+import { href } from '../../lib/paths.ts';
+
+export async function getStaticPaths() {
+  return (await getLetters()).map((letter) => ({ params: { id: letter.id }, props: { letter } }));
+}
+
+const { letter: l } = Astro.props;
+const target = l.classes ?? gradeLabel(gradesOrAll(l.grades));
+// 요약은 줄바꿈마다 문단으로 나눈다. 텍스트로만 넣어 HTML이 섞여도 글자로 보인다.
+const paragraphs = l.summary.split(/\n+/).map((p) => p.trim()).filter(Boolean);
+---
+
+<Base title={l.subject}>
+  <article class="notice">
+    <a class="back" href={href('notices/')}>알림 목록</a>
+    <h1>{l.subject}</h1>
+    <dl class="facts">
+      <div><dt>올린 날</dt><dd>{formatDate(l.postedOn)}</dd></div>
+      <div><dt>대상</dt><dd>{target}</dd></div>
+      {l.eventDate && <div><dt>관련 날짜</dt><dd>{formatRange(l.eventDate, l.eventEnd ?? undefined)}</dd></div>}
+    </dl>
+
+    {
+      l.bring.length > 0 && (
+        <section class="bring" aria-label="준비물">
+          <h2>{l.due ? `${formatDate(l.due)} 준비물` : '준비물'}</h2>
+          <ul>
+            {l.bring.map((item) => <li>{item}</li>)}
+          </ul>
+        </section>
+      )
+    }
+
+    <div class="prose">
+      {paragraphs.map((p) => <p>{p}</p>)}
+    </div>
+
+    {
+      l.attachments.length > 0 && (
+        <p class="files">함께 온 파일: {l.attachments.join(', ')}</p>
+      )
+    }
+
+    <p class="source">
+      <a href={l.sourceUrl} target="_blank" rel="noopener noreferrer">홈페이지에서 원문 보기{l.number ? ` (${l.number})` : ''}</a>
+    </p>
+
+    <button class="print" type="button" onclick="window.print()">이 알림 인쇄하기</button>
+  </article>
+</Base>

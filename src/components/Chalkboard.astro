@@ -1,8 +1,7 @@
 ---
 import GradePicker from './GradePicker.astro';
 import { boardFromFeed, boardHTML } from '../lib/board.ts';
-import { getNotices } from '../lib/content.ts';
-import { seoulToday, formatDate, weekday, addDays } from '../lib/dates.ts';
+import { seoulToday, formatDate, weekday } from '../lib/dates.ts';
 import { getFeed } from '../lib/feed.ts';
 import { base, href } from '../lib/paths.ts';
 
@@ -11,12 +10,6 @@ const feed = await getFeed();
 const today = seoulToday();
 const html = boardHTML(boardFromFeed(today, feed), base);
 const dayLabel = (iso: string) => formatDate(iso).replace(/ \(.\)$/, '');
-
-// 자석으로 붙여 둔 쪽지: 2주 안에 올린 '중요' 알림. 매일 아침 다시 빌드하므로 날짜는 빌드한 날 기준이면 된다.
-const notes = (await getNotices())
-  .filter((n) => n.data.important && n.data.date >= addDays(today, -14))
-  .slice(0, 3);
-const magnet = (grades: number[]) => (grades.length === 1 ? `g${grades[0]}` : 'gall');
 ---
 
 <script is:inline>
@@ -37,21 +30,6 @@ const magnet = (grades: number[]) => (grades.length === 1 ? `g${grades[0]}` : 'g
       <small data-board-weekday>{weekday(today)}요일</small>
     </p>
     <div class="board-groups" data-board-groups set:html={html} />
-    {
-      notes.length > 0 && (
-        <ul class="notes" aria-label="중요 알림">
-          {notes.map((n) => (
-            <li data-grades={n.data.grades.join(' ')}>
-              <a class="note" href={href(`notices/${n.id}/`)}>
-                <span class:list={['magnet', magnet(n.data.grades)]} aria-hidden="true" />
-                <span class="note-meta">{n.data.category}</span>
-                <span class="note-title">{n.data.title}</span>
-              </a>
-            </li>
-          ))}
-        </ul>
-      )
-    }
     <script type="application/json" data-board-json set:html={JSON.stringify({ base, letters: feed.letters, events: feed.events, daysOff: feed.daysOff })} />
   </section>
   <GradePicker attached />
