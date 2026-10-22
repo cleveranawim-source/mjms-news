@@ -1,3 +1,4 @@
+// 운영 주소는 https://mjms-news.vercel.app (AI 교무실 CORS 출처와 같아야 한다).
 // 학교 정보. 빈 값('')으로 두면 화면에 나오지 않는다.
 export const site = {
   school: '명지중학교',

@@ -28,11 +28,12 @@ NEWS_FEED_FILE=test/fixtures/feed.json npm run build
 
 `src/site.config.ts`의 `lostFoundApi`(분실물함), `timetableApi`(학급 시간표) 주소는 코드에서 바꿉니다.
 
-## 배포 (GitHub Pages)
+## 배포 (Vercel)
 
-1. GitHub에 저장소를 만들고 이 코드를 `main`에 올립니다.
-2. 저장소 **Settings → Pages → Source**를 **GitHub Actions**로 바꿉니다.
-3. `main`에 올릴 때마다, 그리고 매일 아침 5시에 `.github/workflows/deploy.yml`이 사이트를 다시 만듭니다.
+1. Vercel 프로젝트 `mjms-news`(주소 https://mjms-news.vercel.app)가 이 저장소의 `main`을 받아 올립니다. `main`에 올리면 곧바로 다시 배포됩니다.
+2. 환경 변수 `SITE_URL=https://mjms-news.vercel.app`을 넣어 둡니다.
+3. AI 교무실이 새 알림을 올리면 Vercel의 배포 훅(`NEWS_DEPLOY_HOOK_URL`)으로 사이트를 다시 만들고, 매일 아침 5시에도 다시 만듭니다.
+4. 옛 GitHub Pages 주소(`cleveranawim-source.github.io/mjms-news`)는 `redirect/` 페이지가 새 주소로 넘겨 줍니다. `.github/workflows/deploy.yml`은 이 `redirect/`만 올립니다.
 
 ## 구성
 

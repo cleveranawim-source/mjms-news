@@ -1,11 +1,8 @@
-name: 사이트 배포
+name: 옛 주소 넘기기
 
 on:
   push:
     branches: [main]
-  schedule:
-    # 매일 아침 5시(한국 시간)에 다시 만들어, 자바스크립트가 꺼진 브라우저에서도 칠판 날짜가 맞게 한다.
-    - cron: '0 20 * * *'
   workflow_dispatch:
 
 permissions:
@@ -22,22 +19,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: npm
-      - id: pages
-        uses: actions/configure-pages@v5
-      - run: npm ci
-      - run: npm test
-      - run: npm run check
-      - run: npm run build
-        env:
-          SITE_URL: ${{ steps.pages.outputs.origin }}
-          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+      - uses: actions/configure-pages@v5
+      # 사이트는 Vercel로 옮겼다. 옛 주소에는 새 주소로 넘기는 redirect/ 페이지만 올린다.
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: redirect
 
   deploy:
     needs: build

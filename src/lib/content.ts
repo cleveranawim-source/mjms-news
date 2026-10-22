@@ -1,3 +1,4 @@
+import { mergeDaysOff } from './dates.ts';
 import { getFeed, type FeedLetter } from './feed.ts';
 
 // 피드를 화면에서 쓰기 좋게 고른다. 학년이 비어 있으면 모든 학년 대상이다.
@@ -16,7 +17,7 @@ export async function getScheduleEntries(): Promise<ScheduleEntry[]> {
   const { events, daysOff } = await getFeed();
   return [
     ...events.map((e) => ({ ...e, grades: gradesOrAll(e.grades), dayOff: false })),
-    ...daysOff.map((d) => ({ ...d, grades: ALL, dayOff: true })),
+    ...mergeDaysOff(daysOff).map((d) => ({ ...d, grades: ALL, dayOff: true })),
   ].sort((a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title));
 }
 

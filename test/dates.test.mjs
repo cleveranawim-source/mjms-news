@@ -82,3 +82,15 @@ test('buildToday: NEWS_TODAY overrides, invalid falls back to Seoul today', () =
     if (prev === undefined) delete process.env.NEWS_TODAY; else process.env.NEWS_TODAY = prev;
   }
 });
+
+test('mergeDaysOff: 같은 날짜 범위의 쉬는 날은 짧은 이름 하나로 합친다', async () => {
+  const { mergeDaysOff } = await import('../src/lib/dates.ts');
+  const merged = mergeDaysOff([
+    { title: '추석 연휴', start: '2026-09-24', end: '2026-09-26' },
+    { title: '추석 연휴', start: '2026-09-24', end: '2026-09-26' },
+    { title: '개천절', start: '2026-10-03', end: '2026-10-03' },
+    { title: '쉬는 날 개천절', start: '2026-10-03', end: '2026-10-03' },
+    { title: '개천절 대체', start: '2026-10-05', end: '2026-10-05' },
+  ]);
+  assert.deepEqual(merged.map((d) => d.title), ['추석 연휴', '개천절', '개천절 대체']);
+});

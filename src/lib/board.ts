@@ -1,6 +1,6 @@
 // 첫 화면 칠판에 적을 내용을 고르고 HTML로 만든다.
 // 빌드할 때와 브라우저에서 같은 함수를 써서, 사이트를 다시 빌드하지 않아도 '오늘'이 맞게 보이게 한다.
-import { formatDate, nextSchoolDay } from './dates.ts';
+import { formatDate, mergeDaysOff, nextSchoolDay } from './dates.ts';
 import type { Feed } from './feed.ts';
 import { escapeHTML as escape } from './html.ts';
 
@@ -23,7 +23,7 @@ export type Board = {
 export function boardFromFeed(today: string, feed: Pick<Feed, 'letters' | 'events' | 'daysOff' | 'meals'>): Board {
   const all = [1, 2, 3];
   // 학년이 비어 있으면 전 학년 대상이다(목록·일정 화면과 같은 규칙).
-  const daysOff = feed.daysOff;
+  const daysOff = mergeDaysOff(feed.daysOff);
   const letters = feed.letters.map((l) => ({ ...l, grades: l.grades.length ? l.grades : all }));
   const events = feed.events.map((e) => ({ ...e, grades: e.grades.length ? e.grades : all }));
   const next = nextSchoolDay(today, daysOff);

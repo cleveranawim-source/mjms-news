@@ -58,3 +58,17 @@ export function formatRange(start: string, end?: string): string {
   const sameMonth = start.slice(0, 7) === end.slice(0, 7);
   return `${formatDate(start)} ~ ${sameMonth ? formatDate(end).replace(/^\d+월 /, '') : formatDate(end)}`;
 }
+
+// 공휴일 달력과 학교 구글 캘린더가 같은 쉬는 날을 따로 싣는다. 날짜 범위가 똑같으면 한 줄로 합치고,
+// 「쉬는 날 」 머리말을 뗀 짧은 이름을 고른다. 날짜 계산에는 영향이 없다.
+export function mergeDaysOff<T extends { title: string; start: string; end: string }>(daysOff: T[]): T[] {
+  const clean = (t: string) => t.replace(/^쉬는 날\s+/, '');
+  const byRange = new Map<string, T>();
+  for (const d of daysOff) {
+    const key = `${d.start}~${d.end}`;
+    const have = byRange.get(key);
+    const title = clean(d.title);
+    if (!have || title.length < have.title.length) byRange.set(key, { ...d, title });
+  }
+  return [...byRange.values()];
+}

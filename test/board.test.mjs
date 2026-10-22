@@ -91,3 +91,11 @@ test('boardFromFeed treats empty grades as all grades', async () => {
   assert.deepEqual(b.newNotices[0].grades, [1, 2, 3]);
   assert.ok(b.events.every((e) => e.grades.length === 3));
 });
+
+test('칠판: 같은 날 쉬는 날이 두 번 실려도 깔끔한 이름 하나만 쓴다', () => {
+  const board = boardFromFeed('2026-10-03', feed({ daysOff: [
+    { title: '쉬는 날 개천절', start: '2026-10-03', end: '2026-10-03' },
+    { title: '개천절', start: '2026-10-03', end: '2026-10-03' },
+  ] }));
+  assert.equal(board.dayOff, '개천절');
+});
