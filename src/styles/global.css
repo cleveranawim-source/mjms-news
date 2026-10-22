@@ -827,12 +827,6 @@ a.row:hover .row-title {
   gap: 0 0.875rem;
 }
 
-.important {
-  color: var(--red-pen);
-  font-weight: 600;
-  margin-right: 0.375rem;
-}
-
 .is-past {
   color: var(--muted);
 }

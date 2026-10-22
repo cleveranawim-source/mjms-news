@@ -46,9 +46,13 @@ const paragraphs = l.summary.split(/\n+/).map((p) => p.trim()).filter(Boolean);
       )
     }
 
-    <p class="source">
-      <a href={l.sourceUrl} target="_blank" rel="noopener noreferrer">홈페이지에서 원문 보기{l.number ? ` (${l.number})` : ''}</a>
-    </p>
+    {
+      /^https?:\/\//.test(l.sourceUrl) && (
+        <p class="source">
+          <a href={l.sourceUrl} target="_blank" rel="noopener noreferrer">홈페이지에서 원문 보기{l.number ? ` (${l.number})` : ''}</a>
+        </p>
+      )
+    }
 
     <button class="print" type="button" onclick="window.print()">이 알림 인쇄하기</button>
   </article>

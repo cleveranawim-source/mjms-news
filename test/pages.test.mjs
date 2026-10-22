@@ -1,16 +1,21 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 
 // 실제 빌드를 fixture 피드로 한 번 돌려 dist/ HTML을 확인한다. 네트워크는 쓰지 않는다.
 const root = resolve(import.meta.dirname, '..');
 const fixture = resolve(root, 'test/fixtures/feed.json');
 const feed = JSON.parse(readFileSync(fixture, 'utf8'));
+// 공유 fixture는 건드리지 않고, 태그를 끊으려는 제목이 든 알림을 더한 사본으로 빌드한다.
+const evil = { ...feed.letters[2], id: 'L-evil', subject: '끊기 시험 </script><b>x', number: '제2026-80호', postedOn: '2026-10-10', publishedOn: '2026-10-10' };
+const tmp = resolve(mkdtempSync(resolve(tmpdir(), 'feed-')), 'feed.json');
+writeFileSync(tmp, JSON.stringify({ ...feed, letters: [...feed.letters, evil] }));
 execFileSync('npx', ['astro', 'build'], {
   cwd: root,
-  env: { ...process.env, NEWS_FEED_FILE: fixture },
+  env: { ...process.env, NEWS_FEED_FILE: tmp },
   stdio: 'pipe',
 });
 const read = (p) => readFileSync(resolve(root, 'dist', p), 'utf8');
@@ -21,7 +26,10 @@ test('알림 보기에 원문 링크와 요약이 있다', () => {
   assert.match(html, /홈페이지에서 원문 보기/);
   assert.ok(html.includes(l.sourceUrl));
   assert.match(html, /함께 온 파일/);
-  assert.match(html, /2026년 10월 23일.*준비물|10월 23일.*준비물/s);
+  assert.match(html, /<h2>10월 23일 \(금\) 준비물<\/h2>/);
+  const link = html.match(/<a href="[^"]*example-school[^"]*"[^>]*>/)[0];
+  assert.match(link, /target="_blank"/);
+  assert.match(link, /rel="[^"]*noopener/);
 });
 
 test('학급이 있는 알림은 목록에 학급을 보인다', () => {
@@ -41,4 +49,20 @@ test('첫 화면에 예전 예시 알림이 없다', () => {
 
 test('이용 안내에 원문 확인 안내가 있다', () => {
   assert.match(read('about/index.html'), /정확한 내용은 원문을 봐 주세요/);
+});
+
+test('피드 글자가 칠판 JSON을 끊지 못하고, JSON은 그대로 읽힌다', () => {
+  const html = read('index.html');
+  assert.ok(!html.includes('</script><b>'));
+  const json = html.match(/<script type="application\/json" data-board-json>(.*?)<\/script>/s)[1];
+  const data = JSON.parse(json);
+  assert.ok(data.letters.some((l) => l.subject === evil.subject));
+});
+
+test('칠판에 2주 안에 올라온 알림이 쪽지로 붙고 오래된 것은 빠진다', () => {
+  const html = read('index.html');
+  assert.match(html, /class="note" href="[^"]*notices\/L-2026-1022-3\//);
+  assert.match(html, /magnet g1/);
+  assert.match(html, /제2026-87호/);
+  assert.ok(!html.includes('href="/notices/L-evil/"'));
 });

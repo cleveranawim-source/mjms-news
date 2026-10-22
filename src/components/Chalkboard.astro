@@ -1,7 +1,7 @@
 ---
 import GradePicker from './GradePicker.astro';
 import { boardFromFeed, boardHTML } from '../lib/board.ts';
-import { seoulToday, formatDate, weekday } from '../lib/dates.ts';
+import { seoulToday, formatDate, weekday, addDays } from '../lib/dates.ts';
 import { getFeed } from '../lib/feed.ts';
 import { base, href } from '../lib/paths.ts';
 
@@ -10,6 +10,15 @@ const feed = await getFeed();
 const today = seoulToday();
 const html = boardHTML(boardFromFeed(today, feed), base);
 const dayLabel = (iso: string) => formatDate(iso).replace(/ \(.\)$/, '');
+
+// 자석으로 붙여 둔 쪽지: 2주 안에 홈페이지에 올라온 가정통신문 최근 3건. 매일 아침 다시 빌드하므로 빌드한 날 기준이면 된다.
+const notes = [...feed.letters]
+  .filter((l) => l.publishedOn >= addDays(today, -14) && l.publishedOn <= today)
+  .sort((a, b) => b.publishedOn.localeCompare(a.publishedOn))
+  .slice(0, 3);
+const magnet = (grades: number[]) => (grades.length === 1 ? `g${grades[0]}` : '');
+// <script> 안의 JSON이 </script>로 끊기지 않도록 <를 이스케이프한다.
+const boardJson = JSON.stringify({ base, letters: feed.letters, events: feed.events, daysOff: feed.daysOff }).replace(/</g, '\\u003c');
 ---
 
 <script is:inline>
@@ -30,14 +39,29 @@ const dayLabel = (iso: string) => formatDate(iso).replace(/ \(.\)$/, '');
       <small data-board-weekday>{weekday(today)}요일</small>
     </p>
     <div class="board-groups" data-board-groups set:html={html} />
-    <script type="application/json" data-board-json set:html={JSON.stringify({ base, letters: feed.letters, events: feed.events, daysOff: feed.daysOff })} />
+    {
+      notes.length > 0 && (
+        <ul class="notes" aria-label="새 가정통신문">
+          {notes.map((n) => (
+            <li data-grades={(n.grades.length > 0 ? n.grades : [1, 2, 3]).join(' ')}>
+              <a class="note" href={href(`notices/${n.id}/`)}>
+                <span class:list={['magnet', magnet(n.grades)]} aria-hidden="true" />
+                {n.number && <span class="note-meta">{n.number}</span>}
+                <span class="note-title">{n.subject}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+    <script type="application/json" data-board-json set:html={boardJson} />
   </section>
   <GradePicker attached />
 </div>
 
 <script>
   import { boardFromFeed, boardHTML } from '../lib/board.ts';
-  import { seoulToday, formatDate, weekday } from '../lib/dates.ts';
+  import { seoulToday, formatDate, weekday, addDays } from '../lib/dates.ts';
 
   const board = document.querySelector<HTMLElement>('.board');
   const today = seoulToday();
