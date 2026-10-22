@@ -4,6 +4,7 @@ import Chalkboard from '../components/Chalkboard.astro';
 import NoticeRow from '../components/NoticeRow.astro';
 import EventRow from '../components/EventRow.astro';
 import LostStrip from '../components/LostStrip.astro';
+import MealCard from '../components/MealCard.astro';
 import { getLetters, getScheduleEntries } from '../lib/content.ts';
 import { buildToday } from '../lib/dates.ts';
 import { href } from '../lib/paths.ts';
@@ -17,6 +18,7 @@ const upcoming = (await getScheduleEntries()).filter((e) => e.end >= today).slic
   <h1 class="sr-only">오늘의 알림</h1>
   <Chalkboard />
   <LostStrip />
+  <MealCard />
 
   <section class="section filter-group" aria-labelledby="recent">
     <div class="section-head">

@@ -1275,3 +1275,50 @@ a.row:hover .row-title {
   font-weight: 400;
   color: var(--muted, inherit);
 }
+
+/* 오늘 급식: 한 줄짜리 작은 칸. 알레르기 번호는 눌러야 펼쳐진다. */
+.meal-card {
+  margin-top: 1.25rem;
+}
+
+.meal-card[hidden] {
+  display: none;
+}
+
+.meal-card h2 {
+  font-size: var(--text-md);
+  margin-bottom: 0.25rem;
+}
+
+.meal-card h2 small {
+  font-size: var(--text-sm);
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.meal-dishes {
+  margin: 0;
+}
+
+.meal-card summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  padding-block: 0.625rem;
+}
+
+.meal-allergy {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+  font-size: var(--text-sm);
+}
+
+.meal-allergy li {
+  padding-block: 0.125rem;
+}
+
+.meal-allergy li span {
+  font-weight: 600;
+  margin-right: 0.375rem;
+}
