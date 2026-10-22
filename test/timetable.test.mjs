@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadTimetable, todayChanges, timetableDayHTML, changeLine, weekGroups, initialDay, classButtonsHTML } from '../src/lib/timetable.ts';
+import { loadTimetable, todayChanges, weekTableHTML, changesBoxHTML, changesTarget, changeLine, weekGroups, initialDay, classButtonsHTML } from '../src/lib/timetable.ts';
 
 const cell = (period, subject, extra = {}) => ({ period, subject, special: false, changed: null, ...extra });
 const feed = {
@@ -39,27 +39,6 @@ test('todayChanges gives only the changed cells', () => {
 test('changeLine writes the original subject or the calendar note', () => {
   assert.equal(changeLine(feed.classes[0].days[0].cells[1]), '3교시 과학 (원래 체육)');
   assert.equal(changeLine(feed.classes[0].days[0].cells[2]), '5교시 창체 (동아리활동)');
-});
-
-test('timetableDayHTML marks changes, 창체 and the last period', () => {
-  const day = { ymd: 'x', off: null, until: 5, cells: [cell(3, '과학', { changed: { from: '체육', note: null } }), cell(4, '창체', { special: true }), cell(6, '')] };
-  const html = timetableDayHTML(day);
-  assert.match(html, /바뀜 \(원래 체육\)/);
-  assert.match(html, /창체<\/span>/);
-  assert.match(html, /오늘은 5교시까지/);
-  assert.doesNotMatch(html, /6교시/);
-});
-
-test('timetableDayHTML escapes feed text', () => {
-  const html = timetableDayHTML({ ymd: 'x', off: null, until: null, cells: [cell(1, '<b>x</b>', { changed: { from: '<i>y</i>', note: '<u>z</u>' } })] });
-  assert.doesNotMatch(html, /<b>x|<i>y|<u>z/);
-  assert.match(html, /&lt;b&gt;x&lt;\/b&gt;/);
-});
-
-test('timetableDayHTML shows only the name on a day off', () => {
-  const html = timetableDayHTML(feed.classes[0].days[1]);
-  assert.match(html, /재량휴업일/);
-  assert.equal((html.match(/<li/g) ?? []).length, 1);
 });
 
 test('weekGroups names this week and next week; initialDay skips to the next day on a weekend', () => {
@@ -103,7 +82,52 @@ test('loadTimetable drops malformed days and cells', async () => {
   assert.deepEqual(out.classes[0].days[0].cells.map((c) => c.period), [2]);
 });
 
-test('창체 tag is not repeated when the subject is already 창체', () => {
-  const html = timetableDayHTML({ ymd: 'x', off: null, until: null, cells: [cell(1, '창체', { special: true }), cell(2, '동아리', { special: true })] });
-  assert.equal((html.match(/tt-tag/g) ?? []).length, 1);
+const wk = ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23'];
+const gridCls = {
+  id: 'c', name: '1-5', grade: 1,
+  days: [
+    { ymd: '2026-10-19', off: null, until: null, cells: [cell(1, '국어'), cell(2, '창체', { special: true }), cell(3, '동아리', { special: true }), cell(4, '수학')] },
+    { ymd: '2026-10-20', off: null, until: 2, cells: [cell(1, '영어'), cell(2, '과학'), cell(3, '', { changed: { from: '체육', note: null } })] },
+    { ymd: '2026-10-21', off: '개교기념일', until: null, cells: [] },
+    { ymd: '2026-10-22', off: null, until: null, cells: [cell(1, '<b>x</b>', { changed: { from: '<i>y</i>', note: '행사' } }), cell(5, '미술')] },
+  ],
+};
+
+test('weekTableHTML: 5 columns, rows = max periods, today flagged', () => {
+  const html = weekTableHTML(gridCls, wk, '2026-10-22');
+  assert.equal((html.match(/<th scope="col"/g) ?? []).length, 5);
+  assert.equal((html.match(/<th scope="row"/g) ?? []).length, 5);
+  assert.equal((html.match(/<th scope="col" class="tt-today"/g) ?? []).length, 1);
+});
+
+test('weekTableHTML: changed cell is yellow and reveals the original; text escaped', () => {
+  const html = weekTableHTML(gridCls, wk, '2026-10-22');
+  assert.match(html, /tt-changed/);
+  assert.match(html, /aria-expanded="false"/);
+  assert.match(html, /data-reveal="[^"]*원래 &lt;i&gt;y&lt;\/i&gt;/);
+  assert.doesNotMatch(html, /<b>x|<i>y/);
+});
+
+test('weekTableHTML: 창체 mark not duplicated when the subject is 창체', () => {
+  const html = weekTableHTML(gridCls, wk, '2026-10-22');
+  assert.equal((html.match(/tt-mark/g) ?? []).length, 1);
+});
+
+test('weekTableHTML: day off shows its name once; until dims later cells and labels header', () => {
+  const html = weekTableHTML(gridCls, wk, '2026-10-22');
+  assert.equal((html.match(/개교기념일/g) ?? []).length, 1);
+  assert.match(html, /2교시까지/);
+  assert.ok((html.match(/tt-cut/g) ?? []).length >= 3);
+});
+
+test('changesBoxHTML: lines, empty text, escaping', () => {
+  const box = changesBoxHTML(gridCls, '2026-10-22', '오늘 바뀐 수업 (10월 22일 목)');
+  assert.match(box, /1교시 &lt;b&gt;x&lt;\/b&gt; \(원래 &lt;i&gt;/);
+  assert.match(changesBoxHTML(gridCls, '2026-10-19', '오늘 바뀐 수업 (10월 19일 월)'), /오늘은 바뀐 수업이 없어요/);
+});
+
+test('changesTarget: today on a school day, next school day on weekend or day off', () => {
+  assert.deepEqual(changesTarget(gridCls, '2026-10-22'), { ymd: '2026-10-22', label: '오늘 바뀐 수업 (10월 22일 목)' });
+  assert.equal(changesTarget(gridCls, '2026-10-24').label, '다음 등교일 바뀐 수업 (10월 26일 월)');
+  assert.equal(changesTarget(gridCls, '2026-10-21').ymd, '2026-10-22');
 });

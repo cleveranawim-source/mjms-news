@@ -4,7 +4,7 @@ import ClassPicker from '../components/ClassPicker.astro';
 import { site } from '../site.config.ts';
 ---
 
-<Base title="시간표" description="우리 반 이번 주·다음 주 시간표와 오늘 바뀐 수업을 볼 수 있습니다.">
+<Base title="시간표" description="우리 반 이번 주·다음 주 시간표와 오늘 바뀐 수업을 한눈에 볼 수 있습니다.">
   <h1 class="page-title">시간표</h1>
   {
     site.timetableApi && (
@@ -21,8 +21,9 @@ import { site } from '../site.config.ts';
             <button type="button" class="tt-switch" data-tt-switch>반 바꾸기</button>
           </div>
           <div class="tt-weeks" data-tt-weeks />
-          <h3 class="tt-date" data-tt-date />
-          <div data-tt-day />
+          <div class="tt-changes" data-tt-changes />
+          <div class="tt-gridwrap" data-tt-grid />
+          <p class="tt-reveal" data-tt-reveal role="status" />
           <p class="strip-note">수업은 선생님 사정으로 바뀔 수 있어요. 바뀐 줄은 표시해 두었어요.</p>
         </div>
       </div>
@@ -31,8 +32,8 @@ import { site } from '../site.config.ts';
 </Base>
 
 <script>
-  import { loadTimetable, timetableDayHTML, weekGroups, initialDay, classButtonsHTML, type TimetableFeed } from '../lib/timetable.ts';
-  import { seoulToday, formatDate, weekday } from '../lib/dates.ts';
+  import { loadTimetable, weekTableHTML, changesTarget, changesBoxHTML, weekGroups, classButtonsHTML, type TimetableFeed } from '../lib/timetable.ts';
+  import { seoulToday, addDays, weekday } from '../lib/dates.ts';
   import { escapeHTML } from '../lib/html.ts';
 
   const root = document.querySelector<HTMLElement>('[data-timetable]');
@@ -64,8 +65,6 @@ import { site } from '../site.config.ts';
     } else {
       message.hidden = true;
       let classId = feed.classes.some((c) => c.id === store.get()) ? store.get() : '';
-      let day = initialDay(feed.days, today);
-
       const renderRow = () => {
         const g = Number(document.documentElement.dataset.grade ?? '');
         const btns = $('[data-class-btns]');
@@ -73,26 +72,32 @@ import { site } from '../site.config.ts';
         btns.innerHTML = g > 0 ? classButtonsHTML(feed.classes, g, classId) : '';
       };
 
+      const dow = (ymd: string) => ['일', '월', '화', '수', '목', '금', '토'].indexOf(weekday(ymd));
+      const groups = weekGroups(feed.days, today);
+      // 처음 보일 주: 오늘이 든 주, 주말이면 다음 주(그 주가 없으면 첫 주).
+      const startDay = dow(today) === 0 || dow(today) === 6 ? addDays(today, dow(today) === 0 ? 1 : 2) : today;
+      let week = Math.max(0, groups.findIndex((w) => w.days.some((d) => d >= startDay && addDays(startDay, 6) >= d)));
+      const mondayOf = (ymd: string) => addDays(ymd, -((dow(ymd) + 6) % 7));
+
       const renderView = () => {
         const cls = feed.classes.find((c) => c.id === classId)!;
         $('[data-tt-class]').textContent = `${cls.name} 시간표`;
-        $('[data-tt-weeks]').innerHTML = weekGroups(feed.days, today)
-          .map(
-            (w) =>
-              `<div class="tt-week"><span>${escapeHTML(w.label)}</span><div role="group" aria-label="${escapeHTML(w.label)}">${w.days
-                .map((d) => `<button type="button" data-day="${escapeHTML(d)}" aria-pressed="${d === day}">${escapeHTML(weekday(d))}${d === today ? '<small>오늘</small>' : `<small>${Number(d.slice(8))}일</small>`}</button>`)
-                .join('')}</div></div>`,
-          )
-          .join('');
-        renderDay();
+        $('[data-tt-weeks]').innerHTML = `<div role="group" aria-label="주 고르기">${groups
+          .map((w, i) => `<button type="button" data-week="${i}" aria-pressed="${i === week}">${escapeHTML(w.label)}</button>`)
+          .join('')}</div>`;
+        const t = changesTarget(cls, today);
+        $('[data-tt-changes]').innerHTML = changesBoxHTML(cls, t.ymd, t.label);
+        renderGrid();
       };
 
-      // 날짜 단추는 그대로 두고 눌림 표시와 그날 목록만 바꾼다(포커스가 단추에 남도록).
-      const renderDay = () => {
+      // 주 단추는 그대로 두고 눌림 표시와 표만 바꾼다(포커스가 단추에 남도록).
+      const renderGrid = () => {
         const cls = feed.classes.find((c) => c.id === classId)!;
-        $('[data-tt-date]').textContent = formatDate(day);
-        const d = cls.days.find((x) => x.ymd === day);
-        $('[data-tt-day]').innerHTML = d ? timetableDayHTML(d) : '<p class="tt-empty">이 날은 시간표가 없어요.</p>';
+        const m = mondayOf(groups[week].days[0]);
+        const weekDays = [0, 1, 2, 3, 4].map((i) => addDays(m, i));
+        root.querySelectorAll<HTMLElement>('[data-week]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.week) === week)));
+        $('[data-tt-grid]').innerHTML = weekTableHTML(cls, weekDays, today);
+        $('[data-tt-reveal]').textContent = '';
       };
 
       const show = () => {
@@ -109,7 +114,7 @@ import { site } from '../site.config.ts';
       new MutationObserver(renderRow).observe(document.documentElement, { attributes: true, attributeFilter: ['data-grade'] });
 
       root.addEventListener('click', (e) => {
-        const t = (e.target as HTMLElement).closest<HTMLElement>('[data-class], [data-day], [data-tt-switch]');
+        const t = (e.target as HTMLElement).closest<HTMLElement>('[data-class], [data-week], [data-reveal], [data-tt-switch]');
         if (!t) return;
         if (t.dataset.class) {
           classId = t.dataset.class;
@@ -119,10 +124,14 @@ import { site } from '../site.config.ts';
           document.querySelector<HTMLButtonElement>(`.tray .chalk[data-value="${grade}"]`)?.click();
           show();
           $('[data-tt-class]').focus();
-        } else if (t.dataset.day) {
-          day = t.dataset.day;
-          root.querySelectorAll<HTMLElement>('[data-day]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.day === day)));
-          renderDay();
+        } else if (t.dataset.week) {
+          week = Number(t.dataset.week);
+          renderGrid();
+        } else if (t.dataset.reveal !== undefined) {
+          const open = t.getAttribute('aria-expanded') !== 'true';
+          root.querySelectorAll('[data-reveal]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+          t.setAttribute('aria-expanded', String(open));
+          $('[data-tt-reveal]').textContent = open ? t.dataset.reveal! : '';
         } else {
           classId = '';
           show();
