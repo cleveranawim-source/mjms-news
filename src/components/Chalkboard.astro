@@ -68,6 +68,6 @@ const magnet = (grades: number[]) => (grades.length === 1 ? `g${grades[0]}` : 'g
     board.dataset.today = today;
     board.querySelector('[data-board-day]')!.textContent = formatDate(today).replace(/ \(.\)$/, '');
     board.querySelector('[data-board-weekday]')!.textContent = `${weekday(today)}요일`;
-    board.querySelector('[data-board-groups]')!.innerHTML = boardHTML(boardFromFeed(today, { version: 1, generatedAt: '', letters, events, daysOff, meals: [] }), base);
+    board.querySelector('[data-board-groups]')!.innerHTML = boardHTML(boardFromFeed(today, { letters, events, daysOff, meals: [] }), base);
   }
 </script>

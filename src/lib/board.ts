@@ -20,7 +20,7 @@ export type Board = {
   dayOff: string | null; // 오늘이 쉬는 날이면 그 이름
 };
 
-export function boardFromFeed(today: string, feed: Feed): Board {
+export function boardFromFeed(today: string, feed: Pick<Feed, 'letters' | 'events' | 'daysOff' | 'meals'>): Board {
   const { letters, daysOff } = feed;
   const next = nextSchoolDay(today, daysOff);
   const bringOn = (day: string) =>

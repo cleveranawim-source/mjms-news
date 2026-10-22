@@ -522,6 +522,7 @@ main {
 }
 
 .board-dayoff {
+  grid-column: 1 / -1; /* 두 칸 격자에서도 한 줄 전체를 쓴다 */
   margin: 0;
   font-weight: 700;
   font-size: 1.125rem;
