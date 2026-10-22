@@ -63,7 +63,7 @@ const boardJson = JSON.stringify({ base, letters: feed.letters, events: feed.eve
 <script>
   import { boardFromFeed, boardHTML } from '../lib/board.ts';
   import { seoulToday, formatDate, weekday, addDays } from '../lib/dates.ts';
-  import { loadTimetable, todayChanges, changeLine } from '../lib/timetable.ts';
+  import { loadTimetable, changeLines } from '../lib/timetable.ts';
   import { escapeHTML } from '../lib/html.ts';
 
   const board = document.querySelector<HTMLElement>('.board');
@@ -84,10 +84,10 @@ const boardJson = JSON.stringify({ base, letters: feed.letters, events: feed.eve
   if (board && board.dataset.ttApi && picked) {
     const feed = await loadTimetable(board.dataset.ttApi);
     const cls = feed?.classes.find((c) => c.id === picked || c.name === picked);
-    const changes = feed && cls ? todayChanges(feed, cls.id, today) : [];
+    const changes = feed && cls ? changeLines(feed, cls.id, today) : [];
     const groups = board.querySelector<HTMLElement>('[data-board-groups]');
     if (cls && changes.length > 0 && groups) {
-      const items = changes.map((c) => `<li>${escapeHTML(changeLine(c))}</li>`).join('');
+      const items = changes.map((line) => `<li>${escapeHTML(line)}</li>`).join('');
       const html = `<section class="board-group board-group--changes" data-class-grade="${cls.grade}"><h2>${escapeHTML(cls.name)} 오늘 바뀐 수업</h2><ul>${items}</ul></section>`;
       const first = groups.querySelector('.board-group');
       if (first) first.insertAdjacentHTML('beforebegin', html);

@@ -76,3 +76,34 @@ test('classButtonsHTML lists only the chosen grade', () => {
   assert.doesNotMatch(html, /2-1/);
   assert.match(html, /aria-pressed="true"/);
 });
+
+import { changeLines } from '../src/lib/timetable.ts';
+
+test('changeLines writes 수업 없음 for a cleared cell', () => {
+  const f = { ...feed, classes: [{ id: 'c', name: '1-1', grade: 1, days: [{ ymd: 'd', off: null, until: null, cells: [cell(2, '', { changed: { from: '수학', note: null } })] }] }] };
+  assert.deepEqual(changeLines(f, 'c', 'd'), ['2교시 수업 없음 (원래 수학)']);
+});
+
+test('changeLines collapses periods cut by until into one line', () => {
+  const cut = (p) => cell(p, '', { changed: { from: '국어', note: null } });
+  const f = { ...feed, classes: [{ id: 'c', name: '1-1', grade: 1, days: [{ ymd: 'd', off: null, until: 4, cells: [cell(3, '과학', { changed: { from: '체육', note: null } }), cut(5), cut(6)] }] }] };
+  assert.deepEqual(changeLines(f, 'c', 'd'), ['3교시 과학 (원래 체육)', '오늘은 4교시까지']);
+});
+
+test('loadTimetable drops malformed days and cells', async () => {
+  const bad = { ...feed, days: ['2026-10-22', '<b>x'], classes: [{ id: 'c', name: '1-1', grade: 1, days: [
+    { ymd: '2026-10-22', off: null, until: '<b>1</b>', cells: [] },
+    { ymd: '<b>', off: null, until: null, cells: [] },
+    { ymd: '2026-10-23', off: null, until: 99, cells: [] },
+    { ymd: '2026-10-26', off: null, until: 5, cells: [cell(1, 'a', { changed: { from: 3, note: null } }), cell(2, 'b')] },
+  ] }] };
+  const out = await loadTimetable('u', async () => new Response(JSON.stringify(bad)));
+  assert.deepEqual(out.days, ['2026-10-22']);
+  assert.deepEqual(out.classes[0].days.map((d) => d.ymd), ['2026-10-26']);
+  assert.deepEqual(out.classes[0].days[0].cells.map((c) => c.period), [2]);
+});
+
+test('창체 tag is not repeated when the subject is already 창체', () => {
+  const html = timetableDayHTML({ ymd: 'x', off: null, until: null, cells: [cell(1, '창체', { special: true }), cell(2, '동아리', { special: true })] });
+  assert.equal((html.match(/tt-tag/g) ?? []).length, 1);
+});

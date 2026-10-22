@@ -79,7 +79,7 @@ import { site } from '../site.config.ts';
           .map(
             (w) =>
               `<div class="tt-week"><span>${escapeHTML(w.label)}</span><div role="group" aria-label="${escapeHTML(w.label)}">${w.days
-                .map((d) => `<button type="button" data-day="${d}" aria-pressed="${d === day}">${weekday(d)}${d === today ? '<small>오늘</small>' : `<small>${Number(d.slice(8))}일</small>`}</button>`)
+                .map((d) => `<button type="button" data-day="${escapeHTML(d)}" aria-pressed="${d === day}">${escapeHTML(weekday(d))}${d === today ? '<small>오늘</small>' : `<small>${Number(d.slice(8))}일</small>`}</button>`)
                 .join('')}</div></div>`,
           )
           .join('');
