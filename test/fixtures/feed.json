@@ -1,0 +1,94 @@
+{
+  "version": 1,
+  "generatedAt": "2026-10-22T05:00:00.000Z",
+  "letters": [
+    {
+      "id": "L-2026-1022-3",
+      "number": "제2026-87호",
+      "subject": "2026학년도 2학기 현장체험학습 안내",
+      "grades": [1],
+      "classes": null,
+      "eventDate": "2026-10-30",
+      "eventEnd": null,
+      "bring": ["도시락", "물병", "체험학습 동의서"],
+      "due": "2026-10-23",
+      "summary": "10월 30일(금) 1학년 현장체험학습을 갑니다. 편한 복장과 도시락을 준비하고, 동의서는 내일까지 담임교사에게 내 주세요.",
+      "attachments": ["현장체험학습 안내문.pdf"],
+      "sourceUrl": "https://www.example-school.hs.kr/board/view?id=8701",
+      "postedOn": "2026-10-22",
+      "publishedOn": "2026-10-22"
+    },
+    {
+      "id": "L-2026-1020-2",
+      "number": "제2026-85호",
+      "subject": "2학기 2차 지필평가 일정 안내",
+      "grades": [1, 2, 3],
+      "classes": null,
+      "eventDate": "2026-11-18",
+      "eventEnd": "2026-11-20",
+      "bring": [],
+      "due": null,
+      "summary": "11월 18일부터 20일까지 2차 지필평가가 있습니다. 평가 기간에는 4교시 후 하교합니다.",
+      "attachments": [],
+      "sourceUrl": "https://www.example-school.hs.kr/board/view?id=8685",
+      "postedOn": "2026-10-20",
+      "publishedOn": "2026-10-20"
+    },
+    {
+      "id": "L-2026-1015-1",
+      "number": null,
+      "subject": "독감 예방접종 안내",
+      "grades": [2, 3],
+      "classes": "2학년 1~4반",
+      "eventDate": null,
+      "eventEnd": null,
+      "bring": [],
+      "due": null,
+      "summary": "독감 예방접종을 희망하는 학생은 보건실에 신청해 주세요.",
+      "attachments": ["예방접종 신청서.hwp"],
+      "sourceUrl": "https://www.example-school.hs.kr/board/view?id=8650",
+      "postedOn": "2026-10-15",
+      "publishedOn": "2026-10-16"
+    }
+  ],
+  "events": [
+    { "title": "현장체험학습(1학년)", "start": "2026-10-30", "end": "2026-10-30", "grades": [1] },
+    { "title": "개교기념 체육대회", "start": "2026-11-06", "end": "2026-11-06", "grades": [] },
+    { "title": "(3학년) 기말고사", "start": "2026-12-01", "end": "2026-12-03", "grades": [3] }
+  ],
+  "daysOff": [
+    { "title": "재량휴업일", "start": "2026-11-13", "end": "2026-11-13" },
+    { "title": "겨울방학", "start": "2026-12-31", "end": "2027-02-28" }
+  ],
+  "meals": [
+    { "ymd": "2026-10-19", "dishes": [
+      { "name": "잡곡밥", "allergens": [] },
+      { "name": "미역국", "allergens": [5, 6] },
+      { "name": "제육볶음", "allergens": [5, 6, 10] },
+      { "name": "배추김치", "allergens": [9] }
+    ] },
+    { "ymd": "2026-10-20", "dishes": [
+      { "name": "현미밥", "allergens": [] },
+      { "name": "닭곰탕", "allergens": [5, 6, 15] },
+      { "name": "계란말이", "allergens": [1, 2] },
+      { "name": "깍두기", "allergens": [9] }
+    ] },
+    { "ymd": "2026-10-21", "dishes": [
+      { "name": "카레라이스", "allergens": [1, 2, 5, 6, 13] },
+      { "name": "콩나물무침", "allergens": [5, 6] },
+      { "name": "오렌지", "allergens": [] }
+    ] },
+    { "ymd": "2026-10-22", "dishes": [
+      { "name": "흑미밥", "allergens": [] },
+      { "name": "순두부찌개", "allergens": [1, 5, 6, 9, 13] },
+      { "name": "떡갈비", "allergens": [2, 5, 6, 10, 13] },
+      { "name": "시금치나물", "allergens": [5, 6] }
+    ] },
+    { "ymd": "2026-10-23", "dishes": [
+      { "name": "참치마요덮밥", "allergens": [1, 5, 6, 13, 18] },
+      { "name": "어묵국", "allergens": [1, 5, 6, 13] },
+      { "name": "단무지", "allergens": [] },
+      { "name": "요구르트", "allergens": [2] }
+    ] }
+  ]
+}
