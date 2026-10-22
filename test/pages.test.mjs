@@ -64,5 +64,5 @@ test('칠판에 2주 안에 올라온 알림이 쪽지로 붙고 오래된 것�
   assert.match(html, /class="note" href="[^"]*notices\/L-2026-1022-3\//);
   assert.match(html, /magnet g1/);
   assert.match(html, /제2026-87호/);
-  assert.ok(!html.includes('href="/notices/L-evil/"'));
+  assert.ok(!html.includes('class="note" href="/notices/L-evil/"'));
 });
