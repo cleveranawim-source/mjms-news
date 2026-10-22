@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 홈페이지 가정통신문을 AI 교무실이 읽어 확인 카드로 올리고, 공개 체크한 학사일정·쉬는 날·급식과 함께 베르셀로 옮긴 알림장(mjms-news.vercel.app)에 빌드 때 실어 보낸다.
+**Goal:** 학급 시간표(바뀐 수업·창체 변경 포함)와 함께, 홈페이지 가정통신문을 AI 교무실이 읽어 확인 카드로 올리고, 공개 체크한 학사일정·쉬는 날·급식과 함께 베르셀로 옮긴 알림장(mjms-news.vercel.app)에 빌드 때 실어 보낸다.
 
 **Architecture:** AI 교무실(`mjms-office`, Next.js 16 + Supabase)이 크론으로 홈페이지 게시판을 읽고 HWP 글자를 뽑아 AI 초안을 `news_letters` 표에 둔다. 담당자가 새 화면 `/news`에서 카드를 확인해 올리고 학사일정 공개를 고르면, AI 교무실이 공개 주소 `/api/news/feed`(JSON 하나)를 내주고 알림장 베르셀 배포 훅을 부른다. 알림장(`mjms-news`, Astro 정적)은 빌드할 때 그 JSON을 받아 페이지를 만든다. 분실물만 지금처럼 브라우저가 바로 읽는다.
 
@@ -515,6 +515,75 @@ git commit -m "알림장: 공개 피드, 배포 훅, 매일 아침 다시 빌드
 
 `gh pr create`로 PR을 만든다. 본문에는 마이그레이션 SQL을 적용해야 한다는 것과 환경변수 `NEWS_DEPLOY_HOOK_URL`(Task B5에서 받음)을 적는다. 합치기는 이승열 P가 한다.
 
+### Task A8: 학급 시간표 공개 주소 `/api/news/timetable`
+
+**Files:**
+- Create: `lib/news/timetable-feed.ts` (순수 `buildTimetableFeed`), `app/api/news/timetable/route.ts`
+- Modify: `lib/preview.ts` (`NEWS_TIMETABLE_ON = true`)
+- Test: `tests/unit/news-timetable-feed.test.ts`, `tests/unit/news-timetable-route.test.ts`
+
+**Interfaces:**
+- Consumes:
+  - `getCurrentTimetable()` (`lib/timetable/repo.ts`) → `{ data: Timetable } | null`
+  - `applyWeek(base, days)` (`lib/timetable/day-ops.ts`)
+  - `weekSwapCells(t, days, events, swaps, { by: "class", id })` (`lib/timetable/swap-cells.ts`)
+  - `activeSwaps(from, to)` (`lib/swap/active.ts`)
+  - `isDayOffEvent`, 학사일정 `listEvents`
+  - A7의 `NEWS_ORIGIN` 쓰는 결(분실물 라우트와 같은 출처 상수)
+  - 화면 `app/(main)/timetable/page.tsx` 190~195행이 같은 일을 학급 하나에 하고 있다. 그대로 따른다.
+- Produces (알림장이 그대로 받는 꼴):
+  ```ts
+  type TtCell = { period: number; subject: string; special: boolean;   // special = 창체(Lesson.type "special")
+    changed: null | { from: string | null; note: string | null } };   // from = 원래 과목, note = 「동아리활동」 같은 학사일정 제목
+  type TtDay = { ymd: string; off: string | null; until: number | null; cells: TtCell[] };   // off = 쉬는 날 이름이면 cells 빈 배열
+  type ClassTimetable = { id: string; name: string; grade: number; days: TtDay[] };          // name 「1-5」
+  type TimetableFeed = { version: 1; generatedAt: string; days: string[]; classes: ClassTimetable[] };
+  ```
+  - `buildTimetableFeed(x: { t: Timetable; days: { day: Day; ymd: string }[]; events: CalEvent[]; swaps: ActiveSwap[] }): TimetableFeed` (순수)
+    - 이번 주와 다음 주 평일 10일.
+    - 학급마다 `applyWeek` 결과에 `weekSwapCells`(학급 보기)를 얹는다.
+    - `pending`(상대 수락 대기) 칸은 얹지 않는다.
+    - `faded`(이 반을 떠난 수업)는 그 자리의 새 수업이 있으면 그것으로, 없으면 빈 칸으로 둔다.
+    - 원래와 다른 칸은 `changed`.
+    - 선생님 이름·교실은 싣지 않는다.
+  - 라우트 `GET /api/news/timetable`
+    - CORS는 `NEWS_ORIGIN`(분실물 라우트와 같은 값), `Cache-Control: public, max-age=60, s-maxage=60`.
+    - 실패하면 500과 `no-store`. `NEWS_TIMETABLE_ON`이 false면 404.
+
+- [ ] **Step 1: 실패하는 테스트 쓰기**
+
+`tests/unit/news-timetable-feed.test.ts`: 작은 `Timetable` fixture를 쓴다(1-1, 1-2 두 반, 월~금 6교시, 1-1 금 6교시 「창체」 special).
+- **`no teacher names in the feed`:** `JSON.stringify(feed)`에 fixture 교사 이름이 없다.
+- **`calendar day ops change cells`:** 금요일 학사일정 「동아리활동5-6」 → 그날 5·6교시가 special이고 `changed.note`가 「동아리활동5-6」.
+- **`until cuts later periods`:** 「5교시까지」 → `until: 5`이고 6교시 칸이 빈 과목.
+- **`confirmed swap shows as changed with original subject`:** 1-1 수 3교시 체육 ↔ 과학 교체(확정) → 3교시 subject 과학, `changed.from` 체육.
+- **`pending swap is ignored`:** pending인 교체는 칸을 바꾸지 않는다.
+- **`day off has no cells`:** 공휴일 → `off`에 그 이름, `cells` `[]`.
+
+`tests/unit/news-timetable-route.test.ts`: 분실물 라우트 테스트 결을 따른다(200·CORS·캐시 / 500·no-store / 404).
+
+- [ ] **Step 2: 실패 확인**
+
+Run: `npx vitest run tests/unit/news-timetable-feed.test.ts tests/unit/news-timetable-route.test.ts`
+Expected: FAIL
+
+- [ ] **Step 3: 구현**
+
+- [ ] **Step 4: 통과 확인**
+
+Run: `npm test && npx next typegen && npx tsc --noEmit`
+Expected: PASS
+
+- [ ] **Step 5: 문서와 Commit**
+
+- `docs/features.md` 알림장 절에 시간표 줄을 더한다.
+- `CLAUDE.md` 알림장 규칙 줄에 「시간표 피드는 선생님 이름·교체 사유·수락 대기 교체 없이」를 더한다.
+
+```bash
+git add lib/news/timetable-feed.ts app/api/news/timetable lib/preview.ts tests/unit docs/features.md CLAUDE.md
+git commit -m "알림장: 학급 시간표 공개 주소(바뀐 수업·창체 변경 포함, 선생님 이름 없음)"
+```
+
 ---
 
 ## Part B — 알림장 (`mjms-news`)
@@ -763,8 +832,61 @@ git push origin main
 
 ---
 
+### Task B6: 학급 시간표 화면 · 반 고르기 · 칠판 「오늘 바뀐 수업」
+
+**Files:**
+- Create: `src/lib/timetable.ts`, `src/pages/timetable.astro`, `src/components/ClassPicker.astro`
+- Modify:
+  - `src/site.config.ts` (`timetableApi: 'https://mjms-office.vercel.app/api/news/timetable'`)
+  - `src/layouts/Base.astro` (아래 탭 「안내」 → 「시간표」, 이용 안내는 바닥글 링크로, 넓은 화면 메뉴에 「시간표」)
+  - `src/components/Chalkboard.astro`, `src/styles/global.css`
+- Test: `test/timetable.test.mjs`
+
+**Interfaces:**
+- Consumes: A8 `TimetableFeed` 꼴(같은 이름으로 `src/lib/timetable.ts`에 옮겨 적는다), `src/lib/lost.ts`의 `loadLost` 결(시간 제한·실패하면 null)
+- Produces:
+  - `loadTimetable(api: string, fetcher?: typeof fetch): Promise<TimetableFeed | null>`: 꼴이 틀리면 null.
+  - `todayChanges(feed: TimetableFeed, classId: string, ymd: string): TtCell[]`: 그날 `changed`가 있는 칸.
+  - `timetableDayHTML(day: TtDay): string`: 교시 줄 목록. 글자는 escape한다. 바뀐 칸은 「바뀜 (원래 체육)」, special은 「창체」 꼬리표, `until`이면 「오늘은 N교시까지」, `off`면 그 이름.
+  - 반 고르기: localStorage `mjms-class`(예 `"1-5"`), 고르면 `mjms-grade`도 그 학년으로 맞춘다. 학년 분필받침 아래 줄에 반 단추(그 학년의 반들).
+  - `/timetable/`
+    - 반을 고르지 않았으면 반 고르기만 보인다.
+    - 골랐으면 날짜 탭(이번 주·다음 주 평일, 오늘이 먼저 선택)과 그날 교시 목록. 휴대폰 우선이라 한 날씩 보인다.
+  - 칠판: 반을 골랐고 오늘 바뀐 칸이 있으면, 「오늘 챙길 것」 앞에 「{반} 오늘 바뀐 수업」 칸을 넣는다(예 「3교시 과학 (원래 체육)」). 없으면 칸을 그리지 않는다.
+
+- [ ] **Step 1: 실패하는 테스트 쓰기**
+
+`test/timetable.test.mjs`: A8 꼴의 작은 fixture를 쓴다.
+- `loadTimetable` 200 → 그대로, 500 → null, `{version:2}` → null.
+- `todayChanges`가 changed 칸만 준다.
+- `timetableDayHTML`
+  - 「바뀜」과 「원래 체육」, 「창체」, 「오늘은 5교시까지」가 나온다.
+  - `<b>` 과목명은 escape된다.
+  - off인 날은 「재량휴업일」 한 줄.
+
+- [ ] **Step 2: 실패 확인**
+
+Run: `npm test`
+Expected: FAIL
+
+- [ ] **Step 3: 구현**
+
+- [ ] **Step 4: 통과 확인 + 휴대폰 화면**
+
+Run: `npm test && npx astro check < /dev/null`
+Expected: PASS, `0 errors`.
+
+그다음 Playwright(iPhone 13)로 `/timetable/`을 시험한다. `page.route`로 fixture를 준다. 반을 고르면 오늘 칸이 보이고 바뀐 줄이 표시되는지, 가로 넘침이 없는지, 첫 화면 칠판에 「오늘 바뀐 수업」이 보이는지 확인한다.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add src test
+git commit -m "Class timetable with today's changes and 창체; class picker"
+```
+
 ## 실행 순서
 
-A1 → A2 → A3 → A4 → A5 → A6 → A7(PR 합침, 마이그레이션 적용) → B1 → B2 → B3 → B4 → B5.
+A1 → A2 → A3 → A4 → A5 → A6 → A7 → A8(PR 합침, 마이그레이션 적용) → B1 → B2 → B3 → B4 → B6 → B5.
 
 B1~B4는 A7의 피드 꼴만 있으면 fixture로 먼저 지을 수 있다. 실제 피드로 빌드하는 것은 A7이 운영에 올라간 뒤다.
