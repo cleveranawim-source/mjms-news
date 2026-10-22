@@ -13,7 +13,7 @@ const options = [
 ];
 ---
 
-<div class:list={['tray', { 'tray-attached': attached }]}>
+<div class:list={['tray', { 'tray-attached': attached }]} id="grade-tray">
   <fieldset>
     <legend>학년별로 보기</legend>
     <div class="chalks">
@@ -31,11 +31,15 @@ const options = [
 
 <script>
   const buttons = document.querySelectorAll<HTMLButtonElement>('.tray .chalk');
+  // 휴대폰 머리글의 학년 표시. 누르면 분필받침으로 내려간다.
+  const chip = document.querySelector<HTMLElement>('[data-grade-chip]');
+  if (chip) chip.hidden = false;
 
   function show(grade: string) {
     if (grade) document.documentElement.dataset.grade = grade;
     else delete document.documentElement.dataset.grade;
     buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.value === grade)));
+    if (chip) chip.textContent = grade ? `${grade}학년` : '전체 학년';
   }
 
   show(document.documentElement.dataset.grade ?? '');

@@ -15,6 +15,8 @@
   --chalk-3: #8fd3f2; /* 3학년 하늘 분필 */
   --frame-deep: #5e4630;
   --magnet: #d9483b;
+  --school: #033e7b; /* 교표 남색 */
+  --school-sky: #037dc4; /* 교표 하늘색 */
   --paper: #fbfcfa;
   --ink: #1e2925;
   --muted: #5b6b64;
@@ -114,21 +116,41 @@ h3 {
 
 .site-header .wrap {
   display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
-  gap: 0.25rem 1.5rem;
-  padding-block: 1rem;
+  gap: 1.5rem;
+  padding-block: 0.75rem;
 }
 
 .site-name {
-  font-weight: 600;
-  font-size: var(--text-md);
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
   text-decoration: none;
+  color: var(--ink);
+}
+
+.site-name img {
+  width: 36px;
+  height: auto;
+}
+
+.site-name span {
+  font-size: var(--text-md);
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.site-name small {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--school);
+  letter-spacing: 0.02em;
 }
 
 .site-nav {
-  display: flex;
+  display: none;
   gap: 1.25rem;
 }
 
@@ -139,17 +161,136 @@ h3 {
 }
 
 .site-nav a[aria-current='page'] {
+  color: var(--school);
+  box-shadow: inset 0 -2px var(--school);
+}
+
+/* 휴대폰 머리글의 학년 분필 */
+.grade-chip {
+  --c: var(--chalk);
+  margin-left: auto;
+  font-size: var(--text-sm);
+  font-weight: 600;
   color: var(--ink);
-  box-shadow: inset 0 -2px var(--ink);
+  text-decoration: none;
+  padding: 0.375rem 0.875rem;
+  min-height: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  background: var(--frame);
+  box-shadow: inset 0 0 0 4px var(--frame), inset 0 0 0 40px var(--c);
+}
+
+.grade-chip[hidden] {
+  display: none;
+}
+
+[data-grade='1'] .grade-chip {
+  --c: var(--chalk-1);
+}
+
+[data-grade='2'] .grade-chip {
+  --c: var(--chalk-2);
+}
+
+[data-grade='3'] .grade-chip {
+  --c: var(--chalk-3);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* 휴대폰 아래 탭 */
+.tabbar {
+  position: fixed;
+  inset: auto 0 0;
+  z-index: 20;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  background: rgb(251 252 250 / 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--rule);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tabbar a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  min-height: 3.5rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tabbar svg {
+  width: 24px;
+  height: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.tabbar a[aria-current='page'] {
+  color: var(--school);
+  font-weight: 600;
+}
+
+.tabbar a[aria-current='page'] svg {
+  stroke-width: 2.3;
+}
+
+body {
+  padding-bottom: calc(3.5rem + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 48rem) {
+  .site-nav {
+    display: flex;
+  }
+
+  .grade-chip {
+    display: none;
+  }
+
+  .tabbar {
+    display: none;
+  }
+
+  body {
+    padding-bottom: 0;
+  }
 }
 
 main {
-  padding-block: 1.5rem 4rem;
+  padding-block: 1rem 3rem;
+}
+
+@media (min-width: 48rem) {
+  main {
+    padding-block: 1.5rem 4rem;
+  }
 }
 
 /* 분필받침 + 학년 분필 */
 .tray {
   position: relative;
+  scroll-margin: 6rem;
   display: flex;
   align-items: center;
   gap: 1rem;
@@ -259,6 +400,29 @@ main {
   .eraser {
     display: none;
   }
+
+  .tray {
+    padding-inline: 0.625rem;
+  }
+
+  .tray legend {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .chalks {
+    flex-wrap: nowrap;
+    gap: 0.25rem;
+  }
+
+  .chalk span {
+    min-width: 0;
+    width: 4.75rem;
+    padding-inline: 0.25rem;
+  }
 }
 
 /* 학년 필터: <html data-grade="2"> 이면 2학년 대상이 아닌 항목을 숨긴다 */
@@ -276,7 +440,7 @@ main {
 [data-grade='1'] .filter-group:not(:has([data-grades~='1'])) .list-empty,
 [data-grade='2'] .filter-group:not(:has([data-grades~='2'])) .list-empty,
 [data-grade='3'] .filter-group:not(:has([data-grades~='3'])) .list-empty {
-  display: block;
+  display: var(--empty-display, block);
 }
 
 /* 칠판 */
@@ -296,15 +460,36 @@ main {
   border: 10px solid var(--frame);
   border-bottom: 0;
   border-radius: 8px 8px 0 0;
-  padding: 1.5rem 1.25rem 1.75rem;
+  padding: 1.25rem 1rem 1.5rem;
   display: grid;
-  gap: 1.5rem;
+  gap: 1.25rem;
   font-family: 'Gaegu', 'IBM Plex Sans KR', sans-serif;
   text-shadow: 0 0 1px rgb(238 241 234 / 0.35);
+  position: relative;
+}
+
+/* 분필로 그린 교표 */
+.board-emblem {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 3.5rem;
+  height: auto;
+  opacity: 0.22;
+  pointer-events: none;
+}
+
+@media (min-width: 48rem) {
+  .board-emblem {
+    top: auto;
+    bottom: 1.75rem;
+    right: 2rem;
+    width: 5.5rem;
+  }
 }
 
 .board-date {
-  font-size: clamp(2.75rem, 11vw, 4.5rem);
+  font-size: clamp(2.75rem, 12vw, 4.5rem);
   line-height: 1.05;
   font-weight: 700;
   margin: 0;
@@ -316,22 +501,30 @@ main {
 }
 
 .board-date small {
-  display: block;
-  font-size: 1.375rem;
+  display: inline-block;
+  margin-left: 0.5rem;
+  font-size: 1.5rem;
   font-weight: 400;
   color: var(--chalk-dim);
-  margin-top: 0.5rem;
+}
+
+@media (min-width: 48rem) {
+  .board-date small {
+    display: block;
+    margin: 0.5rem 0 0;
+    font-size: 1.375rem;
+  }
 }
 
 .board-groups {
   display: grid;
-  gap: 1.25rem 2rem;
+  gap: 1rem 2rem;
 }
 
 .board-group h2 {
   font-family: inherit;
   font-weight: 700;
-  font-size: 1.5rem;
+  font-size: 1.375rem;
   color: var(--chalk);
   line-height: 1.2;
   display: inline-block;
@@ -341,9 +534,9 @@ main {
 
 .board-group ul {
   list-style: none;
-  margin: 0.375rem 0 0;
+  margin: 0.25rem 0 0;
   padding: 0;
-  font-size: 1.375rem;
+  font-size: 1.3125rem;
   line-height: 1.45;
 }
 
@@ -355,6 +548,21 @@ main {
 .board-group li::before {
   content: '- ';
   color: var(--chalk-dim);
+}
+
+.board-group--inline ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.875rem;
+}
+
+.board-group--inline li {
+  padding-left: 0;
+  text-indent: 0;
+}
+
+.board-group--inline li::before {
+  content: none;
 }
 
 /* 한 학년만 해당하면 그 학년 분필 색으로 쓴다 */
@@ -375,9 +583,14 @@ main {
   text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
 }
 
+.board-group {
+  --empty-display: inline-block;
+}
+
+/* 빈 칸은 제목 옆에 '없어요'만 */
 .board-group .list-empty {
-  margin: 0.375rem 0 0;
-  font-size: 1.25rem;
+  margin: 0 0 0 0.625rem;
+  font-size: 1.1875rem;
   color: var(--chalk-dim);
 }
 
@@ -393,10 +606,36 @@ main {
   text-shadow: none;
 }
 
+.notes li {
+  flex: 1 1 15rem;
+  max-width: 19rem;
+}
+
+/* 휴대폰: 쪽지를 옆으로 넘겨 본다 */
+@media (max-width: 47.99rem) {
+  .notes {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    margin-inline: -1rem;
+    padding: 0.875rem 1rem 0.5rem;
+    scrollbar-width: none;
+  }
+
+  .notes li {
+    flex: 0 0 78%;
+    scroll-snap-align: start;
+  }
+
+  .note {
+    padding: 1rem 0.875rem 0.75rem;
+  }
+}
+
 .note {
   position: relative;
   display: block;
-  width: min(17rem, 100%);
+  width: 100%;
   padding: 1.125rem 1rem 0.875rem;
   background: #fffdf6;
   color: var(--ink);
@@ -531,6 +770,7 @@ main {
 .section-head a {
   font-size: var(--text-sm);
   color: var(--muted);
+  padding-block: 0.625rem;
 }
 
 .lined {
@@ -849,7 +1089,7 @@ a.row:hover .row-title {
 .lost-box {
   --size: calc(7.5rem * var(--scale, 1));
   position: relative;
-  height: max(460px, 100dvh - 16rem);
+  height: max(420px, 100dvh - 19rem);
   border: 1px solid var(--rule);
   border-radius: 20px;
   background: linear-gradient(180deg, #fff 0%, #f3f8fb 100%);

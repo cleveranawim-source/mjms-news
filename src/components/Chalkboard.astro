@@ -30,6 +30,7 @@ const magnet = (grades: number[]) => (grades.length === 1 ? `g${grades[0]}` : 'g
 
 <div class="board-wrap">
   <section class="board" aria-label="오늘의 알림" data-today={today}>
+    <img class="board-emblem" src={href('emblem-chalk.png')} alt="" width="80" height="82" />
     <p class="board-date">
       <span class="board-day" data-board-day>{dayLabel(today)}</span>
       <small data-board-weekday>{weekday(today)}요일</small>

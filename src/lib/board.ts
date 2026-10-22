@@ -52,20 +52,18 @@ function li(text: string, grades: number[], href?: string): string {
   return `<li data-grades="${grades.join(' ')}">${body}</li>`;
 }
 
-function group(title: string, items: string[], empty: string): string {
-  return `<section class="board-group filter-group"><h2>${title}</h2><ul>${items.join('')}</ul><p class="list-empty">${empty}</p></section>`;
+// inline: 준비물처럼 짧은 낱말은 한 줄에 이어 적는다.
+function group(title: string, items: string[], empty: string, inline = false): string {
+  return `<section class="board-group filter-group${inline ? ' board-group--inline' : ''}"><h2>${title}</h2><ul>${items.join('')}</ul><p class="list-empty">${empty}</p></section>`;
 }
 
 export function boardHTML(board: Board, base: string): string {
   const noticeHref = (slug: string) => `${base}notices/${slug}/`;
+  // 학부모가 아침에 가장 먼저 찾는 '챙길 것'부터 적는다.
   return [
-    group('오늘 일정', board.events.map((e) => li(e.title, e.grades)), '특별한 일정이 없습니다.'),
-    group('오늘 챙길 것', board.bringToday.map((b) => li(b.item, b.grades, noticeHref(b.slug))), '오늘 챙길 준비물이 없습니다.'),
-    group(
-      `${formatDate(board.next)} 준비물`,
-      board.bringNext.map((b) => li(b.item, b.grades, noticeHref(b.slug))),
-      '다음 등교일 준비물이 없습니다.',
-    ),
-    group('새로 올라온 알림', board.newNotices.map((n) => li(n.title, n.grades, noticeHref(n.slug))), '오늘 올라온 알림이 없습니다.'),
+    group('오늘 챙길 것', board.bringToday.map((b) => li(b.item, b.grades, noticeHref(b.slug))), '없어요', true),
+    group(`${formatDate(board.next)} 준비물`, board.bringNext.map((b) => li(b.item, b.grades, noticeHref(b.slug))), '없어요', true),
+    group('오늘 일정', board.events.map((e) => li(e.title, e.grades)), '없어요'),
+    group('새로 올라온 알림', board.newNotices.map((n) => li(n.title, n.grades, noticeHref(n.slug))), '없어요'),
   ].join('');
 }
