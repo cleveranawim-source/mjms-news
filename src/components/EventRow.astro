@@ -1,6 +1,7 @@
 ---
 import { formatRange } from '../lib/dates.ts';
 import { gradeLabel } from '../lib/grades.ts';
+import GradeDots from './GradeDots.astro';
 
 interface Props {
   event: { title: string; date: string; end?: string; grades: number[]; holiday?: boolean };
@@ -14,7 +15,7 @@ const { title, date, end, grades, holiday } = Astro.props.event;
     <span class="row-date">{formatRange(date, end)}</span>
     <span class="row-title">{title}</span>
     <span class="row-meta">
-      <span>{gradeLabel(grades)}</span>
+      <span class="grade-label"><GradeDots grades={grades} />{gradeLabel(grades)}</span>
       {holiday && <span>쉬는 날</span>}
     </span>
   </div>

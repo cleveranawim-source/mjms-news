@@ -1,24 +1,59 @@
 ---
+import GradePicker from './GradePicker.astro';
 import { buildBoard, boardHTML } from '../lib/board.ts';
-import { getBoardData } from '../lib/content.ts';
-import { seoulToday, formatDate, weekday } from '../lib/dates.ts';
-import { base } from '../lib/paths.ts';
+import { getBoardData, getNotices } from '../lib/content.ts';
+import { seoulToday, formatDate, weekday, addDays } from '../lib/dates.ts';
+import { base, href } from '../lib/paths.ts';
 
 // 빌드한 날 기준으로 먼저 그려 두고, 브라우저가 실제 오늘 날짜로 다시 그린다.
 const data = await getBoardData();
 const today = seoulToday();
 const html = boardHTML(buildBoard(today, data.notices, data.events), base);
 const dayLabel = (iso: string) => formatDate(iso).replace(/ \(.\)$/, '');
+
+// 자석으로 붙여 둔 쪽지: 2주 안에 올린 '중요' 알림. 매일 아침 다시 빌드하므로 날짜는 빌드한 날 기준이면 된다.
+const notes = (await getNotices())
+  .filter((n) => n.data.important && n.data.date >= addDays(today, -14))
+  .slice(0, 3);
+const magnet = (grades: number[]) => (grades.length === 1 ? `g${grades[0]}` : 'gall');
 ---
 
-<section class="board" aria-label="오늘의 알림" data-today={today}>
-  <p class="board-date">
-    <span data-board-day>{dayLabel(today)}</span>
-    <small data-board-weekday>{weekday(today)}요일</small>
-  </p>
-  <div class="board-groups" data-board-groups set:html={html} />
-  <script type="application/json" data-board-json set:html={JSON.stringify({ base, ...data })} />
-</section>
+<script is:inline>
+  // 칠판에 날짜를 분필로 써 내려가는 장면은 창을 열고 첫 화면을 처음 볼 때 한 번만.
+  try {
+    if (!sessionStorage.getItem('mjms-drawn')) {
+      document.documentElement.dataset.draw = '';
+      sessionStorage.setItem('mjms-drawn', '1');
+    }
+  } catch {}
+</script>
+
+<div class="board-wrap">
+  <section class="board" aria-label="오늘의 알림" data-today={today}>
+    <p class="board-date">
+      <span class="board-day" data-board-day>{dayLabel(today)}</span>
+      <small data-board-weekday>{weekday(today)}요일</small>
+    </p>
+    <div class="board-groups" data-board-groups set:html={html} />
+    {
+      notes.length > 0 && (
+        <ul class="notes" aria-label="중요 알림">
+          {notes.map((n) => (
+            <li data-grades={n.data.grades.join(' ')}>
+              <a class="note" href={href(`notices/${n.id}/`)}>
+                <span class:list={['magnet', magnet(n.data.grades)]} aria-hidden="true" />
+                <span class="note-meta">{n.data.category}</span>
+                <span class="note-title">{n.data.title}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+    <script type="application/json" data-board-json set:html={JSON.stringify({ base, ...data })} />
+  </section>
+  <GradePicker attached />
+</div>
 
 <script>
   import { buildBoard, boardHTML } from '../lib/board.ts';

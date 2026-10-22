@@ -1,0 +1,213 @@
+---
+import Base from '../layouts/Base.astro';
+import { site } from '../site.config.ts';
+---
+
+<Base title="분실물함" description="명지중학교에서 보관 중인 분실물 사진과 찾으러 갈 곳을 볼 수 있습니다.">
+  <h1 class="page-title">분실물함</h1>
+  <p class="lede">
+    학교에서 보관 중인 물건입니다. 사진을 누르면 찾으러 갈 곳이 보여요. 내 물건이면 그곳 선생님께 물건의 특징을 말하고 찾아가요.
+  </p>
+
+  <div class="lost-box" data-lost-box data-api={site.lostFoundApi} aria-label="떠다니는 분실물" aria-busy="true">
+    <button type="button" class="tilt-ask" data-tilt-ask hidden>기울여서 움직이기</button>
+    <p class="lost-message" role="status" data-lost-message>분실물을 불러오는 중이에요.</p>
+  </div>
+  <p class="lost-hint">사진을 손가락으로 밀어 보세요. 휴대폰을 기울이면 그쪽으로 흘러가요.</p>
+
+  <dialog class="lost-detail" data-lost-detail aria-labelledby="lost-detail-title">
+    <img alt="" data-detail-photo />
+    <h2 id="lost-detail-title" data-detail-category></h2>
+    <dl>
+      <div><dt>발견 장소</dt><dd data-detail-found-at></dd></div>
+      <div><dt>발견 날짜</dt><dd data-detail-found-on></dd></div>
+      <div><dt>찾으러 갈 곳</dt><dd data-detail-stored-at></dd></div>
+    </dl>
+    <p class="lost-detail-note" data-detail-note></p>
+    <form method="dialog"><button class="print">닫기</button></form>
+  </dialog>
+</Base>
+
+<script>
+  // AI 교무실 app/(main)/lost-found/FloatingBox.tsx(학생용 보기)를 React 없이 옮겼다. 움직임 셈은 lib/water.ts.
+  import { loadLost, foundOnLabel, type LostItem } from '../lib/lost.ts';
+  import { gravityVector, step, WATER, type Body, type World } from '../lib/water.ts';
+
+  type OrientationAPI = typeof DeviceOrientationEvent & { requestPermission?: () => Promise<string> };
+
+  // 처음 자리(가로·세로 0~1): R2 수열이라 몇 개든 함 전체에 고루 퍼진다.
+  const G = 1.32471795724;
+  const spot = (i: number) => [(0.5 + i / G) % 1, (0.5 + i / (G * G)) % 1];
+  // 물건이 많을수록 사진을 줄여 한 화면에 담는다.
+  const scaleFor = (n: number) => (n <= 6 ? 1 : n <= 12 ? 0.82 : n <= 20 ? 0.68 : n <= 30 ? 0.58 : 0.5);
+  const PAD = 12;
+  const TAP = 6; // 이만큼(px) 안 움직이고 떼면 누른 것(상세), 넘으면 끈 것
+  const STIR_MS = 5000; // 손대지 않으면 잔잔한 물살이 5초에 걸쳐 잦아든다(웹 접근성 5초 — 멈춤 단추가 필요 없다)
+
+  const box = document.querySelector<HTMLElement>('[data-lost-box]')!;
+  const message = box.querySelector<HTMLElement>('[data-lost-message]')!;
+  const askButton = box.querySelector<HTMLButtonElement>('[data-tilt-ask]')!;
+  const dialog = document.querySelector<HTMLDialogElement>('[data-lost-detail]')!;
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  const bodies = new Map<string, Body>();
+  const els = new Map<string, HTMLElement>();
+  let world: World = { w: 0, h: 0, size: 0 };
+  let gravity: [number, number] = [0, 0];
+  let touched = performance.now();
+
+  function draw() {
+    for (const [id, b] of bodies) els.get(id)!.style.transform = `translate3d(${b.x}px, ${b.y}px, 0) rotate(${b.a}deg)`;
+  }
+  function settle() {
+    step([...bodies.values()], world, 0, 0, 0, 0, 0);
+    draw();
+  }
+  function measure() {
+    const size = els.values().next().value?.offsetWidth ?? 0;
+    world = { w: box.clientWidth - PAD * 2, h: box.clientHeight - PAD * 2, size };
+  }
+
+  // 사진 바깥(어두운 바탕)을 누르면 닫는다.
+  dialog.addEventListener('click', (e) => {
+    if (e.target === dialog) dialog.close();
+  });
+
+  function openDetail(item: LostItem) {
+    dialog.querySelector<HTMLImageElement>('[data-detail-photo]')!.src = item.photo;
+    dialog.querySelector('[data-detail-category]')!.textContent = item.category;
+    dialog.querySelector('[data-detail-found-at]')!.textContent = item.foundAt;
+    dialog.querySelector('[data-detail-found-on]')!.textContent = foundOnLabel(item.foundOn);
+    dialog.querySelector('[data-detail-stored-at]')!.textContent = item.storedAt;
+    dialog.querySelector('[data-detail-note]')!.textContent = `내 물건이면 ${item.storedAt}의 선생님께 물건의 특징을 말하고 찾아가요.`;
+    dialog.showModal();
+  }
+
+  function addPiece(item: LostItem, i: number) {
+    const piece = document.createElement('div');
+    piece.className = 'piece';
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.setAttribute('aria-label', `${item.category}, ${item.foundAt}에서 발견. 자세히 보기`);
+    const img = document.createElement('img');
+    img.src = item.photo;
+    img.alt = '';
+    img.draggable = false;
+    button.append(img);
+    piece.append(button);
+    box.append(piece);
+    els.set(item.id, piece);
+    bodies.set(item.id, { id: item.id, x: 0, y: 0, vx: 0, vy: 0, a: 0, phase: i * 2.3 });
+
+    // 끌어 밀기. 조금만 움직이고 떼면 누른 것으로 보고 상세를 연다.
+    let drag: { ox: number; oy: number; sx: number; sy: number; lx: number; ly: number; lt: number } | null = null;
+    let dragged = false;
+    const point = (e: PointerEvent) => {
+      const rect = box.getBoundingClientRect();
+      return [e.clientX - rect.left - PAD, e.clientY - rect.top - PAD];
+    };
+    button.addEventListener('pointerdown', (e) => {
+      const b = bodies.get(item.id)!;
+      button.setPointerCapture(e.pointerId);
+      dragged = false;
+      const [px, py] = point(e);
+      drag = { ox: px - b.x, oy: py - b.y, sx: e.clientX, sy: e.clientY, lx: px, ly: py, lt: e.timeStamp };
+      b.held = true;
+      b.vx = b.vy = 0;
+    });
+    button.addEventListener('pointermove', (e) => {
+      const b = bodies.get(item.id)!;
+      if (!drag) return;
+      if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > TAP) dragged = true;
+      if (!dragged) return;
+      const [px, py] = point(e);
+      const dt = Math.max(1, e.timeStamp - drag.lt) / 1000;
+      b.vx = (px - drag.lx) / dt;
+      b.vy = (py - drag.ly) / dt;
+      b.x = px - drag.ox;
+      b.y = py - drag.oy;
+      Object.assign(drag, { lx: px, ly: py, lt: e.timeStamp });
+      if (reduced) settle();
+    });
+    const release = (e: PointerEvent) => {
+      const b = bodies.get(item.id)!;
+      if (!drag) return;
+      b.held = false;
+      // 멈췄다가 떼면 그 자리에, 밀면서 떼면 그 빠르기로(너무 세지 않게) 흘러간다.
+      const speed = Math.hypot(b.vx, b.vy);
+      const k = !dragged || e.timeStamp - drag.lt > 80 ? 0 : Math.min(1, WATER.maxFling / (speed || 1));
+      b.vx *= k;
+      b.vy *= k;
+      if (dragged) touched = performance.now();
+      drag = null;
+    };
+    button.addEventListener('pointerup', release);
+    button.addEventListener('pointercancel', release);
+    button.addEventListener('click', () => {
+      if (!dragged) openDetail(item);
+    });
+  }
+
+  function listenTilt() {
+    addEventListener('deviceorientation', (e) => {
+      if (e.beta === null || e.gamma === null) return;
+      gravity = gravityVector(e.beta, e.gamma, screen.orientation?.angle ?? 0);
+    });
+  }
+
+  const items = box.dataset.api ? await loadLost(box.dataset.api) : null;
+  box.removeAttribute('aria-busy');
+  if (items === null) {
+    message.textContent = '분실물 목록을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.';
+  } else if (items.length === 0) {
+    message.textContent = '지금은 분실물함이 비어 있어요.';
+  } else {
+    message.textContent = '';
+    box.style.setProperty('--scale', String(scaleFor(items.length)));
+    items.forEach(addPiece);
+    measure();
+    [...bodies.values()].forEach((b, i) => {
+      const [fx, fy] = spot(i);
+      b.x = fx * (world.w - world.size);
+      b.y = fy * (world.h - world.size);
+    });
+    settle();
+    new ResizeObserver(() => {
+      measure();
+      settle();
+    }).observe(box);
+
+    if (!reduced) {
+      let last = performance.now();
+      const tick = (now: number) => {
+        const dt = Math.min(0.033, (now - last) / 1000);
+        last = now;
+        const stir = Math.max(0, 1 - (now - touched) / STIR_MS);
+        step([...bodies.values()], world, gravity[0], gravity[1], now / 1000, dt, stir);
+        draw();
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+
+      // 아이폰(사파리)만 기울기 센서를 쓰기 전에 한 번 눌러 허용받아야 한다. 안드로이드는 바로 켠다.
+      // 컴퓨터 크롬에도 같은 함수가 있어, 손가락으로 만지는 기기에서만 단추를 보인다.
+      const api = DeviceOrientationEvent as OrientationAPI;
+      if (typeof api.requestPermission === 'function' && matchMedia('(pointer: coarse)').matches) {
+        askButton.hidden = false;
+        askButton.addEventListener('click', async () => {
+          askButton.hidden = true;
+          try {
+            if ((await api.requestPermission!()) === 'granted') {
+              listenTilt();
+              touched = performance.now();
+              return;
+            }
+          } catch {}
+          message.textContent = '기울임 권한이 허용되지 않았어요. 사진은 손으로 밀어 볼 수 있어요.';
+        });
+      } else {
+        listenTilt();
+      }
+    }
+  }
+</script>

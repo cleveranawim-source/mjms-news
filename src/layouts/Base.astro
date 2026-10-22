@@ -14,6 +14,7 @@ const path = Astro.url.pathname;
 const nav = [
   { label: '알림', to: href('notices/') },
   { label: '학사일정', to: href('schedule/') },
+  ...(site.lostFoundApi ? [{ label: '분실물함', to: href('lost/') }] : []),
   { label: '이용 안내', to: href('about/') },
 ];
 ---

@@ -1,6 +1,7 @@
 // 첫 화면 칠판에 적을 내용을 고르고 HTML로 만든다.
 // 빌드할 때와 브라우저에서 같은 함수를 써서, 사이트를 다시 빌드하지 않아도 '오늘'이 맞게 보이게 한다.
 import { formatDate, nextSchoolDay } from './dates.ts';
+import { escapeHTML as escape } from './html.ts';
 
 export type BoardNotice = {
   slug: string;
@@ -44,12 +45,6 @@ export function buildBoard(today: string, notices: BoardNotice[], events: BoardE
     bringNext: bringOn(next),
     newNotices: notices.filter((n) => n.date === today),
   };
-}
-
-const ENTITIES: Record<string, string> = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
-
-function escape(text: string): string {
-  return text.replace(/[&<>"']/g, (c) => ENTITIES[c]);
 }
 
 function li(text: string, grades: number[], href?: string): string {

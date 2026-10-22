@@ -5,4 +5,6 @@ export const site = {
   description: '명지중학교 학부모와 학생을 위한 공개 알림장입니다. 로그인 없이 공지, 준비물, 학사일정을 확인할 수 있습니다.',
   homepage: '', // 학교 공식 홈페이지 주소
   phone: '', // 학교 대표전화 (예: 02-000-0000)
+  // AI 교무실 분실물함이 보관 중인 물건을 내주는 주소. 빈 값이면 분실물함 칸과 메뉴가 사라진다.
+  lostFoundApi: 'https://mjms-office.vercel.app/api/news/lost',
 };

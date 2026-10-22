@@ -3,6 +3,7 @@ title: 1학년 현장체험학습 사전 안내
 date: 2026-10-12
 grades: [1]
 category: 가정통신문
+important: true
 bring: [도시락, 물, 교통카드]
 due: 2026-10-30
 ---

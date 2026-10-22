@@ -1,4 +1,10 @@
 ---
+// 칠판 아래 분필받침. 학년 분필을 집으면 그 학년 알림만 보인다.
+interface Props {
+  attached?: boolean; // 칠판 바로 밑에 붙일 때
+}
+
+const { attached = false } = Astro.props;
 const options = [
   { value: '', label: '전체' },
   { value: '1', label: '1학년' },
@@ -7,15 +13,24 @@ const options = [
 ];
 ---
 
-<div class="grade-picker">
+<div class:list={['tray', { 'tray-attached': attached }]}>
   <fieldset>
     <legend>학년별로 보기</legend>
-    {options.map((o) => <button type="button" data-value={o.value} aria-pressed={o.value === '' ? 'true' : 'false'}>{o.label}</button>)}
+    <div class="chalks">
+      {
+        options.map((o) => (
+          <button type="button" class="chalk" data-value={o.value} aria-pressed={o.value === '' ? 'true' : 'false'}>
+            <span>{o.label}</span>
+          </button>
+        ))
+      }
+    </div>
   </fieldset>
+  <span class="eraser" aria-hidden="true"></span>
 </div>
 
 <script>
-  const buttons = document.querySelectorAll<HTMLButtonElement>('.grade-picker button');
+  const buttons = document.querySelectorAll<HTMLButtonElement>('.tray .chalk');
 
   function show(grade: string) {
     if (grade) document.documentElement.dataset.grade = grade;
