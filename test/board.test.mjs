@@ -75,3 +75,19 @@ test('boardHTML tags every item with its grades for filtering', () => {
   assert.ok(html.includes('data-grades="2"'));
   assert.ok(html.includes('data-grades="1 2 3"'));
 });
+
+test('boardFromFeed treats empty grades as all grades', async () => {
+  const { boardFromFeed } = await import('../src/lib/board.ts');
+  const letter = {
+    id: 'a', number: null, subject: '안내', grades: [], classes: null, eventDate: '2026-10-22', eventEnd: null,
+    bring: ['돗자리'], due: '2026-10-22', summary: '', attachments: [], sourceUrl: 'https://example.com/a',
+    postedOn: '2026-10-20', publishedOn: '2026-10-22',
+  };
+  const b = boardFromFeed('2026-10-22', {
+    letters: [letter], daysOff: [], meals: [],
+    events: [{ title: '행사', start: '2026-10-22', end: '2026-10-22', grades: [] }],
+  });
+  assert.deepEqual(b.bringToday[0].grades, [1, 2, 3]);
+  assert.deepEqual(b.newNotices[0].grades, [1, 2, 3]);
+  assert.ok(b.events.every((e) => e.grades.length === 3));
+});

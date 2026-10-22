@@ -45,3 +45,36 @@ test('loadFeed drops malformed items', async () => {
   assert.equal(feed.meals.length, 1);
   assert.equal(feed.meals[0].dishes.length, 1);
 });
+
+const goodLetter = {
+  id: 'a', number: null, subject: '안내', grades: [1], classes: null, eventDate: null, eventEnd: null,
+  bring: [], due: null, summary: '', attachments: [], sourceUrl: 'https://example.com/a', postedOn: '2026-10-20', publishedOn: '2026-10-21',
+};
+
+test('loadFeed drops a letter whose id is not URL-safe', async () => {
+  const feed = await loadFeed({
+    url: 'http://x',
+    fetcher: respond({ ...base, letters: [goodLetter, { ...goodLetter, id: 'x"><b>' }] }),
+  });
+  assert.deepEqual(feed.letters.map((l) => l.id), ['a']);
+});
+
+test('loadFeed does not pass unknown fields through', async () => {
+  const feed = await loadFeed({
+    url: 'http://x',
+    fetcher: respond({
+      ...base,
+      letters: [{ ...goodLetter, decided_by: '교감' }],
+      events: [{ title: 't', start: '2026-11-01', end: '2026-11-01', grades: [], secret: 1 }],
+    }),
+  });
+  assert.equal('decided_by' in feed.letters[0], false);
+  assert.equal('secret' in feed.events[0], false);
+});
+
+test('loadFeed throws when letters arrived but none survived validation', async () => {
+  await assert.rejects(
+    loadFeed({ url: 'http://x', fetcher: respond({ ...base, letters: [{ ...goodLetter, id: 'a b' }] }) }),
+    /no letter/,
+  );
+});

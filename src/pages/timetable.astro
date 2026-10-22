@@ -10,13 +10,14 @@ import { site } from '../site.config.ts';
     site.timetableApi && (
       <div data-timetable data-api={site.timetableApi}>
         <p class="lede" data-tt-message role="status">시간표를 불러오는 중이에요.</p>
+        <noscript><p class="lede">시간표는 자바스크립트를 켜야 보여요.</p></noscript>
         <div data-tt-pick hidden>
           <p class="lede">우리 반을 한 번 골라 두면 다음부터 바로 보여요. 고른 반은 이 기기에만 저장돼요.</p>
           <ClassPicker />
         </div>
         <div data-tt-view hidden>
           <div class="tt-head">
-            <h2 data-tt-class />
+            <h2 data-tt-class tabindex="-1" />
             <button type="button" class="tt-switch" data-tt-switch>반 바꾸기</button>
           </div>
           <div class="tt-weeks" data-tt-weeks />
@@ -58,7 +59,7 @@ import { site } from '../site.config.ts';
     };
 
     const feed: TimetableFeed | null = await loadTimetable(root.dataset.api!);
-    if (!feed || feed.classes.length === 0) {
+    if (!feed || feed.classes.length === 0 || feed.days.length === 0) {
       message.textContent = '시간표를 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.';
     } else {
       message.hidden = true;
@@ -83,6 +84,12 @@ import { site } from '../site.config.ts';
                 .join('')}</div></div>`,
           )
           .join('');
+        renderDay();
+      };
+
+      // 날짜 단추는 그대로 두고 눌림 표시와 그날 목록만 바꾼다(포커스가 단추에 남도록).
+      const renderDay = () => {
+        const cls = feed.classes.find((c) => c.id === classId)!;
         $('[data-tt-date]').textContent = formatDate(day);
         const d = cls.days.find((x) => x.ymd === day);
         $('[data-tt-day]').innerHTML = d ? timetableDayHTML(d) : '<p class="tt-empty">이 날은 시간표가 없어요.</p>';
@@ -91,6 +98,9 @@ import { site } from '../site.config.ts';
       const show = () => {
         pick.hidden = !!classId;
         view.hidden = !classId;
+        // 머리글 학년 표시는 분필받침으로 안내하는데, 반을 고른 뒤에는 받침이 숨으므로 같이 숨긴다.
+        const chip = document.querySelector<HTMLElement>('[data-grade-chip]');
+        if (chip) chip.hidden = !!classId;
         if (classId) renderView();
         else renderRow();
       };
@@ -108,9 +118,11 @@ import { site } from '../site.config.ts';
           const grade = feed.classes.find((c) => c.id === classId)!.grade;
           document.querySelector<HTMLButtonElement>(`.tray .chalk[data-value="${grade}"]`)?.click();
           show();
+          $('[data-tt-class]').focus();
         } else if (t.dataset.day) {
           day = t.dataset.day;
-          renderView();
+          root.querySelectorAll<HTMLElement>('[data-day]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.day === day)));
+          renderDay();
         } else {
           classId = '';
           show();

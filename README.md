@@ -5,6 +5,7 @@
 - 로그인, 회원가입, 댓글, 방문 통계, 외부 글꼴 요청이 없습니다. 방문자에게서 받는 정보가 없습니다.
 - 알림, 학사일정, 쉬는 날, 급식은 학교 홈페이지 가정통신문과 공개 일정을 AI 교무실이 확인해 내주는 피드(`/api/news/feed`)에서 빌드할 때 받아 옵니다. 개인정보 걸러 내기는 AI 교무실 쪽에서 합니다. 피드를 못 받으면 빌드가 실패합니다.
 - 분실물함은 AI 교무실(mjms-office)의 `/api/news/lost`에서 보관 중인 물건을 받아 첫 화면 띠와 `/lost/` 페이지에 띄웁니다. 주소는 `src/site.config.ts`의 `lostFoundApi`, 빈 값이면 분실물함이 사라집니다. AI 교무실 쪽은 `lib/preview.ts` `LOST_FOUND_ON_NEWS`로 끕니다. 물 위에 뜬 움직임(`src/lib/water.ts`)은 AI 교무실 것을 그대로 옮겼습니다.
+- 급식은 같은 피드에서 받아 `/lunch/`에 보여 줍니다. 학급 시간표(`/timetable/`)는 브라우저가 AI 교무실의 `/api/news/timetable`에서 전교 시간표를 받아 고른 반만 걸러 보여 주며, 오늘 바뀐 수업은 첫 화면 칠판에도 올라옵니다. 고른 반은 이 기기에만 저장됩니다. 주소는 `src/site.config.ts`의 `timetableApi`(빈 값이면 시간표가 사라짐)입니다.
 - 첫 화면 칠판은 브라우저가 한국 시간 기준 '오늘'을 계산해 그날 일정과 준비물을 보여 줍니다.
 
 ## 개발
@@ -18,6 +19,14 @@ npm run build    # 피드를 받아 dist/ 생성
 # 네트워크 없이 예시 피드로 만들기
 NEWS_FEED_FILE=test/fixtures/feed.json npm run build
 ```
+
+환경 변수:
+
+- `NEWS_FEED_URL`: 피드 주소(기본은 AI 교무실의 `/api/news/feed`).
+- `NEWS_FEED_FILE`: 주소 대신 읽을 피드 파일.
+- `NEWS_TODAY`: 빌드가 '오늘'로 삼을 날짜(`YYYY-MM-DD`). 테스트에서 날짜를 고정할 때 씁니다.
+
+`src/site.config.ts`의 `lostFoundApi`(분실물함), `timetableApi`(학급 시간표) 주소는 코드에서 바꿉니다.
 
 ## 배포 (GitHub Pages)
 

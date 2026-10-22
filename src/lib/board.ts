@@ -21,7 +21,11 @@ export type Board = {
 };
 
 export function boardFromFeed(today: string, feed: Pick<Feed, 'letters' | 'events' | 'daysOff' | 'meals'>): Board {
-  const { letters, daysOff } = feed;
+  const all = [1, 2, 3];
+  // 학년이 비어 있으면 전 학년 대상이다(목록·일정 화면과 같은 규칙).
+  const daysOff = feed.daysOff;
+  const letters = feed.letters.map((l) => ({ ...l, grades: l.grades.length ? l.grades : all }));
+  const events = feed.events.map((e) => ({ ...e, grades: e.grades.length ? e.grades : all }));
   const next = nextSchoolDay(today, daysOff);
   const bringOn = (day: string) =>
     letters
@@ -36,7 +40,7 @@ export function boardFromFeed(today: string, feed: Pick<Feed, 'letters' | 'event
   return {
     today,
     next,
-    events: [...feed.events.filter((e) => e.start <= today && today <= e.end), ...letterEvents],
+    events: [...events.filter((e) => e.start <= today && today <= e.end), ...letterEvents],
     bringToday: bringOn(today),
     bringNext: bringOn(next),
     newNotices: letters.filter((l) => l.publishedOn === today).map((l) => ({ slug: l.id, title: l.subject, grades: l.grades })),
@@ -46,7 +50,7 @@ export function boardFromFeed(today: string, feed: Pick<Feed, 'letters' | 'event
 }
 
 function li(text: string, grades: number[], href?: string): string {
-  const body = href ? `<a href="${href}">${escape(text)}</a>` : escape(text);
+  const body = href ? `<a href="${escape(href)}">${escape(text)}</a>` : escape(text);
   return `<li data-grades="${grades.join(' ')}">${body}</li>`;
 }
 

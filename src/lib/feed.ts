@@ -17,6 +17,8 @@ export type Feed = {
 const DEFAULT_URL = 'https://mjms-office.vercel.app/api/news/feed';
 const YMD = /^\d{4}-\d{2}-\d{2}$/;
 
+const ID = /^[A-Za-z0-9_-]{1,64}$/;
+
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
 const isStr = (v: unknown): v is string => typeof v === 'string';
 const isYmd = (v: unknown): v is string => isStr(v) && YMD.test(v);
@@ -29,15 +31,25 @@ const isGrades = (v: unknown): v is number[] =>
 function toLetter(x: unknown): FeedLetter | null {
   if (!isObj(x)) return null;
   const ok =
-    isStr(x.id) && isStrOrNull(x.number) && isStr(x.subject) && isGrades(x.grades) && isStrOrNull(x.classes) &&
+    isStr(x.id) && ID.test(x.id) && isStrOrNull(x.number) && isStr(x.subject) && isGrades(x.grades) && isStrOrNull(x.classes) &&
     isYmdOrNull(x.eventDate) && isYmdOrNull(x.eventEnd) && isStrList(x.bring) && isYmdOrNull(x.due) &&
     isStr(x.summary) && isStrList(x.attachments) && isStr(x.sourceUrl) && isYmd(x.postedOn) && isYmd(x.publishedOn);
-  return ok ? (x as unknown as FeedLetter) : null;
+  if (!ok) return null;
+  // 알려진 필드만 옮긴다: 편지 목록 전체가 페이지 JSON에 실리므로 모르는 필드는 새어 나가면 안 된다.
+  return {
+    id: x.id as string, number: x.number as string | null, subject: x.subject as string, grades: [...(x.grades as number[])],
+    classes: x.classes as string | null, eventDate: x.eventDate as string | null, eventEnd: x.eventEnd as string | null,
+    bring: [...(x.bring as string[])], due: x.due as string | null, summary: x.summary as string,
+    attachments: [...(x.attachments as string[])], sourceUrl: x.sourceUrl as string,
+    postedOn: x.postedOn as string, publishedOn: x.publishedOn as string,
+  };
 }
 
 function toEvent(x: unknown): FeedEvent | null {
   if (!isObj(x)) return null;
-  return isStr(x.title) && isYmd(x.start) && isYmd(x.end) && isGrades(x.grades) ? (x as unknown as FeedEvent) : null;
+  return isStr(x.title) && isYmd(x.start) && isYmd(x.end) && isGrades(x.grades)
+    ? { title: x.title, start: x.start, end: x.end, grades: [...x.grades] }
+    : null;
 }
 
 function toDayOff(x: unknown): FeedDayOff | null {
@@ -55,11 +67,13 @@ function toMeal(x: unknown): FeedMeal | null {
   return { ymd: x.ymd, dishes };
 }
 
-function pick<T>(list: unknown[], convert: (x: unknown) => T | null): T[] {
-  return list.flatMap((x) => {
+function pick<T>(name: string, list: unknown[], convert: (x: unknown) => T | null): T[] {
+  const out = list.flatMap((x) => {
     const item = convert(x);
     return item ? [item] : [];
   });
+  if (out.length < list.length) console.warn(`feed: ${name} ${list.length - out.length}개를 뺐어요 (모양이 달라요)`);
+  return out;
 }
 
 // 큰 틀이 틀리면 던진다: 빌드가 실패하면 직전에 올라간 사이트가 그대로 남기 때문이다.
@@ -71,20 +85,23 @@ function parseFeed(raw: unknown): Feed {
   if (!Array.isArray(letters) || !Array.isArray(events) || !Array.isArray(daysOff) || !Array.isArray(meals)) {
     throw new Error('feed: letters/events/daysOff/meals must be arrays');
   }
+  const picked = pick('letters', letters, toLetter);
+  // 편지가 왔는데 하나도 못 읽었으면 피드 모양이 바뀐 것이다. 빈 알림장을 올리느니 빌드를 멈춘다.
+  if (letters.length > 0 && picked.length === 0) throw new Error('feed: no letter passed validation');
   return {
     version: 1,
     generatedAt: isStr(raw.generatedAt) ? raw.generatedAt : '',
-    letters: pick(letters, toLetter),
-    events: pick(events, toEvent),
-    daysOff: pick(daysOff, toDayOff),
-    meals: pick(meals, toMeal),
+    letters: picked,
+    events: pick('events', events, toEvent),
+    daysOff: pick('daysOff', daysOff, toDayOff),
+    meals: pick('meals', meals, toMeal),
   };
 }
 
 export async function loadFeed(source: { url?: string; file?: string; fetcher?: typeof fetch } = {}): Promise<Feed> {
   if (source.file) return parseFeed(JSON.parse(await readFile(source.file, 'utf8')));
   const url = source.url ?? process.env.NEWS_FEED_URL ?? DEFAULT_URL;
-  const res = await (source.fetcher ?? fetch)(url);
+  const res = await (source.fetcher ?? fetch)(url, { signal: AbortSignal.timeout(30000) });
   if (res.status !== 200) throw new Error(`feed: ${url} answered ${res.status}`);
   return parseFeed(await res.json());
 }
