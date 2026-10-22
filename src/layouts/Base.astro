@@ -1,0 +1,63 @@
+---
+import '../styles/global.css';
+import { site } from '../site.config.ts';
+import { href } from '../lib/paths.ts';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const { title, description = site.description } = Astro.props;
+const fullTitle = title ? `${title} | ${site.title}` : site.title;
+const path = Astro.url.pathname;
+const nav = [
+  { label: '알림', to: href('notices/') },
+  { label: '학사일정', to: href('schedule/') },
+  { label: '이용 안내', to: href('about/') },
+];
+---
+
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content={description} />
+    <meta name="referrer" content="no-referrer" />
+    <meta name="theme-color" content="#26443a" />
+    <title>{fullTitle}</title>
+    <link rel="icon" href={href('favicon.svg')} type="image/svg+xml" />
+    <script is:inline>
+      // 고른 학년은 이 기기에만 저장된다. 서버로 보내지 않는다.
+      try {
+        const g = localStorage.getItem('mjms-grade');
+        if (g) document.documentElement.dataset.grade = g;
+      } catch {}
+    </script>
+  </head>
+  <body>
+    <a class="skip" href="#main">본문으로 건너뛰기</a>
+    <header class="site-header">
+      <div class="wrap">
+        <a class="site-name" href={href()}>{site.title}</a>
+        <nav class="site-nav" aria-label="주 메뉴">
+          {nav.map((n) => <a href={n.to} aria-current={path.startsWith(n.to) ? 'page' : undefined}>{n.label}</a>)}
+        </nav>
+      </div>
+    </header>
+    <main id="main" class="wrap">
+      <slot />
+    </main>
+    <footer class="site-footer">
+      <div class="wrap">
+        <p>이 사이트는 로그인이 없고, 방문자의 개인정보나 쿠키를 수집하지 않습니다.</p>
+        <p>
+          개별 상담과 서류 제출은 학교 공식 창구를 이용해 주세요.
+          {site.phone && <> 학교 대표전화 <a href={`tel:${site.phone}`}>{site.phone}</a>.</>}
+          {site.homepage && <> <a href={site.homepage}>학교 홈페이지</a></>}
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>

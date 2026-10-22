@@ -1,0 +1,21 @@
+---
+import { formatRange } from '../lib/dates.ts';
+import { gradeLabel } from '../lib/grades.ts';
+
+interface Props {
+  event: { title: string; date: string; end?: string; grades: number[]; holiday?: boolean };
+}
+
+const { title, date, end, grades, holiday } = Astro.props.event;
+---
+
+<li data-grades={grades.join(' ')} data-start={date} data-end={end ?? date}>
+  <div class="row">
+    <span class="row-date">{formatRange(date, end)}</span>
+    <span class="row-title">{title}</span>
+    <span class="row-meta">
+      <span>{gradeLabel(grades)}</span>
+      {holiday && <span>쉬는 날</span>}
+    </span>
+  </div>
+</li>

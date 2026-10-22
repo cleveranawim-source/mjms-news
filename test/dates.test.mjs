@@ -1,0 +1,45 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { seoulToday, addDays, nextSchoolDay, formatDate, toISODate } from '../src/lib/dates.ts';
+
+test('seoulToday uses Korea time, not UTC', () => {
+  // 2026-10-22 16:00 UTC is already 10-23 01:00 in Seoul
+  assert.equal(seoulToday(new Date('2026-10-22T16:00:00Z')), '2026-10-23');
+  assert.equal(seoulToday(new Date('2026-10-22T14:59:00Z')), '2026-10-22');
+});
+
+test('addDays crosses month boundaries', () => {
+  assert.equal(addDays('2026-10-31', 1), '2026-11-01');
+  assert.equal(addDays('2026-11-01', -1), '2026-10-31');
+});
+
+test('nextSchoolDay skips the weekend', () => {
+  assert.equal(nextSchoolDay('2026-10-22'), '2026-10-23'); // 목 → 금
+  assert.equal(nextSchoolDay('2026-10-23'), '2026-10-26'); // 금 → 월
+  assert.equal(nextSchoolDay('2026-10-24'), '2026-10-26'); // 토 → 월
+});
+
+test('formatDate gives Korean month, day and weekday', () => {
+  assert.equal(formatDate('2026-10-22'), '10월 22일 (목)');
+});
+
+test('toISODate accepts strings and Date objects from YAML', () => {
+  assert.equal(toISODate('2026-10-22'), '2026-10-22');
+  assert.equal(toISODate(new Date('2026-10-22T00:00:00Z')), '2026-10-22');
+});
+
+import { gradeLabel } from '../src/lib/grades.ts';
+
+test('gradeLabel reads naturally', () => {
+  assert.equal(gradeLabel([1, 2, 3]), '전 학년');
+  assert.equal(gradeLabel([2]), '2학년');
+  assert.equal(gradeLabel([3, 1]), '1, 3학년');
+});
+
+import { formatRange } from '../src/lib/dates.ts';
+
+test('formatRange drops the repeated month', () => {
+  assert.equal(formatRange('2026-10-20', '2026-10-22'), '10월 20일 (화) ~ 22일 (목)');
+  assert.equal(formatRange('2026-10-30', '2026-11-02'), '10월 30일 (금) ~ 11월 2일 (월)');
+  assert.equal(formatRange('2026-10-23'), '10월 23일 (금)');
+});

@@ -1,0 +1,27 @@
+---
+import Base from '../../layouts/Base.astro';
+import GradePicker from '../../components/GradePicker.astro';
+import NoticeRow from '../../components/NoticeRow.astro';
+import { getNotices, groupByMonth } from '../../lib/content.ts';
+import { formatMonth } from '../../lib/dates.ts';
+
+const months = groupByMonth(await getNotices(), (n) => n.data.date);
+---
+
+<Base title="알림">
+  <h1 class="page-title">알림</h1>
+  <p class="lede">학교에서 올린 공지, 가정통신문, 준비물을 최근 것부터 모았습니다.</p>
+  <GradePicker />
+  {
+    months.map(([month, items]) => (
+      <section class="month filter-group">
+        <h2>{formatMonth(`${month}-01`)}</h2>
+        <ul class="lined">
+          {items.map((n) => <NoticeRow notice={n} />)}
+        </ul>
+        <p class="list-empty">이 달에는 해당 학년 알림이 없습니다.</p>
+      </section>
+    ))
+  }
+  {months.length === 0 && <p>아직 올라온 알림이 없습니다.</p>}
+</Base>

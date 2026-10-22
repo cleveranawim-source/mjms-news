@@ -1,0 +1,24 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { formatDate } from '../lib/dates.ts';
+import { gradeLabel } from '../lib/grades.ts';
+import { href } from '../lib/paths.ts';
+
+interface Props {
+  notice: CollectionEntry<'notices'>;
+}
+
+const { id, data } = Astro.props.notice;
+---
+
+<li data-grades={data.grades.join(' ')}>
+  <a class="row" href={href(`notices/${id}/`)}>
+    <span class="row-date">{formatDate(data.date)}</span>
+    <span class="row-title">{data.important && <span class="important">중요</span>}{data.title}</span>
+    <span class="row-meta">
+      <span>{gradeLabel(data.grades)}</span>
+      <span>{data.category}</span>
+      {data.bring.length > 0 && <span>준비물 있음</span>}
+    </span>
+  </a>
+</li>

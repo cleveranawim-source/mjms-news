@@ -1,0 +1,42 @@
+---
+import Base from '../layouts/Base.astro';
+import Chalkboard from '../components/Chalkboard.astro';
+import GradePicker from '../components/GradePicker.astro';
+import NoticeRow from '../components/NoticeRow.astro';
+import EventRow from '../components/EventRow.astro';
+import { getNotices, getEvents } from '../lib/content.ts';
+import { seoulToday } from '../lib/dates.ts';
+import { href } from '../lib/paths.ts';
+
+const today = seoulToday();
+const notices = (await getNotices()).slice(0, 8);
+const upcoming = (await getEvents()).filter((e) => (e.end ?? e.date) >= today).slice(0, 5);
+---
+
+<Base>
+  <h1 class="sr-only">오늘의 알림</h1>
+  <GradePicker />
+  <Chalkboard />
+
+  <section class="section filter-group" aria-labelledby="recent">
+    <div class="section-head">
+      <h2 id="recent">최근 알림</h2>
+      <a href={href('notices/')}>알림 모두 보기</a>
+    </div>
+    <ul class="lined">
+      {notices.map((n) => <NoticeRow notice={n} />)}
+    </ul>
+    <p class="list-empty">이 학년에 해당하는 최근 알림이 없습니다.</p>
+  </section>
+
+  <section class="section filter-group" aria-labelledby="upcoming">
+    <div class="section-head">
+      <h2 id="upcoming">다가오는 일정</h2>
+      <a href={href('schedule/')}>학사일정 전체</a>
+    </div>
+    <ul class="lined">
+      {upcoming.map((e) => <EventRow event={e} />)}
+    </ul>
+    <p class="list-empty">예정된 일정이 없습니다.</p>
+  </section>
+</Base>

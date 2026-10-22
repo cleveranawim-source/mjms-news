@@ -1,0 +1,36 @@
+---
+import { buildBoard, boardHTML } from '../lib/board.ts';
+import { getBoardData } from '../lib/content.ts';
+import { seoulToday, formatDate, weekday } from '../lib/dates.ts';
+import { base } from '../lib/paths.ts';
+
+// 빌드한 날 기준으로 먼저 그려 두고, 브라우저가 실제 오늘 날짜로 다시 그린다.
+const data = await getBoardData();
+const today = seoulToday();
+const html = boardHTML(buildBoard(today, data.notices, data.events), base);
+const dayLabel = (iso: string) => formatDate(iso).replace(/ \(.\)$/, '');
+---
+
+<section class="board" aria-label="오늘의 알림" data-today={today}>
+  <p class="board-date">
+    <span data-board-day>{dayLabel(today)}</span>
+    <small data-board-weekday>{weekday(today)}요일</small>
+  </p>
+  <div class="board-groups" data-board-groups set:html={html} />
+  <script type="application/json" data-board-json set:html={JSON.stringify({ base, ...data })} />
+</section>
+
+<script>
+  import { buildBoard, boardHTML } from '../lib/board.ts';
+  import { seoulToday, formatDate, weekday } from '../lib/dates.ts';
+
+  const board = document.querySelector<HTMLElement>('.board');
+  const today = seoulToday();
+  if (board && board.dataset.today !== today) {
+    const { base, notices, events } = JSON.parse(board.querySelector('[data-board-json]')!.textContent!);
+    board.dataset.today = today;
+    board.querySelector('[data-board-day]')!.textContent = formatDate(today).replace(/ \(.\)$/, '');
+    board.querySelector('[data-board-weekday]')!.textContent = `${weekday(today)}요일`;
+    board.querySelector('[data-board-groups]')!.innerHTML = boardHTML(buildBoard(today, notices, events), base);
+  }
+</script>

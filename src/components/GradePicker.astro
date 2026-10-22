@@ -1,0 +1,37 @@
+---
+const options = [
+  { value: '', label: '전체' },
+  { value: '1', label: '1학년' },
+  { value: '2', label: '2학년' },
+  { value: '3', label: '3학년' },
+];
+---
+
+<div class="grade-picker">
+  <fieldset>
+    <legend>학년별로 보기</legend>
+    {options.map((o) => <button type="button" data-value={o.value} aria-pressed={o.value === '' ? 'true' : 'false'}>{o.label}</button>)}
+  </fieldset>
+</div>
+
+<script>
+  const buttons = document.querySelectorAll<HTMLButtonElement>('.grade-picker button');
+
+  function show(grade: string) {
+    if (grade) document.documentElement.dataset.grade = grade;
+    else delete document.documentElement.dataset.grade;
+    buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.value === grade)));
+  }
+
+  show(document.documentElement.dataset.grade ?? '');
+  buttons.forEach((b) =>
+    b.addEventListener('click', () => {
+      const grade = b.dataset.value ?? '';
+      show(grade);
+      try {
+        if (grade) localStorage.setItem('mjms-grade', grade);
+        else localStorage.removeItem('mjms-grade');
+      } catch {}
+    }),
+  );
+</script>

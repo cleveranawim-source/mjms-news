@@ -1,0 +1,539 @@
+@import '@fontsource/ibm-plex-sans-kr/400.css';
+@import '@fontsource/ibm-plex-sans-kr/600.css';
+@import '@fontsource/gaegu/400.css';
+@import '@fontsource/gaegu/700.css';
+
+:root {
+  --board: #26443a;
+  --board-deep: #1d3830;
+  --frame: #7a5c3e;
+  --chalk: #eef1ea;
+  --chalk-dim: #b9c6bd;
+  --chalk-yellow: #f1d65a;
+  --paper: #fbfcfa;
+  --ink: #1e2925;
+  --muted: #5b6b64;
+  --rule: #d5e0ea;
+  --red-pen: #c0392b;
+  --focus: #2f6fd6;
+
+  --text-sm: 0.875rem;
+  --text-base: 1.0625rem;
+  --text-md: 1.3125rem;
+  --text-lg: 1.625rem;
+  --text-xl: 2.0625rem;
+
+  --measure: 42rem;
+  --wide: 68rem;
+  --gutter: 1rem;
+
+  color-scheme: light;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'IBM Plex Sans KR', system-ui, sans-serif;
+  font-size: var(--text-base);
+  line-height: 1.7;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+a {
+  color: inherit;
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.35;
+  font-weight: 600;
+  margin: 0;
+}
+
+.wrap {
+  width: min(100% - 2 * var(--gutter), var(--wide));
+  margin-inline: auto;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.skip {
+  position: absolute;
+  left: -999px;
+}
+
+.skip:focus {
+  left: var(--gutter);
+  top: 0.5rem;
+  background: var(--paper);
+  padding: 0.5rem 0.75rem;
+  z-index: 10;
+}
+
+/* 머리글 */
+.site-header {
+  border-bottom: 1px solid var(--rule);
+}
+
+.site-header .wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.25rem 1.5rem;
+  padding-block: 1rem;
+}
+
+.site-name {
+  font-weight: 600;
+  font-size: var(--text-md);
+  text-decoration: none;
+}
+
+.site-nav {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.site-nav a {
+  text-decoration: none;
+  color: var(--muted);
+  padding-block: 0.25rem;
+}
+
+.site-nav a[aria-current='page'] {
+  color: var(--ink);
+  box-shadow: inset 0 -2px var(--ink);
+}
+
+main {
+  padding-block: 1.5rem 4rem;
+}
+
+/* 학년 고르기 */
+.grade-picker {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.grade-picker legend {
+  float: left;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  padding: 0;
+  margin-right: 0.25rem;
+}
+
+.grade-picker fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.grade-picker button {
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 0.25rem 0.875rem;
+  min-height: 2.25rem;
+  cursor: pointer;
+}
+
+.grade-picker button[aria-pressed='true'] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+/* 학년 필터: <html data-grade="2"> 이면 2학년 대상이 아닌 항목을 숨긴다 */
+[data-grade='1'] [data-grades]:not([data-grades~='1']),
+[data-grade='2'] [data-grades]:not([data-grades~='2']),
+[data-grade='3'] [data-grades]:not([data-grades~='3']) {
+  display: none;
+}
+
+.list-empty {
+  display: none;
+}
+
+.filter-group:not(:has([data-grades])) .list-empty,
+[data-grade='1'] .filter-group:not(:has([data-grades~='1'])) .list-empty,
+[data-grade='2'] .filter-group:not(:has([data-grades~='2'])) .list-empty,
+[data-grade='3'] .filter-group:not(:has([data-grades~='3'])) .list-empty {
+  display: block;
+}
+
+/* 칠판 */
+.board {
+  background: radial-gradient(120% 90% at 30% 20%, var(--board) 0%, var(--board-deep) 100%);
+  color: var(--chalk);
+  border: 10px solid var(--frame);
+  border-bottom-width: 16px;
+  border-radius: 6px;
+  padding: 1.5rem 1.25rem 1.75rem;
+  display: grid;
+  gap: 1.5rem;
+  font-family: 'Gaegu', 'IBM Plex Sans KR', sans-serif;
+}
+
+.board-date {
+  font-size: clamp(2.75rem, 11vw, 4.5rem);
+  line-height: 1.05;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.board-date small {
+  display: block;
+  font-size: 1.375rem;
+  font-weight: 400;
+  color: var(--chalk-dim);
+  margin-top: 0.5rem;
+}
+
+.board-groups {
+  display: grid;
+  gap: 1.25rem 2rem;
+}
+
+.board-group h2 {
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: var(--chalk-yellow);
+  line-height: 1.2;
+}
+
+.board-group ul {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+  font-size: 1.375rem;
+  line-height: 1.45;
+}
+
+.board-group li {
+  padding-left: 1em;
+  text-indent: -1em;
+}
+
+.board-group li::before {
+  content: '- ';
+  color: var(--chalk-dim);
+}
+
+.board-group a {
+  text-decoration-color: rgb(238 241 234 / 0.45);
+}
+
+.board-group .list-empty {
+  margin: 0.25rem 0 0;
+  font-size: 1.25rem;
+  color: var(--chalk-dim);
+}
+
+@media (min-width: 48rem) {
+  .board {
+    grid-template-columns: minmax(14rem, 1fr) 2fr;
+    padding: 2rem 2.25rem 2.25rem;
+    gap: 2.5rem;
+  }
+
+  .board-groups {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* 줄노트 목록 */
+.section {
+  margin-top: 3rem;
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.section-head h2 {
+  font-size: var(--text-md);
+}
+
+.section-head a {
+  font-size: var(--text-sm);
+  color: var(--muted);
+}
+
+.lined {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 2px solid var(--ink);
+}
+
+.lined > li {
+  border-bottom: 1px solid var(--rule);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 11rem 1fr;
+  gap: 0.125rem 1rem;
+  padding: 0.75rem 0;
+  text-decoration: none;
+}
+
+a.row:hover .row-title {
+  text-decoration: underline;
+}
+
+.row-date {
+  grid-row: span 2;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  padding-top: 0.15em;
+  font-variant-numeric: tabular-nums;
+}
+
+.row-title {
+  font-weight: 600;
+}
+
+.row-meta {
+  grid-column: 2;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 0.875rem;
+}
+
+.important {
+  color: var(--red-pen);
+  font-weight: 600;
+  margin-right: 0.375rem;
+}
+
+.is-past {
+  color: var(--muted);
+}
+
+.is-past .row-title {
+  font-weight: 400;
+}
+
+.is-today .row-date {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.month + .month {
+  margin-top: 2.5rem;
+}
+
+.month h2 {
+  font-size: var(--text-md);
+  margin-bottom: 0.5rem;
+}
+
+.filter-group > .list-empty {
+  color: var(--muted);
+  padding: 0.75rem 0;
+  margin: 0;
+}
+
+@media (max-width: 30rem) {
+  .row {
+    grid-template-columns: 1fr;
+  }
+
+  .row-date {
+    grid-row: auto;
+  }
+
+  .row-meta {
+    grid-column: 1;
+  }
+}
+
+/* 알림 본문 */
+.page-title {
+  font-size: var(--text-xl);
+  max-width: var(--measure);
+}
+
+.lede {
+  color: var(--muted);
+  max-width: var(--measure);
+  margin: 0.5rem 0 1.5rem;
+}
+
+.notice {
+  max-width: var(--measure);
+}
+
+.back {
+  display: inline-block;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  margin-bottom: 1rem;
+}
+
+.notice h1 {
+  font-size: var(--text-lg);
+}
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1.5rem;
+  margin: 0.75rem 0 1.75rem;
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+
+.facts div {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.facts dd {
+  margin: 0;
+  color: var(--ink);
+}
+
+.bring {
+  background: var(--board);
+  color: var(--chalk);
+  border-radius: 4px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 2rem;
+  font-family: 'Gaegu', 'IBM Plex Sans KR', sans-serif;
+}
+
+.bring h2 {
+  font-family: inherit;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--chalk-yellow);
+}
+
+.bring ul {
+  margin: 0.25rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 1.5rem;
+  font-size: 1.5rem;
+}
+
+.prose > :first-child {
+  margin-top: 0;
+}
+
+.prose li + li {
+  margin-top: 0.25rem;
+}
+
+.prose strong {
+  font-weight: 600;
+}
+
+.files {
+  margin-top: 2rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule);
+}
+
+.files h2 {
+  font-size: var(--text-base);
+}
+
+.print {
+  margin-top: 2.5rem;
+  font: inherit;
+  font-size: var(--text-sm);
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 0.375rem 0.875rem;
+  cursor: pointer;
+}
+
+/* 바닥글 */
+.site-footer {
+  border-top: 1px solid var(--rule);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  padding-block: 1.5rem 2.5rem;
+}
+
+.site-footer p {
+  margin: 0.25rem 0;
+  max-width: var(--measure);
+}
+
+@media print {
+  .site-header,
+  .site-footer,
+  .grade-picker,
+  .print,
+  .back {
+    display: none;
+  }
+
+  .bring {
+    background: none;
+    color: var(--ink);
+    border: 1px solid var(--ink);
+  }
+
+  .bring h2 {
+    color: var(--ink);
+  }
+}

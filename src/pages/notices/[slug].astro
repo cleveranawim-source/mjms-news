@@ -1,0 +1,56 @@
+---
+import { render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import { getNotices } from '../../lib/content.ts';
+import { formatDate } from '../../lib/dates.ts';
+import { gradeLabel } from '../../lib/grades.ts';
+import { href } from '../../lib/paths.ts';
+
+export async function getStaticPaths() {
+  return (await getNotices()).map((notice) => ({ params: { slug: notice.id }, props: { notice } }));
+}
+
+const { notice } = Astro.props;
+const { data } = notice;
+const { Content } = await render(notice);
+---
+
+<Base title={data.title}>
+  <article class="notice">
+    <a class="back" href={href('notices/')}>알림 목록</a>
+    <h1>{data.important && <span class="important">중요</span>}{data.title}</h1>
+    <dl class="facts">
+      <div><dt>올린 날</dt><dd>{formatDate(data.date)}</dd></div>
+      <div><dt>대상</dt><dd>{gradeLabel(data.grades)}</dd></div>
+      <div><dt>분류</dt><dd>{data.category}</dd></div>
+    </dl>
+
+    {
+      data.bring.length > 0 && (
+        <section class="bring" aria-label="준비물">
+          <h2>{data.due ? `${formatDate(data.due)} 준비물` : '준비물'}</h2>
+          <ul>
+            {data.bring.map((item) => <li>{item}</li>)}
+          </ul>
+        </section>
+      )
+    }
+
+    <div class="prose">
+      <Content />
+    </div>
+
+    {
+      data.files.length > 0 && (
+        <section class="files">
+          <h2>첨부 파일</h2>
+          <ul>
+            {data.files.map((f) => <li><a href={href(f.path)} download>{f.name}</a></li>)}
+          </ul>
+        </section>
+      )
+    }
+
+    <button class="print" type="button" onclick="window.print()">이 알림 인쇄하기</button>
+  </article>
+</Base>
