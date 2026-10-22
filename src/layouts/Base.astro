@@ -19,7 +19,9 @@ const nav = [
   ...(site.lostFoundApi
     ? [{ label: '분실물함', short: '분실물', to: href('lost/'), icon: '<path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>' }]
     : []),
-  { label: '이용 안내', short: '안내', to: href('about/'), icon: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>' },
+  ...(site.timetableApi
+    ? [{ label: '시간표', short: '시간표', to: href('timetable/'), icon: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>' }]
+    : []),
 ];
 const isCurrent = (to: string) => (to === href() ? path === to : path.startsWith(to));
 ---
@@ -64,6 +66,7 @@ const isCurrent = (to: string) => (to === href() ? path === to : path.startsWith
     </main>
     <footer class="site-footer">
       <div class="wrap">
+        <p><a href={href('about/')}>이용 안내</a></p>
         <p>이 사이트는 로그인이 없고, 방문자의 개인정보나 쿠키를 수집하지 않습니다.</p>
         <p>
           개별 상담과 서류 제출은 학교 공식 창구를 이용해 주세요.

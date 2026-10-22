@@ -1,0 +1,122 @@
+---
+import Base from '../layouts/Base.astro';
+import ClassPicker from '../components/ClassPicker.astro';
+import { site } from '../site.config.ts';
+---
+
+<Base title="시간표" description="우리 반 이번 주·다음 주 시간표와 오늘 바뀐 수업을 볼 수 있습니다.">
+  <h1 class="page-title">시간표</h1>
+  {
+    site.timetableApi && (
+      <div data-timetable data-api={site.timetableApi}>
+        <p class="lede" data-tt-message role="status">시간표를 불러오는 중이에요.</p>
+        <div data-tt-pick hidden>
+          <p class="lede">우리 반을 한 번 골라 두면 다음부터 바로 보여요. 고른 반은 이 기기에만 저장돼요.</p>
+          <ClassPicker />
+        </div>
+        <div data-tt-view hidden>
+          <div class="tt-head">
+            <h2 data-tt-class />
+            <button type="button" class="tt-switch" data-tt-switch>반 바꾸기</button>
+          </div>
+          <div class="tt-weeks" data-tt-weeks />
+          <h3 class="tt-date" data-tt-date />
+          <div data-tt-day />
+          <p class="strip-note">수업은 선생님 사정으로 바뀔 수 있어요. 바뀐 줄은 표시해 두었어요.</p>
+        </div>
+      </div>
+    )
+  }
+</Base>
+
+<script>
+  import { loadTimetable, timetableDayHTML, weekGroups, initialDay, classButtonsHTML, type TimetableFeed } from '../lib/timetable.ts';
+  import { seoulToday, formatDate, weekday } from '../lib/dates.ts';
+  import { escapeHTML } from '../lib/html.ts';
+
+  const root = document.querySelector<HTMLElement>('[data-timetable]');
+  if (root) {
+    const $ = <T extends HTMLElement>(s: string) => root.querySelector<T>(s)!;
+    const message = $('[data-tt-message]');
+    const pick = $('[data-tt-pick]');
+    const view = $('[data-tt-view]');
+    const today = seoulToday();
+
+    const store = {
+      get: (): string => {
+        try {
+          return localStorage.getItem('mjms-class') ?? '';
+        } catch {
+          return '';
+        }
+      },
+      set: (v: string) => {
+        try {
+          localStorage.setItem('mjms-class', v);
+        } catch {}
+      },
+    };
+
+    const feed: TimetableFeed | null = await loadTimetable(root.dataset.api!);
+    if (!feed || feed.classes.length === 0) {
+      message.textContent = '시간표를 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.';
+    } else {
+      message.hidden = true;
+      let classId = feed.classes.some((c) => c.id === store.get()) ? store.get() : '';
+      let day = initialDay(feed.days, today);
+
+      const renderRow = () => {
+        const g = Number(document.documentElement.dataset.grade ?? '');
+        const btns = $('[data-class-btns]');
+        $('[data-class-hint]').hidden = g > 0;
+        btns.innerHTML = g > 0 ? classButtonsHTML(feed.classes, g, classId) : '';
+      };
+
+      const renderView = () => {
+        const cls = feed.classes.find((c) => c.id === classId)!;
+        $('[data-tt-class]').textContent = `${cls.name} 시간표`;
+        $('[data-tt-weeks]').innerHTML = weekGroups(feed.days, today)
+          .map(
+            (w) =>
+              `<div class="tt-week"><span>${escapeHTML(w.label)}</span><div role="group" aria-label="${escapeHTML(w.label)}">${w.days
+                .map((d) => `<button type="button" data-day="${d}" aria-pressed="${d === day}">${weekday(d)}${d === today ? '<small>오늘</small>' : `<small>${Number(d.slice(8))}일</small>`}</button>`)
+                .join('')}</div></div>`,
+          )
+          .join('');
+        $('[data-tt-date]').textContent = formatDate(day);
+        const d = cls.days.find((x) => x.ymd === day);
+        $('[data-tt-day]').innerHTML = d ? timetableDayHTML(d) : '<p class="tt-empty">이 날은 시간표가 없어요.</p>';
+      };
+
+      const show = () => {
+        pick.hidden = !!classId;
+        view.hidden = !classId;
+        if (classId) renderView();
+        else renderRow();
+      };
+
+      // 학년 분필을 누르면 <html data-grade>가 바뀐다 — 그에 맞춰 반 단추를 다시 그린다.
+      new MutationObserver(renderRow).observe(document.documentElement, { attributes: true, attributeFilter: ['data-grade'] });
+
+      root.addEventListener('click', (e) => {
+        const t = (e.target as HTMLElement).closest<HTMLElement>('[data-class], [data-day], [data-tt-switch]');
+        if (!t) return;
+        if (t.dataset.class) {
+          classId = t.dataset.class;
+          store.set(classId);
+          // 반을 고르면 학년 분필도 그 학년으로 맞춘다(분필을 누른 것과 같다).
+          const grade = feed.classes.find((c) => c.id === classId)!.grade;
+          document.querySelector<HTMLButtonElement>(`.tray .chalk[data-value="${grade}"]`)?.click();
+          show();
+        } else if (t.dataset.day) {
+          day = t.dataset.day;
+          renderView();
+        } else {
+          classId = '';
+          show();
+        }
+      });
+      show();
+    }
+  }
+</script>

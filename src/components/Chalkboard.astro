@@ -4,6 +4,7 @@ import { boardFromFeed, boardHTML } from '../lib/board.ts';
 import { buildToday, formatDate, weekday, addDays } from '../lib/dates.ts';
 import { getFeed } from '../lib/feed.ts';
 import { base, href } from '../lib/paths.ts';
+import { site } from '../site.config.ts';
 
 // 빌드한 날 기준으로 먼저 그려 두고, 브라우저가 실제 오늘 날짜로 다시 그린다.
 const feed = await getFeed();
@@ -32,7 +33,7 @@ const boardJson = JSON.stringify({ base, letters: feed.letters, events: feed.eve
 </script>
 
 <div class="board-wrap">
-  <section class="board" aria-label="오늘의 알림" data-today={today}>
+  <section class="board" aria-label="오늘의 알림" data-today={today} data-tt-api={site.timetableApi || undefined}>
     <img class="board-emblem" src={href('emblem-chalk.png')} alt="" width="80" height="82" />
     <p class="board-date">
       <span class="board-day" data-board-day>{dayLabel(today)}</span>
@@ -62,6 +63,8 @@ const boardJson = JSON.stringify({ base, letters: feed.letters, events: feed.eve
 <script>
   import { boardFromFeed, boardHTML } from '../lib/board.ts';
   import { seoulToday, formatDate, weekday, addDays } from '../lib/dates.ts';
+  import { loadTimetable, todayChanges, changeLine } from '../lib/timetable.ts';
+  import { escapeHTML } from '../lib/html.ts';
 
   const board = document.querySelector<HTMLElement>('.board');
   const today = seoulToday();
@@ -71,5 +74,24 @@ const boardJson = JSON.stringify({ base, letters: feed.letters, events: feed.eve
     board.querySelector('[data-board-day]')!.textContent = formatDate(today).replace(/ \(.\)$/, '');
     board.querySelector('[data-board-weekday]')!.textContent = `${weekday(today)}요일`;
     board.querySelector('[data-board-groups]')!.innerHTML = boardHTML(boardFromFeed(today, { letters, events, daysOff, meals: [] }), base);
+  }
+
+  // 반을 골랐고 오늘 바뀐 수업이 있으면 「오늘 챙길 것」 앞에 칸을 끼운다. 빌드 결과는 시간표와 무관하다.
+  let picked = '';
+  try {
+    picked = localStorage.getItem('mjms-class') ?? '';
+  } catch {}
+  if (board && board.dataset.ttApi && picked) {
+    const feed = await loadTimetable(board.dataset.ttApi);
+    const cls = feed?.classes.find((c) => c.id === picked || c.name === picked);
+    const changes = feed && cls ? todayChanges(feed, cls.id, today) : [];
+    const groups = board.querySelector<HTMLElement>('[data-board-groups]');
+    if (cls && changes.length > 0 && groups) {
+      const items = changes.map((c) => `<li>${escapeHTML(changeLine(c))}</li>`).join('');
+      const html = `<section class="board-group board-group--changes" data-class-grade="${cls.grade}"><h2>${escapeHTML(cls.name)} 오늘 바뀐 수업</h2><ul>${items}</ul></section>`;
+      const first = groups.querySelector('.board-group');
+      if (first) first.insertAdjacentHTML('beforebegin', html);
+      else groups.insertAdjacentHTML('beforeend', html);
+    }
   }
 </script>

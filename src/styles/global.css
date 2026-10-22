@@ -1322,3 +1322,159 @@ a.row:hover .row-title {
   font-weight: 600;
   margin-right: 0.375rem;
 }
+
+/* 시간표 화면 · 반 고르기 */
+.class-row {
+  margin: -1rem 0 1.25rem;
+}
+
+.class-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+.class-btns {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(3.5rem, 1fr));
+  gap: 0.5rem;
+}
+
+.class-btn,
+.tt-week button,
+.tt-switch {
+  min-height: 2.75rem;
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.class-btn[aria-pressed='true'],
+.tt-week button[aria-pressed='true'] {
+  background: var(--school);
+  border-color: var(--school);
+  color: #fff;
+}
+
+.tt-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.tt-head h2 {
+  margin: 0;
+}
+
+.tt-switch {
+  padding-inline: 0.875rem;
+  font-size: 0.9375rem;
+}
+
+.tt-weeks {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+.tt-week {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+.tt-week > div {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.25rem;
+}
+
+.tt-week button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem 0;
+  line-height: 1.2;
+}
+
+.tt-week button small {
+  font-size: 0.6875rem;
+  opacity: 0.8;
+}
+
+.tt-date {
+  margin: 0.5rem 0;
+  font-size: 1.125rem;
+}
+
+.tt-day {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tt-day li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 0.625rem;
+  padding: 0.75rem 0.25rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.tt-day b {
+  min-width: 3.25rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.tt-subject {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.tt-tag {
+  padding: 0 0.5rem;
+  border: 1px solid var(--school);
+  border-radius: 999px;
+  color: var(--school);
+  font-size: 0.8125rem;
+}
+
+.tt-change {
+  font-style: normal;
+  padding: 0 0.5rem;
+  border-radius: 4px;
+  background: var(--chalk-1);
+  color: #3a3000;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.tt-day small {
+  color: var(--muted);
+}
+
+.tt-off,
+.tt-until {
+  font-weight: 600;
+}
+
+/* 칠판 「오늘 바뀐 수업」: 다른 학년 분필을 집었으면 감춘다 */
+[data-grade='1'] .board-group[data-class-grade]:not([data-class-grade='1']),
+[data-grade='2'] .board-group[data-class-grade]:not([data-class-grade='2']),
+[data-grade='3'] .board-group[data-class-grade]:not([data-class-grade='3']) {
+  display: none;
+}
+
+.board-group--changes h2 {
+  color: var(--chalk-yellow);
+}
