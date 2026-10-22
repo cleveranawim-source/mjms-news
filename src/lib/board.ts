@@ -1,23 +1,11 @@
 // 첫 화면 칠판에 적을 내용을 고르고 HTML로 만든다.
 // 빌드할 때와 브라우저에서 같은 함수를 써서, 사이트를 다시 빌드하지 않아도 '오늘'이 맞게 보이게 한다.
 import { formatDate, nextSchoolDay } from './dates.ts';
+import type { Feed } from './feed.ts';
 import { escapeHTML as escape } from './html.ts';
 
-export type BoardNotice = {
-  slug: string;
-  title: string;
-  date: string;
-  grades: number[];
-  bring: string[];
-  due?: string;
-};
-
-export type BoardEvent = {
-  title: string;
-  date: string;
-  end?: string;
-  grades: number[];
-};
+export type BoardNotice = { slug: string; title: string; grades: number[] };
+export type BoardEvent = { title: string; start: string; end: string; grades: number[] };
 
 type Item = { item: string; grades: number[]; slug: string };
 
@@ -28,22 +16,32 @@ export type Board = {
   bringToday: Item[];
   bringNext: Item[];
   newNotices: BoardNotice[];
+  meal: { ymd: string; dishes: string[] } | null; // 칠판에는 그리지 않는다(급식 칸은 따로)
+  dayOff: string | null; // 오늘이 쉬는 날이면 그 이름
 };
 
-export function buildBoard(today: string, notices: BoardNotice[], events: BoardEvent[]): Board {
-  const next = nextSchoolDay(today);
+export function boardFromFeed(today: string, feed: Feed): Board {
+  const { letters, daysOff } = feed;
+  const next = nextSchoolDay(today, daysOff);
   const bringOn = (day: string) =>
-    notices
-      .filter((n) => n.due === day)
-      .flatMap((n) => n.bring.map((item) => ({ item, grades: n.grades, slug: n.slug })));
+    letters
+      .filter((l) => l.due === day)
+      .flatMap((l) => l.bring.map((item) => ({ item, grades: l.grades, slug: l.id })));
+  // 가정통신문의 행사 날짜도 오늘 일정이다. 끝 날짜가 없으면 하루짜리.
+  const letterEvents = letters
+    .filter((l) => l.eventDate && l.eventDate <= today && today <= (l.eventEnd ?? l.eventDate))
+    .map((l) => ({ title: l.subject, start: l.eventDate!, end: l.eventEnd ?? l.eventDate!, grades: l.grades }));
+  const meal = feed.meals.find((m) => m.ymd === today);
 
   return {
     today,
     next,
-    events: events.filter((e) => e.date <= today && today <= (e.end ?? e.date)),
+    events: [...feed.events.filter((e) => e.start <= today && today <= e.end), ...letterEvents],
     bringToday: bringOn(today),
     bringNext: bringOn(next),
-    newNotices: notices.filter((n) => n.date === today),
+    newNotices: letters.filter((l) => l.publishedOn === today).map((l) => ({ slug: l.id, title: l.subject, grades: l.grades })),
+    meal: meal ? { ymd: meal.ymd, dishes: meal.dishes.map((d) => d.name) } : null,
+    dayOff: daysOff.find((d) => d.start <= today && today <= d.end)?.title ?? null,
   };
 }
 
@@ -61,7 +59,8 @@ function group(title: string, items: string[], empty: string, inline = false): s
 export function boardHTML(board: Board, base: string): string {
   const noticeHref = (slug: string) => `${base}notices/${slug}/`;
   // 학부모가 아침에 가장 먼저 찾는 '챙길 것'부터 적는다.
-  return [
+  const dayOff = board.dayOff ? `<p class="board-dayoff">오늘은 ${escape(board.dayOff)}입니다</p>` : '';
+  return dayOff + [
     group('오늘 챙길 것', board.bringToday.map((b) => li(b.item, b.grades, noticeHref(b.slug))), '없어요', true),
     group(`${formatDate(board.next)} 준비물`, board.bringNext.map((b) => li(b.item, b.grades, noticeHref(b.slug))), '없어요', true),
     group('오늘 일정', board.events.map((e) => li(e.title, e.grades)), '없어요'),

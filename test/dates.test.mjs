@@ -43,3 +43,28 @@ test('formatRange drops the repeated month', () => {
   assert.equal(formatRange('2026-10-30', '2026-11-02'), '10월 30일 (금) ~ 11월 2일 (월)');
   assert.equal(formatRange('2026-10-23'), '10월 23일 (금)');
 });
+
+import { isDayOff } from '../src/lib/dates.ts';
+
+test('nextSchoolDay skips a day off', () => {
+  assert.equal(nextSchoolDay('2026-11-18', [{ start: '2026-11-19', end: '2026-11-19' }]), '2026-11-20');
+});
+
+test('nextSchoolDay: Friday before a Monday holiday lands on Tuesday', () => {
+  assert.equal(nextSchoolDay('2026-10-23', [{ start: '2026-10-26', end: '2026-10-26' }]), '2026-10-27');
+});
+
+test('nextSchoolDay jumps over a whole vacation', () => {
+  const off = [
+    { start: '2026-12-31', end: '2027-02-28' },
+    { start: '2027-03-01', end: '2027-03-01' },
+  ];
+  assert.equal(nextSchoolDay('2026-12-30', off), '2027-03-02');
+});
+
+test('isDayOff checks inclusive ranges', () => {
+  const off = [{ start: '2026-11-19', end: '2026-11-20' }];
+  assert.equal(isDayOff('2026-11-19', off), true);
+  assert.equal(isDayOff('2026-11-20', off), true);
+  assert.equal(isDayOff('2026-11-21', off), false);
+});

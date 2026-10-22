@@ -24,9 +24,16 @@ export function weekday(iso: string): string {
   return WEEKDAYS[parse(iso).getUTCDay()];
 }
 
-export function nextSchoolDay(iso: string): string {
+type Range = { start: string; end: string };
+
+export function isDayOff(iso: string, daysOff: Range[]): boolean {
+  return daysOff.some((d) => d.start <= iso && iso <= d.end);
+}
+
+// 주말과 쉬는 날(공휴일·재량휴업일·방학)을 건너뛴 다음 등교일.
+export function nextSchoolDay(iso: string, daysOff: Range[] = []): string {
   let next = addDays(iso, 1);
-  while (['토', '일'].includes(weekday(next))) next = addDays(next, 1);
+  while (['토', '일'].includes(weekday(next)) || isDayOff(next, daysOff)) next = addDays(next, 1);
   return next;
 }
 

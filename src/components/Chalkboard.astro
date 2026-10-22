@@ -1,14 +1,15 @@
 ---
 import GradePicker from './GradePicker.astro';
-import { buildBoard, boardHTML } from '../lib/board.ts';
-import { getBoardData, getNotices } from '../lib/content.ts';
+import { boardFromFeed, boardHTML } from '../lib/board.ts';
+import { getNotices } from '../lib/content.ts';
 import { seoulToday, formatDate, weekday, addDays } from '../lib/dates.ts';
+import { getFeed } from '../lib/feed.ts';
 import { base, href } from '../lib/paths.ts';
 
 // 빌드한 날 기준으로 먼저 그려 두고, 브라우저가 실제 오늘 날짜로 다시 그린다.
-const data = await getBoardData();
+const feed = await getFeed();
 const today = seoulToday();
-const html = boardHTML(buildBoard(today, data.notices, data.events), base);
+const html = boardHTML(boardFromFeed(today, feed), base);
 const dayLabel = (iso: string) => formatDate(iso).replace(/ \(.\)$/, '');
 
 // 자석으로 붙여 둔 쪽지: 2주 안에 올린 '중요' 알림. 매일 아침 다시 빌드하므로 날짜는 빌드한 날 기준이면 된다.
@@ -51,22 +52,22 @@ const magnet = (grades: number[]) => (grades.length === 1 ? `g${grades[0]}` : 'g
         </ul>
       )
     }
-    <script type="application/json" data-board-json set:html={JSON.stringify({ base, ...data })} />
+    <script type="application/json" data-board-json set:html={JSON.stringify({ base, letters: feed.letters, events: feed.events, daysOff: feed.daysOff })} />
   </section>
   <GradePicker attached />
 </div>
 
 <script>
-  import { buildBoard, boardHTML } from '../lib/board.ts';
+  import { boardFromFeed, boardHTML } from '../lib/board.ts';
   import { seoulToday, formatDate, weekday } from '../lib/dates.ts';
 
   const board = document.querySelector<HTMLElement>('.board');
   const today = seoulToday();
   if (board && board.dataset.today !== today) {
-    const { base, notices, events } = JSON.parse(board.querySelector('[data-board-json]')!.textContent!);
+    const { base, letters, events, daysOff } = JSON.parse(board.querySelector('[data-board-json]')!.textContent!);
     board.dataset.today = today;
     board.querySelector('[data-board-day]')!.textContent = formatDate(today).replace(/ \(.\)$/, '');
     board.querySelector('[data-board-weekday]')!.textContent = `${weekday(today)}요일`;
-    board.querySelector('[data-board-groups]')!.innerHTML = boardHTML(buildBoard(today, notices, events), base);
+    board.querySelector('[data-board-groups]')!.innerHTML = boardHTML(boardFromFeed(today, { version: 1, generatedAt: '', letters, events, daysOff, meals: [] }), base);
   }
 </script>

@@ -521,6 +521,13 @@ main {
   gap: 1rem 2rem;
 }
 
+.board-dayoff {
+  margin: 0;
+  font-weight: 700;
+  font-size: 1.125rem;
+  color: var(--chalk);
+}
+
 .board-group h2 {
   font-family: inherit;
   font-weight: 700;
