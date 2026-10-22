@@ -10,12 +10,12 @@ const root = resolve(import.meta.dirname, '..');
 const fixture = resolve(root, 'test/fixtures/feed.json');
 const feed = JSON.parse(readFileSync(fixture, 'utf8'));
 // 공유 fixture는 건드리지 않고, 태그를 끊으려는 제목이 든 알림을 더한 사본으로 빌드한다.
-const evil = { ...feed.letters[2], id: 'L-evil', subject: '끊기 시험 </script><b>x', number: '제2026-80호', postedOn: '2026-10-10', publishedOn: '2026-10-10' };
+const evil = { ...feed.letters[2], id: 'L-evil', subject: '끊기 시험 </script><b>x', number: '제2026-80호', postedOn: '2026-09-01', publishedOn: '2026-09-01' };
 const tmp = resolve(mkdtempSync(resolve(tmpdir(), 'feed-')), 'feed.json');
 writeFileSync(tmp, JSON.stringify({ ...feed, letters: [...feed.letters, evil] }));
 execFileSync('npx', ['astro', 'build'], {
   cwd: root,
-  env: { ...process.env, NEWS_FEED_FILE: tmp },
+  env: { ...process.env, NEWS_FEED_FILE: tmp, NEWS_TODAY: '2026-10-22' },
   stdio: 'pipe',
 });
 const read = (p) => readFileSync(resolve(root, 'dist', p), 'utf8');
@@ -64,5 +64,9 @@ test('칠판에 2주 안에 올라온 알림이 쪽지로 붙고 오래된 것�
   assert.match(html, /class="note" href="[^"]*notices\/L-2026-1022-3\//);
   assert.match(html, /magnet g1/);
   assert.match(html, /제2026-87호/);
-  assert.ok(!html.includes('class="note" href="/notices/L-evil/"'));
+  // 14일 창(10월 8일부터) 밖인 옛 알림은 쪽지에 없다. 목록 줄에는 있으므로 쪽지 상자만 본다.
+  const notes = html.match(/<ul class="notes".*?<\/ul>/s)[0];
+  assert.ok(!notes.includes('L-evil'));
+  assert.ok(!notes.includes('제2026-80호'));
+  assert.ok(html.includes('href="/notices/L-evil/"'));
 });

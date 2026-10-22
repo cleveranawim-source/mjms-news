@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { seoulToday, addDays, nextSchoolDay, formatDate, toISODate } from '../src/lib/dates.ts';
+import { buildToday, seoulToday, addDays, nextSchoolDay, formatDate, toISODate } from '../src/lib/dates.ts';
 
 test('seoulToday uses Korea time, not UTC', () => {
   // 2026-10-22 16:00 UTC is already 10-23 01:00 in Seoul
@@ -67,4 +67,18 @@ test('isDayOff checks inclusive ranges', () => {
   assert.equal(isDayOff('2026-11-19', off), true);
   assert.equal(isDayOff('2026-11-20', off), true);
   assert.equal(isDayOff('2026-11-21', off), false);
+});
+
+test('buildToday: NEWS_TODAY overrides, invalid falls back to Seoul today', () => {
+  const prev = process.env.NEWS_TODAY;
+  try {
+    process.env.NEWS_TODAY = '2026-10-22';
+    assert.equal(buildToday(), '2026-10-22');
+    process.env.NEWS_TODAY = 'tomorrow';
+    assert.equal(buildToday(), seoulToday());
+    delete process.env.NEWS_TODAY;
+    assert.equal(buildToday(), seoulToday());
+  } finally {
+    if (prev === undefined) delete process.env.NEWS_TODAY; else process.env.NEWS_TODAY = prev;
+  }
 });

@@ -6,6 +6,12 @@ export function seoulToday(now: Date = new Date()): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Seoul' }).format(now);
 }
 
+// 빌드가 '오늘'로 삼는 날. 테스트가 날짜를 고정할 수 있게 NEWS_TODAY(YYYY-MM-DD)를 먼저 본다. 브라우저 쪽은 seoulToday()를 쓴다.
+export function buildToday(): string {
+  const o = process.env.NEWS_TODAY;
+  return o && /^\d{4}-\d{2}-\d{2}$/.test(o) ? o : seoulToday();
+}
+
 export function toISODate(value: string | Date): string {
   return typeof value === 'string' ? value : value.toISOString().slice(0, 10);
 }

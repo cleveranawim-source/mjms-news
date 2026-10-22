@@ -1,13 +1,13 @@
 ---
 import GradePicker from './GradePicker.astro';
 import { boardFromFeed, boardHTML } from '../lib/board.ts';
-import { seoulToday, formatDate, weekday, addDays } from '../lib/dates.ts';
+import { buildToday, formatDate, weekday, addDays } from '../lib/dates.ts';
 import { getFeed } from '../lib/feed.ts';
 import { base, href } from '../lib/paths.ts';
 
 // 빌드한 날 기준으로 먼저 그려 두고, 브라우저가 실제 오늘 날짜로 다시 그린다.
 const feed = await getFeed();
-const today = seoulToday();
+const today = buildToday();
 const html = boardHTML(boardFromFeed(today, feed), base);
 const dayLabel = (iso: string) => formatDate(iso).replace(/ \(.\)$/, '');
 
