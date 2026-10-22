@@ -1341,7 +1341,6 @@ a.row:hover .row-title {
 }
 
 .class-btn,
-.tt-week button,
 .tt-switch {
   min-height: 2.75rem;
   border: 1px solid var(--rule);
@@ -1352,8 +1351,7 @@ a.row:hover .row-title {
   cursor: pointer;
 }
 
-.class-btn[aria-pressed='true'],
-.tt-week button[aria-pressed='true'] {
+.class-btn[aria-pressed='true'] {
   background: var(--school);
   border-color: var(--school);
   color: #fff;
@@ -1509,11 +1507,8 @@ a.row:hover .row-title {
 }
 
 .tt-grid .tt-special {
-  box-shadow: inset 0 0 0 2px var(--school-sky);
-}
-
-.tt-grid .tt-today.tt-special {
-  box-shadow: inset 0 0 0 2px var(--school-sky);
+  outline: 2px dashed var(--school-sky);
+  outline-offset: -4px;
 }
 
 .tt-mark {
@@ -1535,9 +1530,13 @@ a.row:hover .row-title {
 }
 
 .tt-reveal {
-  min-height: 1.5rem;
-  margin: 0.5rem 0 0;
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  background: var(--chalk-1);
+  color: #3a3000;
   font-weight: 600;
+  scroll-margin-top: 4rem;
 }
 
 /* 칠판 「오늘 바뀐 수업」: 다른 학년 분필을 집었으면 감춘다 */

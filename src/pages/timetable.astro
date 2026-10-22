@@ -22,8 +22,8 @@ import { site } from '../site.config.ts';
           </div>
           <div class="tt-weeks" data-tt-weeks />
           <div class="tt-changes" data-tt-changes />
+          <p class="tt-reveal" id="tt-reveal" data-tt-reveal role="status" hidden />
           <div class="tt-gridwrap" data-tt-grid />
-          <p class="tt-reveal" data-tt-reveal role="status" />
           <p class="strip-note">수업은 선생님 사정으로 바뀔 수 있어요. 바뀐 줄은 표시해 두었어요.</p>
         </div>
       </div>
@@ -86,7 +86,7 @@ import { site } from '../site.config.ts';
           .map((w, i) => `<button type="button" data-week="${i}" aria-pressed="${i === week}">${escapeHTML(w.label)}</button>`)
           .join('')}</div>`;
         const t = changesTarget(cls, today);
-        $('[data-tt-changes]').innerHTML = changesBoxHTML(cls, t.ymd, t.label);
+        $('[data-tt-changes]').innerHTML = changesBoxHTML(cls, t.ymd, t.label, t.empty);
         renderGrid();
       };
 
@@ -97,7 +97,9 @@ import { site } from '../site.config.ts';
         const weekDays = [0, 1, 2, 3, 4].map((i) => addDays(m, i));
         root.querySelectorAll<HTMLElement>('[data-week]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.week) === week)));
         $('[data-tt-grid]').innerHTML = weekTableHTML(cls, weekDays, today);
-        $('[data-tt-reveal]').textContent = '';
+        const r = $('[data-tt-reveal]');
+        r.textContent = '';
+        r.hidden = true;
       };
 
       const show = () => {
@@ -131,7 +133,10 @@ import { site } from '../site.config.ts';
           const open = t.getAttribute('aria-expanded') !== 'true';
           root.querySelectorAll('[data-reveal]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
           t.setAttribute('aria-expanded', String(open));
-          $('[data-tt-reveal]').textContent = open ? t.dataset.reveal! : '';
+          const r = $('[data-tt-reveal]');
+          r.textContent = open ? t.dataset.reveal! : '';
+          r.hidden = !open;
+          if (open) r.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
         } else {
           classId = '';
           show();

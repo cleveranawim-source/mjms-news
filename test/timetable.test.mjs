@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadTimetable, todayChanges, weekTableHTML, changesBoxHTML, changesTarget, changeLine, weekGroups, initialDay, classButtonsHTML } from '../src/lib/timetable.ts';
+import { loadTimetable, todayChanges, weekTableHTML, changesBoxHTML, changesTarget, changeLine, weekGroups, classButtonsHTML } from '../src/lib/timetable.ts';
 
 const cell = (period, subject, extra = {}) => ({ period, subject, special: false, changed: null, ...extra });
 const feed = {
@@ -41,12 +41,9 @@ test('changeLine writes the original subject or the calendar note', () => {
   assert.equal(changeLine(feed.classes[0].days[0].cells[2]), '5교시 창체 (동아리활동)');
 });
 
-test('weekGroups names this week and next week; initialDay skips to the next day on a weekend', () => {
+test('weekGroups names this week and next week', () => {
   const days = ['2026-10-22', '2026-10-23', '2026-10-26', '2026-10-27'];
   assert.deepEqual(weekGroups(days, '2026-10-22').map((g) => g.label), ['이번 주', '다음 주']);
-  assert.equal(initialDay(days, '2026-10-22'), '2026-10-22');
-  assert.equal(initialDay(days, '2026-10-24'), '2026-10-26');
-  assert.equal(initialDay(days, '2026-12-01'), '2026-10-22');
 });
 
 test('classButtonsHTML lists only the chosen grade', () => {
@@ -123,11 +120,30 @@ test('weekTableHTML: day off shows its name once; until dims later cells and lab
 test('changesBoxHTML: lines, empty text, escaping', () => {
   const box = changesBoxHTML(gridCls, '2026-10-22', '오늘 바뀐 수업 (10월 22일 목)');
   assert.match(box, /1교시 &lt;b&gt;x&lt;\/b&gt; \(원래 &lt;i&gt;/);
-  assert.match(changesBoxHTML(gridCls, '2026-10-19', '오늘 바뀐 수업 (10월 19일 월)'), /오늘은 바뀐 수업이 없어요/);
+  assert.match(changesBoxHTML(gridCls, '2026-10-19', '오늘 바뀐 수업 (10월 19일 월)', '오늘은 바뀐 수업이 없어요'), /오늘은 바뀐 수업이 없어요/);
 });
 
 test('changesTarget: today on a school day, next school day on weekend or day off', () => {
-  assert.deepEqual(changesTarget(gridCls, '2026-10-22'), { ymd: '2026-10-22', label: '오늘 바뀐 수업 (10월 22일 목)' });
+  assert.deepEqual(changesTarget(gridCls, '2026-10-22'), { ymd: '2026-10-22', label: '오늘 바뀐 수업 (10월 22일 목)', empty: '오늘은 바뀐 수업이 없어요' });
   assert.equal(changesTarget(gridCls, '2026-10-24').label, '다음 등교일 바뀐 수업 (10월 26일 월)');
   assert.equal(changesTarget(gridCls, '2026-10-21').ymd, '2026-10-22');
+});
+
+test('changesBoxHTML: next-school-day empty text, date outside the feed', () => {
+  const t = changesTarget(gridCls, '2026-10-24');
+  assert.equal(t.ymd, '2026-10-26');
+  assert.match(changesBoxHTML(gridCls, '2026-10-19', t.label, t.empty), /다음 등교일은 바뀐 수업이 없어요/);
+  assert.match(changesBoxHTML(gridCls, t.ymd, t.label, t.empty), /그날 시간표가 아직 없어요/);
+});
+
+test('weekTableHTML: escapes off text and class name; 수업 없음 for a cleared changed cell; aria-controls', () => {
+  const c = { id: 'c', name: '<s>1</s>', grade: 1, days: [
+    { ymd: '2026-10-19', off: '<u>휴</u>', until: null, cells: [] },
+    { ymd: '2026-10-20', off: null, until: null, cells: [cell(1, '', { changed: { from: '수학', note: null } })] },
+  ] };
+  const html = weekTableHTML(c, wk, '2026-10-22');
+  assert.doesNotMatch(html, /<s>|<u>/);
+  assert.match(html, /&lt;u&gt;휴/);
+  assert.match(html, /<span>수업 없음<\/span>/);
+  assert.match(html, /aria-controls="tt-reveal"/);
 });

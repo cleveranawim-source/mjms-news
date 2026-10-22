@@ -76,11 +76,6 @@ export function weekGroups(days: string[], today: string): { label: string; days
   }));
 }
 
-/** 처음 보일 날: 오늘, 오늘이 없으면(주말) 그다음 날, 모두 지났으면 첫날. */
-export function initialDay(days: string[], today: string): string {
-  return days.includes(today) ? today : (days.find((d) => d > today) ?? days[0]);
-}
-
 export function classButtonsHTML(classes: ClassTimetable[], grade: number, selected: string): string {
   return classes
     .filter((c) => c.grade === grade)
@@ -111,7 +106,7 @@ export function weekTableHTML(cls: ClassTimetable, weekDays: string[], today: st
       if (!cell.changed) return `<td class="${cls_(d, sp.trim())}">${inner}</td>`;
       const why = cell.changed.from ? `원래 ${cell.changed.from}` : cell.changed.note;
       const reveal = `${mdw(d.ymd)} ${p}교시: ${cell.subject || '수업 없음'}${why ? ` (${why})` : ''}${cell.changed.from && cell.changed.note ? ` · ${cell.changed.note}` : ''}`;
-      return `<td class="${cls_(d, 'tt-changed' + sp)}"><button type="button" data-reveal="${escapeHTML(reveal)}" aria-expanded="false" aria-label="${escapeHTML(`${p}교시 ${cell.subject || '수업 없음'}, 바뀐 수업. 누르면 원래 수업이 보여요`)}">${inner}</button></td>`;
+      return `<td class="${cls_(d, 'tt-changed' + sp)}"><button type="button" data-reveal="${escapeHTML(reveal)}" aria-expanded="false" aria-controls="tt-reveal" aria-label="${escapeHTML(`${p}교시 ${cell.subject || '수업 없음'}, 바뀐 수업. 누르면 원래 수업이 보여요`)}">${inner}</button></td>`;
     });
     body.push(`<tr><th scope="row">${p}</th>${tds.join('')}</tr>`);
   }
@@ -119,17 +114,18 @@ export function weekTableHTML(cls: ClassTimetable, weekDays: string[], today: st
 }
 
 /** 「오늘 바뀐 수업」 상자가 다룰 날: 오늘, 주말·쉬는 날이면 다음 등교일. */
-export function changesTarget(cls: ClassTimetable, today: string): { ymd: string; label: string } {
+export function changesTarget(cls: ClassTimetable, today: string): { ymd: string; label: string; empty: string } {
   const offs = cls.days.filter((d) => d.off).map((d) => ({ start: d.ymd, end: d.ymd }));
   const closed = ['토', '일'].includes(weekday(today)) || offs.some((o) => o.start === today);
-  if (!closed) return { ymd: today, label: `오늘 바뀐 수업 (${mdw(today)})` };
+  if (!closed) return { ymd: today, label: `오늘 바뀐 수업 (${mdw(today)})`, empty: '오늘은 바뀐 수업이 없어요' };
   const ymd = nextSchoolDay(today, offs);
-  return { ymd, label: `다음 등교일 바뀐 수업 (${mdw(ymd)})` };
+  return { ymd, label: `다음 등교일 바뀐 수업 (${mdw(ymd)})`, empty: '다음 등교일은 바뀐 수업이 없어요' };
 }
 
-export function changesBoxHTML(cls: ClassTimetable, ymd: string, label: string): string {
+export function changesBoxHTML(cls: ClassTimetable, ymd: string, label: string, empty = '바뀐 수업이 없어요'): string {
   const lines = changeLines({ version: 1, generatedAt: '', days: [], classes: [cls] }, cls.id, ymd);
-  const empty = label.startsWith('오늘') ? '오늘은 바뀐 수업이 없어요' : '바뀐 수업이 없어요';
-  const list = lines.length ? `<ul>${lines.map((l) => `<li>${escapeHTML(l)}</li>`).join('')}</ul>` : `<p>${empty}</p>`;
+  // 피드에 그 날짜가 없으면 「바뀐 수업 없음」이라고 단정하지 않는다.
+  const none = cls.days.some((d) => d.ymd === ymd) ? empty : '그날 시간표가 아직 없어요';
+  const list = lines.length ? `<ul>${lines.map((l) => `<li>${escapeHTML(l)}</li>`).join('')}</ul>` : `<p>${none}</p>`;
   return `<h3>${escapeHTML(label)}</h3>${list}`;
 }
