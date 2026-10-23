@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import Plate from '../components/Plate.astro';
 import Chalkboard from '../components/Chalkboard.astro';
 import NoticeRow from '../components/NoticeRow.astro';
 import EventRow from '../components/EventRow.astro';
@@ -20,7 +21,7 @@ const upcoming = future
 ---
 
 <Base>
-  <h1 class="sr-only">오늘의 알림</h1>
+  <Plate kind="class" />
   <Chalkboard />
   <section class="section section--home filter-group" aria-labelledby="upcoming">
     <div class="section-head">

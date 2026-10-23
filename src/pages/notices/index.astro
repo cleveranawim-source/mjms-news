@@ -1,6 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
-import GradePicker from '../../components/GradePicker.astro';
+import Plate from '../../components/Plate.astro';
 import NoticeRow from '../../components/NoticeRow.astro';
 import { getLetters, groupByMonth } from '../../lib/content.ts';
 import { formatMonth } from '../../lib/dates.ts';
@@ -8,10 +8,9 @@ import { formatMonth } from '../../lib/dates.ts';
 const months = groupByMonth(await getLetters(), (n) => n.postedOn);
 ---
 
-<Base title="알림">
-  <h1 class="page-title">알림</h1>
+<Base title="가정통신문">
+  <Plate kind="page" title="가정통신문" sub="학교 홈페이지 가정통신문" />
   <p class="lede">학교 홈페이지 가정통신문을 옮긴 요약입니다. 최근 것부터 모았습니다.</p>
-  <GradePicker />
   {
     months.map(([month, items]) => (
       <section class="month filter-group">

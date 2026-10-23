@@ -2,6 +2,7 @@
 import '../styles/global.css';
 import { site } from '../site.config.ts';
 import { href } from '../lib/paths.ts';
+import ClassSheet from '../components/ClassSheet.astro';
 
 interface Props {
   title?: string;
@@ -11,16 +12,16 @@ interface Props {
 const { title, description = site.description } = Astro.props;
 const fullTitle = title ? `${title} | ${site.title}` : site.title;
 const path = Astro.url.pathname;
-// 휴대폰에서는 아래 탭으로, 넓은 화면에서는 머리글 오른쪽에 보인다. icon은 24×24 선 그림.
+// 아래 탭(휴대폰·넓은 화면 모두). icon은 24×24 선 그림.
 const nav = [
-  { label: '오늘', short: '오늘', to: href(), icon: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/>' },
-  { label: '알림', short: '알림', to: href('notices/'), icon: '<path d="M6 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6z"/><path d="M9 8h6M9 12h6M9 16h4"/>' },
-  { label: '학사일정', short: '일정', to: href('schedule/'), icon: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>' },
+  { label: '오늘', to: href(), icon: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/>' },
+  { label: '가정통신문', to: href('notices/'), icon: '<path d="M6 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6z"/><path d="M9 8h6M9 12h6M9 16h4"/>' },
+  { label: '일정', to: href('schedule/'), icon: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>' },
   ...(site.lostFoundApi
-    ? [{ label: '분실물함', short: '분실물', to: href('lost/'), icon: '<path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>' }]
+    ? [{ label: '분실물', to: href('lost/'), icon: '<path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>' }]
     : []),
   ...(site.timetableApi
-    ? [{ label: '시간표', short: '시간표', to: href('timetable/'), icon: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>' }]
+    ? [{ label: '시간표', to: href('timetable/'), icon: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>' }]
     : []),
 ];
 const isCurrent = (to: string) => (to === href() ? path === to : path.startsWith(to));
@@ -33,34 +34,23 @@ const isCurrent = (to: string) => (to === href() ? path === to : path.startsWith
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="description" content={description} />
     <meta name="referrer" content="no-referrer" />
-    <meta name="theme-color" content="#26443a" />
+    <meta name="theme-color" content="#033e7b" />
     <title>{fullTitle}</title>
     <link rel="icon" href={href('favicon.png')} type="image/png" />
     <link rel="apple-touch-icon" href={href('apple-touch-icon.png')} />
     <link rel="manifest" href={href('manifest.webmanifest')} />
     <meta name="apple-mobile-web-app-title" content="명지중 알림장" />
     <script is:inline>
-      // 고른 학년은 이 기기에만 저장된다. 서버로 보내지 않는다.
+      // 고른 반(예 class-1_5)은 이 기기에만 저장된다. 학년은 반에서 얻는다. 예전에 따로 두던 mjms-grade는 지운다.
       try {
-        const g = localStorage.getItem('mjms-grade');
-        if (g) document.documentElement.dataset.grade = g;
+        localStorage.removeItem('mjms-grade');
+        const m = /^class-(\d+)_\d+$/.exec(localStorage.getItem('mjms-class') || '');
+        if (m) document.documentElement.dataset.grade = String(Number(m[1]));
       } catch {}
     </script>
   </head>
   <body>
     <a class="skip" href="#main">본문으로 건너뛰기</a>
-    <header class="site-header">
-      <div class="wrap">
-        <a class="site-name" href={href()}>
-          <img src={href('emblem.png')} alt="" width="36" height="37" />
-          <span><small>{site.school}</small>알림장</span>
-        </a>
-        <a class="grade-chip" href="#grade-tray" data-grade-chip hidden>전체 학년</a>
-        <nav class="site-nav" aria-label="주 메뉴">
-          {nav.filter((n) => n.to !== href()).map((n) => <a href={n.to} aria-current={isCurrent(n.to) ? 'page' : undefined}>{n.label}</a>)}
-        </nav>
-      </div>
-    </header>
     <main id="main" class="wrap">
       <slot />
     </main>
@@ -75,15 +65,16 @@ const isCurrent = (to: string) => (to === href() ? path === to : path.startsWith
         </p>
       </div>
     </footer>
-    <nav class="tabbar" aria-label="아래 메뉴">
+    <nav class="tabbar" aria-label="주 메뉴">
       {
         nav.map((n) => (
           <a href={n.to} aria-current={isCurrent(n.to) ? 'page' : undefined}>
             <svg viewBox="0 0 24 24" aria-hidden="true" set:html={n.icon} />
-            <span>{n.short}</span>
+            <span>{n.label}</span>
           </a>
         ))
       }
     </nav>
+    <ClassSheet />
   </body>
 </html>

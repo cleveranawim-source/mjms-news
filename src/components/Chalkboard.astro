@@ -1,5 +1,4 @@
 ---
-import GradePicker from './GradePicker.astro';
 import { boardFromFeed, boardHTML } from '../lib/board.ts';
 import { buildToday, formatDate, weekday, addDays } from '../lib/dates.ts';
 import { getFeed } from '../lib/feed.ts';
@@ -57,7 +56,6 @@ const boardJson = JSON.stringify({ base, letters: feed.letters, events: feed.eve
     }
     <script type="application/json" data-board-json set:html={boardJson} />
   </section>
-  <GradePicker attached />
 </div>
 
 <script>

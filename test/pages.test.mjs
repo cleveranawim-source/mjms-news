@@ -73,7 +73,7 @@ test('칠판에 2주 안에 올라온 알림이 쪽지로 붙고 오래된 것�
 
 test('첫 화면 칠판에 오늘 급식이 있고 알레르기 정보는 접혀 있다', () => {
   const html = read('index.html');
-  const board = html.match(/<section class="board".*?<\/section>\s*<div class="tray/s)[0];
+  const board = html.match(/<section class="board".*?data-board-json/s)[0];
   const meal = board.match(/<section class="board-group board-meal">.*?<\/section>/s)[0];
   assert.match(meal, /오늘 급식/);
   assert.ok(meal.includes('흑미밥, 순두부찌개, 떡갈비, 시금치나물'));
@@ -90,4 +90,45 @@ test('첫 화면 다가오는 일정은 두 개까지, 한 줄짜리로', () => 
   const all = list.match(/<li [^>]*data-show="[^"]*\ball\b/g) ?? [];
   assert.ok(all.length >= 1 && all.length <= 2);
   for (const g of ['1', '2', '3']) assert.ok((list.match(new RegExp(`<li [^>]*data-show="[^"]*\\b${g}\\b`, 'g')) ?? []).length <= 2);
+});
+
+test('모든 화면: 아래 탭 라벨, 명패, IBM Plex 없음', () => {
+  for (const f of ['index.html', 'notices/index.html', 'schedule/index.html', 'timetable/index.html', 'lost/index.html', 'about/index.html']) {
+    const html = read(f);
+    assert.match(html, /class="tabbar"[\s\S]*오늘[\s\S]*가정통신문[\s\S]*일정[\s\S]*분실물[\s\S]*시간표/, f);
+    assert.match(html, /class="plate/, f);
+    assert.ok(!/ibm-plex|IBM Plex/i.test(html), f);
+    assert.match(html, /data-class-sheet/, f);
+  }
+});
+
+test('명패: 화면 이름이 h1, 첫 화면·시간표는 반 명패와 반 고르기 단추', () => {
+  assert.match(read('notices/index.html'), /<h1 class="plate-title"[^>]*>가정통신문<\/h1>/);
+  assert.match(read('lost/index.html'), /<h1 class="plate-title"[^>]*>분실물함<\/h1>/);
+  for (const f of ['index.html', 'timetable/index.html']) {
+    const html = read(f);
+    assert.match(html, /data-plate-class/, f);
+    assert.match(html, /우리 반을 골라 주세요/, f);
+    assert.match(html, /<button[^>]*data-open-class-sheet/, f);
+    assert.equal((html.match(/<h1[\s>]/g) ?? []).length, 1, f);
+  }
+  assert.match(read('timetable/index.html'), /data-plate-suffix=" 시간표"/);
+  // 옛 머리글·분필받침·반 줄은 없다.
+  for (const f of ['index.html', 'notices/index.html', 'schedule/index.html', 'timetable/index.html']) {
+    const html = read(f);
+    assert.ok(!html.includes('site-header') && !html.includes('grade-chip') && !html.includes('class="tray') && !html.includes('data-class-picker'), f);
+  }
+});
+
+test('반 고르기 창: dialog, 학년 세 칸, 확인 단추, 저장 안내, 실패 문구', () => {
+  const html = read('index.html');
+  const sheet = html.match(/<dialog[^>]*data-class-sheet[\s\S]*?<\/dialog>/)[0];
+  assert.equal((sheet.match(/data-pick-grade="[123]"/g) ?? []).length, 3);
+  assert.match(sheet, /data-sheet-ok[^>]*disabled/);
+  assert.match(sheet, /이 휴대폰에만 저장돼요\. 이름이나 번호는 묻지 않아요\./);
+  assert.match(sheet, /반 목록을 불러오지 못했어요/);
+  assert.match(sheet, /다시 불러오기/);
+  assert.ok(!/<dialog[^>]*\sopen/.test(sheet));
+  assert.equal((html.match(/data-class-sheet/g) ?? []).length, 1);
+  assert.match(html, /<meta name="theme-color" content="#033e7b"/);
 });

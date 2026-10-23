@@ -1,0 +1,59 @@
+---
+// 명패: 모든 화면 맨 위의 남색 판. 제목이 그 화면의 h1이다.
+// kind='class'는 저장된 반으로 제목을 채운다(「1학년 5반」 + title 접미사). 반이 없으면 「우리 반을 골라 주세요」.
+// switchLabel: 반 고르기 창을 여는 단추(반이 있으면 「반 바꾸기」, 없으면 「반 고르기」). class 명패는 기본으로 켠다.
+import { href } from '../lib/paths.ts';
+
+interface Props {
+  kind: 'class' | 'page';
+  title?: string;
+  sub?: string;
+  switchLabel?: boolean;
+}
+
+const { kind, title = '', sub, switchLabel = kind === 'class' } = Astro.props;
+const isClass = kind === 'class';
+const subText = isClass ? '명지중학교 알림장' : sub;
+---
+
+<header
+  class:list={['plate', `plate--${kind}`, { 'plate--empty': isClass }]}
+  data-plate-class={isClass ? '' : undefined}
+  data-plate-suffix={isClass && title ? title : undefined}
+>
+  {isClass && <img class="plate-emblem" src={href('emblem.png')} alt="" width="32" height="33" />}
+  <div class="plate-text">
+    {subText && <p class="plate-sub" data-plate-sub>{subText}</p>}
+    <h1 class="plate-title" data-plate-title>{isClass ? '우리 반을 골라 주세요' : title}</h1>
+  </div>
+  {
+    switchLabel && (
+      <button type="button" class="plate-btn" data-open-class-sheet aria-haspopup="dialog">
+        <span data-plate-btn>반 고르기</span>
+      </button>
+    )
+  }
+</header>
+<script is:inline>
+  // 그리기 전에 바로 채워서 「우리 반을 골라 주세요」가 깜빡이지 않게 한다. 반 id 꼴은 lib/klass.ts와 같다.
+  (() => {
+    const plate = document.currentScript.previousElementSibling;
+    const fill = (id) => {
+      const m = /^class-(\d+)_(\d+)$/.exec(id || '');
+      const btn = plate.querySelector('[data-plate-btn]');
+      if (btn) btn.textContent = m ? '반 바꾸기' : '반 고르기';
+      if (!plate.hasAttribute('data-plate-class')) return;
+      plate.classList.toggle('plate--empty', !m);
+      plate.querySelector('[data-plate-sub]').textContent = m ? '명지중학교 알림장 · 우리 반' : '명지중학교 알림장';
+      plate.querySelector('[data-plate-title]').textContent = m
+        ? `${Number(m[1])}학년 ${Number(m[2])}반${plate.dataset.plateSuffix || ''}`
+        : '우리 반을 골라 주세요';
+    };
+    let id = '';
+    try {
+      id = localStorage.getItem('mjms-class') || '';
+    } catch {}
+    fill(id);
+    document.addEventListener('mjms:class', (e) => fill(e.detail));
+  })();
+</script>

@@ -1,10 +1,11 @@
 ---
 import Base from '../layouts/Base.astro';
+import Plate from '../components/Plate.astro';
 import { site } from '../site.config.ts';
 ---
 
 <Base title="분실물함" description="명지중학교에서 보관 중인 분실물 사진과 찾으러 갈 곳을 볼 수 있습니다.">
-  <h1 class="page-title">분실물함</h1>
+  <Plate kind="page" title="분실물함" sub="학교에서 보관 중인 물건" />
   <p class="lede">
     학교에서 보관 중인 물건입니다. 사진을 누르면 찾으러 갈 곳이 보여요. 내 물건이면 그곳 선생님께 물건의 특징을 말하고 찾아가요.
   </p>

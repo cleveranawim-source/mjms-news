@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadTimetable, todayChanges, weekTableHTML, changesBoxHTML, changesTarget, changeLine, weekGroups, classButtonsHTML } from '../src/lib/timetable.ts';
+import { loadTimetable, todayChanges, weekTableHTML, changesBoxHTML, changesTarget, changeLine, weekGroups } from '../src/lib/timetable.ts';
 
 const cell = (period, subject, extra = {}) => ({ period, subject, special: false, changed: null, ...extra });
 const feed = {
@@ -44,13 +44,6 @@ test('changeLine writes the original subject or the calendar note', () => {
 test('weekGroups names this week and next week', () => {
   const days = ['2026-10-22', '2026-10-23', '2026-10-26', '2026-10-27'];
   assert.deepEqual(weekGroups(days, '2026-10-22').map((g) => g.label), ['이번 주', '다음 주']);
-});
-
-test('classButtonsHTML lists only the chosen grade', () => {
-  const html = classButtonsHTML(feed.classes, 1, 'c15');
-  assert.match(html, /1-5/);
-  assert.doesNotMatch(html, /2-1/);
-  assert.match(html, /aria-pressed="true"/);
 });
 
 import { changeLines } from '../src/lib/timetable.ts';

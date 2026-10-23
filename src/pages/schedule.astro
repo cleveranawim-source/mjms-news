@@ -1,6 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
-import GradePicker from '../components/GradePicker.astro';
+import Plate from '../components/Plate.astro';
 import EventRow from '../components/EventRow.astro';
 import { getScheduleEntries, groupByMonth } from '../lib/content.ts';
 import { formatMonth } from '../lib/dates.ts';
@@ -9,9 +9,8 @@ const months = groupByMonth(await getScheduleEntries(), (e) => e.start);
 ---
 
 <Base title="학사일정">
-  <h1 class="page-title">학사일정</h1>
+  <Plate kind="page" title="학사일정" />
   <p class="lede">시험, 행사, 쉬는 날을 날짜순으로 모았습니다. 지난 일정은 흐리게 보입니다.</p>
-  <GradePicker />
   {
     months.map(([month, items]) => (
       <section class="month filter-group">

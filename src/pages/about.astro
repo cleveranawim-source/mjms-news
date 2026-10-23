@@ -1,11 +1,12 @@
 ---
 import Base from '../layouts/Base.astro';
+import Plate from '../components/Plate.astro';
 import { site } from '../site.config.ts';
 ---
 
 <Base title="이용 안내">
+  <Plate kind="page" title="이용 안내" sub={site.title} />
   <article class="notice prose">
-    <h1 class="page-title">이용 안내</h1>
     <p class="lede">{site.title}은 {site.school} 학부모님과 학생이 학교의 공개 알림을 편하게 확인하도록 만든 곳입니다.</p>
 
     <h2>무엇을 볼 수 있나요</h2>

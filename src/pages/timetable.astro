@@ -1,11 +1,11 @@
 ---
 import Base from '../layouts/Base.astro';
-import ClassPicker from '../components/ClassPicker.astro';
+import Plate from '../components/Plate.astro';
 import { site } from '../site.config.ts';
 ---
 
 <Base title="시간표" description="우리 반 이번 주·다음 주 시간표와 오늘 바뀐 수업을 한눈에 볼 수 있습니다.">
-  <h1 class="page-title">시간표</h1>
+  <Plate kind="class" title=" 시간표" />
   {
     site.timetableApi && (
       <div data-timetable data-api={site.timetableApi}>
@@ -13,13 +13,9 @@ import { site } from '../site.config.ts';
         <noscript><p class="lede">시간표는 자바스크립트를 켜야 보여요.</p></noscript>
         <div data-tt-pick hidden>
           <p class="lede">우리 반을 한 번 골라 두면 다음부터 바로 보여요. 고른 반은 이 기기에만 저장돼요.</p>
-          <ClassPicker />
+          <button type="button" class="tt-pick" data-open-class-sheet aria-haspopup="dialog">반 고르기</button>
         </div>
         <div data-tt-view hidden>
-          <div class="tt-head">
-            <h2 data-tt-class tabindex="-1" />
-            <button type="button" class="tt-switch" data-tt-switch>반 바꾸기</button>
-          </div>
           <div class="tt-weeks" data-tt-weeks />
           <div class="tt-changes" data-tt-changes />
           <p class="tt-reveal" id="tt-reveal" data-tt-reveal role="status" hidden />
@@ -32,7 +28,8 @@ import { site } from '../site.config.ts';
 </Base>
 
 <script>
-  import { loadTimetable, weekTableHTML, changesTarget, changesBoxHTML, weekGroups, classButtonsHTML, type TimetableFeed } from '../lib/timetable.ts';
+  import { loadTimetable, weekTableHTML, changesTarget, changesBoxHTML, weekGroups, type TimetableFeed } from '../lib/timetable.ts';
+  import { readClass } from '../lib/klass.ts';
   import { seoulToday, addDays, weekday } from '../lib/dates.ts';
   import { escapeHTML } from '../lib/html.ts';
 
@@ -44,33 +41,14 @@ import { site } from '../site.config.ts';
     const view = $('[data-tt-view]');
     const today = seoulToday();
 
-    const store = {
-      get: (): string => {
-        try {
-          return localStorage.getItem('mjms-class') ?? '';
-        } catch {
-          return '';
-        }
-      },
-      set: (v: string) => {
-        try {
-          localStorage.setItem('mjms-class', v);
-        } catch {}
-      },
-    };
-
     const feed: TimetableFeed | null = await loadTimetable(root.dataset.api!);
     if (!feed || feed.classes.length === 0 || feed.days.length === 0) {
       message.textContent = '시간표를 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.';
     } else {
       message.hidden = true;
-      let classId = feed.classes.some((c) => c.id === store.get()) ? store.get() : '';
-      const renderRow = () => {
-        const g = Number(document.documentElement.dataset.grade ?? '');
-        const btns = $('[data-class-btns]');
-        $('[data-class-hint]').hidden = g > 0;
-        btns.innerHTML = g > 0 ? classButtonsHTML(feed.classes, g, classId) : '';
-      };
+      // 반은 명패의 반 고르기 창(ClassSheet)에서 고른다. 피드에 없는 반이면 고르기 안내를 보인다.
+      const known = (id: string) => (feed.classes.some((c) => c.id === id) ? id : '');
+      let classId = known(readClass());
 
       const dow = (ymd: string) => ['일', '월', '화', '수', '목', '금', '토'].indexOf(weekday(ymd));
       const groups = weekGroups(feed.days, today);
@@ -81,7 +59,6 @@ import { site } from '../site.config.ts';
 
       const renderView = () => {
         const cls = feed.classes.find((c) => c.id === classId)!;
-        $('[data-tt-class]').textContent = `${cls.name} 시간표`;
         $('[data-tt-weeks]').innerHTML = `<div role="group" aria-label="주 고르기">${groups
           .map((w, i) => `<button type="button" data-week="${i}" aria-pressed="${i === week}">${escapeHTML(w.label)}</button>`)
           .join('')}</div>`;
@@ -105,28 +82,18 @@ import { site } from '../site.config.ts';
       const show = () => {
         pick.hidden = !!classId;
         view.hidden = !classId;
-        // 머리글 학년 표시는 분필받침으로 안내하는데, 반을 고른 뒤에는 받침이 숨으므로 같이 숨긴다.
-        const chip = document.querySelector<HTMLElement>('[data-grade-chip]');
-        if (chip) chip.hidden = !!classId;
         if (classId) renderView();
-        else renderRow();
       };
 
-      // 학년 분필을 누르면 <html data-grade>가 바뀐다 — 그에 맞춰 반 단추를 다시 그린다.
-      new MutationObserver(renderRow).observe(document.documentElement, { attributes: true, attributeFilter: ['data-grade'] });
+      document.addEventListener('mjms:class', (e) => {
+        classId = known((e as CustomEvent<string>).detail);
+        show();
+      });
 
       root.addEventListener('click', (e) => {
-        const t = (e.target as HTMLElement).closest<HTMLElement>('[data-class], [data-week], [data-reveal], [data-tt-switch]');
+        const t = (e.target as HTMLElement).closest<HTMLElement>('[data-week], [data-reveal]');
         if (!t) return;
-        if (t.dataset.class) {
-          classId = t.dataset.class;
-          store.set(classId);
-          // 반을 고르면 학년 분필도 그 학년으로 맞춘다(분필을 누른 것과 같다).
-          const grade = feed.classes.find((c) => c.id === classId)!.grade;
-          document.querySelector<HTMLButtonElement>(`.tray .chalk[data-value="${grade}"]`)?.click();
-          show();
-          $('[data-tt-class]').focus();
-        } else if (t.dataset.week) {
+        if (t.dataset.week) {
           week = Number(t.dataset.week);
           renderGrid();
         } else if (t.dataset.reveal !== undefined) {
@@ -137,9 +104,6 @@ import { site } from '../site.config.ts';
           r.textContent = open ? t.dataset.reveal! : '';
           r.hidden = !open;
           if (open) r.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-        } else {
-          classId = '';
-          show();
         }
       });
       show();

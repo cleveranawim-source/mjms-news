@@ -1,0 +1,138 @@
+---
+// 반 고르기 창: 아래에서 올라오는 <dialog>. 모든 화면의 [data-open-class-sheet] 단추가 이 창 하나를 연다(Base에 한 번).
+// 반 목록은 시간표 피드에 있는 반만. 처음 방문에 저절로 열지 않는다. 닫기·Esc·바깥 누르기는 원래 반을 그대로 둔다.
+import { site } from '../site.config.ts';
+---
+
+<dialog class="sheet" data-class-sheet data-api={site.timetableApi || undefined} aria-labelledby="class-sheet-title">
+  <div class="sheet-inner">
+    <div class="sheet-grip" aria-hidden="true"></div>
+    <div class="sheet-head">
+      <h2 id="class-sheet-title">우리 반 고르기</h2>
+      <button type="button" class="sheet-close" data-sheet-close>닫기</button>
+    </div>
+    <p class="sheet-status" data-sheet-loading role="status">반 목록을 불러오는 중이에요.</p>
+    <div class="sheet-status" data-sheet-error hidden>
+      <p role="alert">반 목록을 불러오지 못했어요</p>
+      <button type="button" class="sheet-retry" data-sheet-retry>다시 불러오기</button>
+    </div>
+    <div data-sheet-pick hidden>
+      <h3 class="sheet-label" id="class-sheet-grade">학년</h3>
+      <div class="sheet-grades" role="group" aria-labelledby="class-sheet-grade">
+        {[1, 2, 3].map((g) => <button type="button" class="sheet-cell" data-pick-grade={g} aria-pressed="false">{g}학년</button>)}
+      </div>
+      <h3 class="sheet-label" id="class-sheet-class">반</h3>
+      <p class="sheet-hint" data-sheet-hint>학년을 먼저 골라 주세요.</p>
+      <div class="sheet-classes" role="group" aria-labelledby="class-sheet-class" data-sheet-classes></div>
+    </div>
+    <button type="button" class="sheet-ok" data-sheet-ok disabled>반을 골라 주세요</button>
+    <p class="sheet-note">이 휴대폰에만 저장돼요. 이름이나 번호는 묻지 않아요.</p>
+  </div>
+</dialog>
+
+<script>
+  import { loadTimetable, type ClassTimetable } from '../lib/timetable.ts';
+  import { readClass, saveClass, gradeOf, classLabel, sheetClassesHTML } from '../lib/klass.ts';
+
+  const sheet = document.querySelector<HTMLDialogElement>('[data-class-sheet]');
+  if (sheet) {
+    const $ = <T extends HTMLElement>(s: string) => sheet.querySelector<T>(s)!;
+    const ok = $<HTMLButtonElement>('[data-sheet-ok]');
+    let classes: ClassTimetable[] | null = null;
+    let loading: Promise<void> | null = null;
+    let grade = 0;
+    let picked = '';
+    let opener: HTMLElement | null = null;
+
+    const render = () => {
+      if (!classes) return;
+      const has = (g: number) => classes!.some((c) => c.grade === g);
+      sheet.querySelectorAll<HTMLButtonElement>('[data-pick-grade]').forEach((b) => {
+        const g = Number(b.dataset.pickGrade);
+        b.setAttribute('aria-pressed', String(g === grade));
+        b.disabled = !has(g);
+      });
+      $('[data-sheet-hint]').hidden = grade > 0;
+      $('[data-sheet-classes]').innerHTML = grade > 0 ? sheetClassesHTML(classes, grade, picked) : '';
+      renderPick();
+    };
+
+    // 반 단추는 다시 그리지 않고 눌림만 바꾼다(누른 단추에 포커스가 남도록).
+    const renderPick = () => {
+      sheet.querySelectorAll<HTMLButtonElement>('[data-pick-class]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.pickClass === picked)));
+      const label = picked ? classLabel(picked) : null;
+      ok.disabled = !label;
+      ok.textContent = label ? `${label}으로 보기` : '반을 골라 주세요';
+    };
+
+    const load = () => {
+      $('[data-sheet-loading]').hidden = false;
+      $('[data-sheet-error]').hidden = true;
+      return (loading ??= (async () => {
+        const feed = sheet.dataset.api ? await loadTimetable(sheet.dataset.api) : null;
+        loading = null;
+        $('[data-sheet-loading]').hidden = true;
+        if (!feed || feed.classes.length === 0) {
+          $('[data-sheet-error]').hidden = false;
+          return;
+        }
+        classes = feed.classes;
+        $('[data-sheet-pick]').hidden = false;
+        // 저장된 반이 피드에 없으면 고른 것이 없는 것으로 연다.
+        if (!classes.some((c) => c.id === picked)) {
+          picked = '';
+          grade = 0;
+        }
+        render();
+      })());
+    };
+
+    const open = (from: HTMLElement) => {
+      opener = from;
+      picked = readClass();
+      grade = gradeOf(picked) ?? 0;
+      render();
+      sheet.showModal();
+      if (!classes) load();
+    };
+
+    document.addEventListener('click', (e) => {
+      const t = (e.target as HTMLElement).closest<HTMLElement>('[data-open-class-sheet]');
+      if (t && !sheet.open) open(t);
+    });
+
+    sheet.addEventListener('click', (e) => {
+      // 창 바깥(어두운 바탕)을 누르면 닫는다. 안쪽은 .sheet-inner가 덮는다.
+      if (e.target === sheet) return sheet.close();
+      const t = (e.target as HTMLElement).closest<HTMLButtonElement>('button');
+      if (!t) return;
+      if (t.dataset.pickGrade) {
+        const g = Number(t.dataset.pickGrade);
+        // 학년을 바꾸면 반 선택이 풀린다.
+        if (g !== grade) picked = '';
+        grade = g;
+        render();
+      } else if (t.dataset.pickClass) {
+        picked = t.dataset.pickClass;
+        renderPick();
+      } else if (t.hasAttribute('data-sheet-retry')) {
+        // 다시 불러오기 단추가 숨으면 포커스가 사라지므로 학년 칸(또는 다시 그 단추)으로 옮긴다.
+        load().then(() => (classes ? sheet.querySelector<HTMLButtonElement>('[data-pick-grade]:not(:disabled)') : t)?.focus());
+      } else if (t.hasAttribute('data-sheet-close')) {
+        sheet.close();
+      } else if (t === ok && picked) {
+        saveClass(picked);
+        const g = gradeOf(picked);
+        if (g) document.documentElement.dataset.grade = String(g);
+        document.dispatchEvent(new CustomEvent('mjms:class', { detail: picked }));
+        sheet.close();
+      }
+    });
+
+    // 닫히면 연 단추로 포커스를 돌려준다(브라우저가 안 해 주는 경우를 위해).
+    sheet.addEventListener('close', () => {
+      if (opener?.isConnected) opener.focus();
+      opener = null;
+    });
+  }
+</script>

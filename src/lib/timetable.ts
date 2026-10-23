@@ -76,13 +76,6 @@ export function weekGroups(days: string[], today: string): { label: string; days
   }));
 }
 
-export function classButtonsHTML(classes: ClassTimetable[], grade: number, selected: string): string {
-  return classes
-    .filter((c) => c.grade === grade)
-    .map((c) => `<button type="button" class="class-btn" data-class="${escapeHTML(c.id)}" aria-pressed="${c.id === selected}">${escapeHTML(c.name)}</button>`)
-    .join('');
-}
-
 const mdw = (ymd: string) => `${Number(ymd.slice(5, 7))}월 ${Number(ymd.slice(8))}일 ${weekday(ymd)}`;
 
 /** 한 주 전체 표: 열 = 날짜(월~금), 행 = 교시. 바뀐 칸은 노랑 단추 — 누르면 원래 수업이 표 아래에 나온다(page가 data-reveal을 읽는다). */

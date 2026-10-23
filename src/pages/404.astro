@@ -1,9 +1,10 @@
 ---
 import Base from '../layouts/Base.astro';
+import Plate from '../components/Plate.astro';
 import { href } from '../lib/paths.ts';
 ---
 
 <Base title="페이지를 찾을 수 없습니다">
-  <h1 class="page-title">페이지를 찾을 수 없습니다</h1>
+  <Plate kind="page" title="페이지를 찾을 수 없습니다" />
   <p class="lede">주소가 바뀌었거나 내려간 알림일 수 있습니다. <a href={href('notices/')}>알림 목록</a>에서 다시 찾아 주세요.</p>
 </Base>
