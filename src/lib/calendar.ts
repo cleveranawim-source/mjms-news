@@ -3,7 +3,7 @@
 import { addDays, weekday } from './dates.ts';
 import type { FeedScheduleItem } from './feed.ts';
 import { escapeHTML } from './html.ts';
-import { scheduleBadgeHTML } from './home.ts';
+import { scheduleBadgeHTML } from './grades.ts';
 
 type Item = FeedScheduleItem;
 

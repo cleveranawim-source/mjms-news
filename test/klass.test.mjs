@@ -7,6 +7,8 @@ test('반 id에서 학년을 얻는다', () => {
   assert.equal(gradeOf('class-3_10'), 3);
   assert.equal(gradeOf('nope'), null);
   assert.equal(gradeOf(''), null);
+  assert.equal(gradeOf('class-4_1'), null);
+  assert.equal(gradeOf('class-0_1'), null);
 });
 test('반 id를 「1학년 5반」으로 읽는다', () => {
   assert.equal(classLabel('class-1_5'), '1학년 5반');

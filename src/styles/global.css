@@ -7,11 +7,12 @@
   --wall: #f3f6fa; /* 복도 벽 바탕 */
   --navy: #033e7b; /* 교표 남색: 명패 판 */
   --navy-2: #0a4f97; /* 명패 안쪽 밝은 테두리 */
-  --sky: #037dc4; /* 교표 하늘색 */
-  --sky-ink: #036fae; /* 작은 하늘색 글자(밝은 바탕에서 대비 4.5 이상) */
+  --sky: #037dc4; /* 교표 하늘색(초점 테두리) */
+  --sky-ink: #036fae; /* 하늘색 글자: 토요일·창체. 흰 바탕 5.4:1, #f1f6fc 위 5.0:1 */
   --ink: #1b1f24;
   --muted: #5b6b78;
   --rule: #d5e0ea; /* 괘선 1px */
+  --faint: #c3ccd6; /* 읽지 않는 흐린 표시: 다른 달 날짜(aria-hidden), 꺼진 단추 */
   --red: #c62828; /* 쉬는 날·공휴일 */
   --board: #26443a; /* 칠판(첫 화면 오늘 칸에만) */
   --chalk: #eef1ea;
@@ -28,15 +29,6 @@
   --g-all: #e8eef6;
   --g-all-ink: #033e7b;
 
-  /* 옛 화면(가정통신문·시간표)이 아직 쓰는 이름(N4·N6에서 정리) */
-  --chalk-1: var(--g1);
-  --chalk-2: var(--g2);
-  --chalk-3: var(--g3);
-  --school: var(--navy);
-  --school-sky: var(--sky);
-  --paper: #fff;
-  --red-pen: var(--red);
-
   --font: 'Pretendard Variable', Pretendard, -apple-system, system-ui, sans-serif;
 
   /* 글자 사다리: 12 · 13 · 15 · 17 · 20 · 22 · 30 */
@@ -50,13 +42,13 @@
   --text-sm: var(--fs-15);
   --text-base: var(--fs-17);
   --text-md: var(--fs-20);
-  --text-lg: var(--fs-22);
-  --text-xl: var(--fs-22);
 
   --measure: 40rem;
   --wide: 40rem; /* 넓은 화면에서도 가운데 한 단 */
   --gutter: 14px;
   --tab-h: 56px;
+  /* 글자를 키워 탭 라벨이 두 줄이 되어도 바닥글이 가려지지 않게(보통 크기에서는 56px) */
+  --tab-space: max(var(--tab-h), 2.25rem + 8px);
 
   color-scheme: light;
 }
@@ -93,7 +85,7 @@ body {
   word-break: keep-all;
   overflow-wrap: anywhere;
   /* 아래 탭이 바닥글을 가리지 않게 */
-  padding-bottom: calc(var(--tab-h) + env(safe-area-inset-bottom));
+  padding-bottom: calc(var(--tab-space) + env(safe-area-inset-bottom));
 }
 
 button {
@@ -146,8 +138,11 @@ h3 {
 .skip:focus {
   left: var(--gutter);
   top: 0.5rem;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
   background: #fff;
-  padding: 0.5rem 0.75rem;
+  padding: 0 0.75rem;
   z-index: 30;
 }
 
@@ -243,7 +238,8 @@ main {
   border-radius: 999px;
 }
 
-/* 아래 탭: 불투명 흰 바탕, 56px + 안전 영역. 넓은 화면에서도 그대로, 칸은 가운데로 모은다. */
+/* 아래 탭: 불투명 흰 바탕, 56px + 안전 영역. 넓은 화면에서도 그대로, 칸은 가운데로 모은다.
+   글자를 키워 라벨이 칸보다 넓어지면 그림을 빼고 라벨을 두 줄까지 접는다(칸마다 컨테이너). */
 .tabbar {
   position: fixed;
   inset: auto 0 0;
@@ -264,13 +260,29 @@ main {
   justify-content: center;
   gap: 2px;
   min-width: 44px;
-  height: var(--tab-h);
+  min-height: var(--tab-h);
+  padding: 4px 2px;
+  container-type: inline-size;
   font-size: var(--fs-12);
   line-height: 1.2;
   color: var(--muted);
   text-decoration: none;
   white-space: nowrap;
   -webkit-tap-highlight-color: transparent;
+}
+
+/* 「가정통신문」(다섯 글자)이 칸에 안 들어가는 크기 */
+@container (max-width: 4.9em) {
+  .tabbar svg {
+    display: none;
+  }
+
+  .tabbar span {
+    max-width: 100%;
+    white-space: normal;
+    word-break: break-all;
+    text-align: center;
+  }
 }
 
 .tabbar svg {
@@ -471,8 +483,9 @@ p.sheet-status {
 
 .board-date {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 8px;
+  gap: 4px 8px;
   margin: 0;
   line-height: 1;
 }
@@ -657,7 +670,7 @@ p.sheet-status {
 .sign--meal summary::after {
   content: '';
   position: absolute;
-  inset: -12px -10px;
+  inset: -12px -12px;
 }
 
 .sign-link:hover {
@@ -681,12 +694,31 @@ p.sheet-status {
   border-top: 1px solid var(--rule);
 }
 
+/* 첫 화면 일정 줄: 날짜 6.5rem · 이름 · 배지. 판이 좁거나(320px) 글자를 키우면 날짜가 윗줄, 이름 · 배지가 아랫줄. */
+.sign--views {
+  container-type: inline-size;
+}
+
 .sign-rows--dated > li {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: 6.5rem minmax(0, 1fr) auto;
   align-items: baseline;
-  gap: 8px;
+  gap: 0 8px;
   padding: 6px 0;
+}
+
+.sign-rows--dated .sign-date {
+  white-space: normal;
+}
+
+@container (max-width: 19.5rem) {
+  .sign-rows--dated > li {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .sign-rows--dated .sign-date {
+    grid-column: 1 / -1;
+  }
 }
 
 .sign-date {
@@ -931,7 +963,7 @@ p.sheet-status {
 }
 
 .cal-nav:disabled {
-  color: #c3ccd6;
+  color: var(--faint);
   cursor: default;
 }
 
@@ -955,14 +987,14 @@ p.sheet-status {
   color: var(--muted);
 }
 
-/* 토요일 글자는 흰 바탕 4.5:1을 넘게 하늘색을 조금 진하게 */
+/* 토요일 글자는 흰 바탕 4.5:1을 넘는 하늘색 글자(--sky-ink) */
 .cal-head span:first-child {
   color: var(--red);
 }
 
 .cal-head span:last-child,
 .cal-day.is-sat {
-  color: #0271b1;
+  color: var(--sky-ink);
 }
 
 .cal-day,
@@ -979,7 +1011,7 @@ p.sheet-status {
 }
 
 .cal-out {
-  color: #c3ccd6;
+  color: var(--faint);
 }
 
 .cal-day {
@@ -1092,6 +1124,11 @@ p.sheet-status {
 
 .notice {
   max-width: var(--measure);
+}
+
+/* 문장 안 링크: 줄 높이는 그대로, 누르는 곳만 위아래로 넓혀 44px */
+.tap-inline {
+  padding-block: 12px;
 }
 
 .prose > :first-child {
@@ -1249,6 +1286,11 @@ html[data-grade] .docs[data-view='all'] > li {
   margin: 10px 2px 0;
   font-size: var(--fs-13);
   color: var(--muted);
+}
+
+/* 숨긴 글 안내(상태 칸)는 비어도 남겨 두어 바뀌면 읽어 준다. 빈 칸은 자리만 없앤다. */
+.docs-note:empty {
+  margin: 0;
 }
 
 /* 가정통신문 한 건: 종이 가정통신문처럼 머리(교표 · 학교 이름 · 호수) → 제목 → 정보 표 → 본문 */
@@ -1522,7 +1564,7 @@ html[data-grade] .docs[data-view='all'] > li {
   font: inherit;
   font-size: var(--text-sm);
   background: var(--ink);
-  color: var(--paper);
+  color: #fff;
   border: 0;
   border-radius: 999px;
   padding: 0.5rem 1rem;
@@ -1542,7 +1584,7 @@ html[data-grade] .docs[data-view='all'] > li {
   border-radius: 16px;
   padding: 1.25rem;
   color: var(--ink);
-  background: var(--paper);
+  background: #fff;
 }
 
 .lost-detail::backdrop {
@@ -1590,6 +1632,8 @@ html[data-grade] .docs[data-view='all'] > li {
 }
 
 .lost-detail .print {
+  min-width: 44px;
+  min-height: 44px;
   margin-top: 1rem;
 }
 
@@ -1604,6 +1648,14 @@ html[data-grade] .docs[data-view='all'] > li {
 .site-footer p {
   margin: 0.25rem 0;
   max-width: var(--measure);
+}
+
+/* 혼자 선 링크(이용 안내)는 누르는 곳 44px */
+.site-footer .footer-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
 }
 
 @media print {
@@ -1763,9 +1815,10 @@ html[data-grade] .docs[data-view='all'] > li {
   background: #fff;
 }
 
+/* 칸 3.75rem = 네 글자 과목(학교행사)이 한 줄에. 320px에서는 판 안에서 가로로 민다. */
 .tt-grid {
   width: 100%;
-  min-width: calc(1.875rem + 5 * 3.25rem);
+  min-width: calc(1.875rem + 5 * 3.75rem);
   table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
@@ -1774,11 +1827,12 @@ html[data-grade] .docs[data-view='all'] > li {
   text-align: center;
 }
 
+/* 낱말 가운데서 끊지 않는다(칸보다 긴 낱말만 마지막 수단으로) */
 .tt-grid th,
 .tt-grid td {
   padding: 4px 2px;
   vertical-align: middle;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   word-break: keep-all;
 }
 
@@ -1803,13 +1857,18 @@ html[data-grade] .docs[data-view='all'] > li {
   color: #fff;
 }
 
-/* 교시 열: 좁게, 가로로 밀어도 왼쪽에 붙어 있다 */
+/* 교시 열: 좁게, 가로로 밀어도 왼쪽에 붙어 있다. 오른쪽 괘선이 밀려 들어오는 칸과 가른다. */
 .tt-grid .tt-corner,
 .tt-grid tbody th {
   position: sticky;
   left: 0;
   z-index: 1;
   width: 1.875rem;
+  border-right: 1px solid var(--rule);
+}
+
+.tt-grid tbody th + td {
+  border-left: 0;
 }
 
 .tt-grid tbody th {

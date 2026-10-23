@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { upcomingRows, newLetterRows, scheduleBadgeHTML, isNewLetter } from '../src/lib/home.ts';
+import { upcomingRows, newLetterRows, isNewLetter } from '../src/lib/home.ts';
+import { scheduleBadgeHTML } from '../src/lib/grades.ts';
 import { gradeBadge, badgeHTML, gradeLabel } from '../src/lib/grades.ts';
 
 const ev = (title, start, end = start, grades = [], kind = 'event') => ({ title, start, end, grades, kind });

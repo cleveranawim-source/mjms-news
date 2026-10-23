@@ -1,3 +1,4 @@
+import type { FeedScheduleItem } from './feed.ts';
 import { escapeHTML } from './html.ts';
 
 export const ALL_GRADES = [1, 2, 3];
@@ -17,4 +18,11 @@ export function gradeBadge(grades: number[]): { text: string; tone: 'g1' | 'g2' 
 export function badgeHTML(grades: number[], extra = ''): string {
   const { text, tone } = gradeBadge(grades);
   return `<span class="badge badge--${tone}${extra ? ` ${extra}` : ''}">${escapeHTML(text)}</span>`;
+}
+
+/** 일정 줄 끝의 배지: 공휴일·쉬는 날은 빨간 글자, 행사는 학년 배지. */
+export function scheduleBadgeHTML(item: FeedScheduleItem): string {
+  if (item.kind === 'holiday') return '<span class="badge-off">공휴일</span>';
+  if (item.kind === 'dayoff') return '<span class="badge-off">쉬는 날</span>';
+  return badgeHTML(item.grades);
 }

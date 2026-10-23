@@ -48,7 +48,7 @@ web
 
 ## Evidence on Hand
 
-- 교표 이미지: public/emblem.png, public/emblem-chalk.png.
+- 교표 이미지: public/emblem.png.
 - 실제 데이터: AI 교무실 피드(가정통신문, 급식), 시간표 API, 분실물 API, 나이스 학사일정.
 - 디자인 검토 기록: .impeccable/critique/ (2026-10-23, 20/40).
 - 사용자 후기나 이용 통계는 아직 없다. 지어내지 않는다.

@@ -41,11 +41,12 @@ const isCurrent = (to: string) => (to === href() ? path === to : path.startsWith
     <link rel="manifest" href={href('manifest.webmanifest')} />
     <meta name="apple-mobile-web-app-title" content="명지중 알림장" />
     <script is:inline>
-      // 고른 반(예 class-1_5)은 이 기기에만 저장된다. 학년은 반에서 얻는다. 예전에 따로 두던 mjms-grade는 지운다.
+      // 고른 반(예 class-1_5)은 이 기기에만 저장된다. 학년(1~3만)은 반에서 얻는다. 예전에 따로 두던 mjms-grade는 지운다.
       try {
         localStorage.removeItem('mjms-grade');
         const m = /^class-(\d+)_\d+$/.exec(localStorage.getItem('mjms-class') || '');
-        if (m) document.documentElement.dataset.grade = String(Number(m[1]));
+        const g = m ? Number(m[1]) : 0;
+        if (g >= 1 && g <= 3) document.documentElement.dataset.grade = String(g);
       } catch {}
     </script>
   </head>
@@ -56,7 +57,7 @@ const isCurrent = (to: string) => (to === href() ? path === to : path.startsWith
     </main>
     <footer class="site-footer">
       <div class="wrap">
-        <p><a href={href('about/')}>이용 안내</a></p>
+        <p><a class="footer-link" href={href('about/')}>이용 안내</a></p>
         <p>이 사이트는 로그인이 없고, 방문자의 개인정보나 쿠키를 수집하지 않습니다.</p>
         <p>
           개별 상담과 서류 제출은 학교 공식 창구를 이용해 주세요.

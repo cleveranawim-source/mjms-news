@@ -2,7 +2,8 @@
 // 명패: 모든 화면 맨 위의 남색 판. 제목이 그 화면의 h1이다.
 // kind='class'는 저장된 반으로 제목을 채운다(「1학년 5반」 + title 접미사). 반이 없으면 「우리 반을 골라 주세요」.
 // classButton: 반 고르기 창을 여는 단추를 둘지(반이 있으면 「반 바꾸기」, 없으면 「반 고르기」). class 명패는 기본으로 켠다.
-// classSub: page 명패에서 반을 골랐으면 보조 줄을 「1학년 5반」 + classSub로 바꾼다(예 「1학년 5반 기준」). 안 골랐으면 sub 그대로.
+// classSub: page 명패에서 반을 골랐으면 보조 줄을 「1학년 5반 」 + classSub로 바꾼다(classSub 「기준」 → 「1학년 5반 기준」). 안 골랐으면 sub 그대로.
+// 반 고르기 단추는 hidden으로 내보내고 아래 스크립트가 켠다(자바스크립트가 없으면 누를 수 없는 단추를 보이지 않는다).
 // class 명패의 sub: 반을 골랐을 때의 보조 줄(기본 「명지중학교 알림장 · 우리 반」, 시간표는 「우리 반」). 안 골랐으면 「명지중학교 알림장」.
 // compact: 교표 없이 한 단 낮게(시간표처럼 제목이 긴 class 명패).
 import { href } from '../lib/paths.ts';
@@ -35,7 +36,7 @@ const subText = isClass ? '명지중학교 알림장' : sub;
   </div>
   {
     classButton && (
-      <button type="button" class="plate-btn" data-open-class-sheet aria-haspopup="dialog">
+      <button type="button" class="plate-btn" data-open-class-sheet aria-haspopup="dialog" hidden>
         <span data-plate-btn>반 고르기</span>
       </button>
     )
@@ -48,11 +49,16 @@ const subText = isClass ? '명지중학교 알림장' : sub;
     const sub = plate.querySelector('[data-plate-sub]');
     const baseSub = sub?.textContent ?? '';
     const fill = (id) => {
-      const m = /^class-(\d+)_(\d+)$/.exec(id || '');
+      // 1~3학년이 아니면 반을 안 고른 것으로 본다(Base·가정통신문과 같은 규칙)
+      const hit = /^class-(\d+)_(\d+)$/.exec(id || '');
+      const m = hit && Number(hit[1]) >= 1 && Number(hit[1]) <= 3 ? hit : null;
       const btn = plate.querySelector('[data-plate-btn]');
-      if (btn) btn.textContent = m ? '반 바꾸기' : '반 고르기';
+      if (btn) {
+        btn.textContent = m ? '반 바꾸기' : '반 고르기';
+        btn.parentElement.hidden = false;
+      }
       const classSub = plate.dataset.plateClassSub;
-      if (classSub !== undefined) sub.textContent = m ? `${Number(m[1])}학년 ${Number(m[2])}반${classSub}` : baseSub;
+      if (classSub !== undefined) sub.textContent = m ? `${Number(m[1])}학년 ${Number(m[2])}반 ${classSub}` : baseSub;
       if (!plate.hasAttribute('data-plate-class')) return;
       plate.classList.toggle('plate--empty', !m);
       sub.textContent = m ? plate.dataset.platePickedSub : '명지중학교 알림장';

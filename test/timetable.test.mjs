@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadTimetable, todayChanges, weekTableHTML, changesBoxHTML, changesTarget, changeLine, weekGroups, weekRange } from '../src/lib/timetable.ts';
+import { loadTimetable, weekTableHTML, changesBoxHTML, changesTarget, changeLine, weekGroups, weekRange } from '../src/lib/timetable.ts';
 
 const cell = (period, subject, extra = {}) => ({ period, subject, special: false, changed: null, ...extra });
 const feed = {
@@ -28,12 +28,6 @@ test('loadTimetable returns null on 500, wrong version, or network failure', asy
   assert.equal(await loadTimetable('u', async () => new Response('{"version":2,"days":[],"classes":[]}')), null);
   assert.equal(await loadTimetable('u', async () => new Response(JSON.stringify({ ...feed, classes: [{ id: 1 }] }))), null);
   assert.equal(await loadTimetable('u', async () => { throw new Error('offline'); }), null);
-});
-
-test('todayChanges gives only the changed cells', () => {
-  assert.deepEqual(todayChanges(feed, 'c15', '2026-10-22').map((c) => c.period), [3, 5]);
-  assert.deepEqual(todayChanges(feed, 'c15', '2026-10-23'), []);
-  assert.deepEqual(todayChanges(feed, 'nope', '2026-10-22'), []);
 });
 
 test('changeLine writes the original subject or the calendar note', () => {
@@ -112,7 +106,7 @@ test('바뀐 칸은 원래 과목을 줄 그어 칸 안에, 단추·reveal 없�
   const html = weekTableHTML(gridCls, ['2026-10-19', '2026-10-20', '2026-10-21', '2026-10-22', '2026-10-23'], '2026-10-23');
   assert.match(html, /<td class="[^"]*tt-changed[^"]*" aria-label="금요일 1교시 영어, 원래 체육, 바뀜"><b>영어<\/b><s>체육<\/s><\/td>/);
   assert.ok(!html.includes('data-reveal') && !html.includes('<button'));
-  assert.match(html, /<small class="tt-special">창체<\/small>/);
+  assert.match(html, /<small class="tt-special"><span class="sr-only">, <\/span>창체<\/small>/);
 });
 
 test('weekTableHTML: 오늘 열은 머리 「오늘」 + 칸마다 tt-today, 다른 날 머리는 날짜', () => {
@@ -138,7 +132,7 @@ test('weekTableHTML: changed cell text escaped in the cell and its label', () =>
 test('weekTableHTML: 창체 글자는 과목이 창체일 때 겹쳐 쓰지 않는다', () => {
   const html = weekTableHTML(gridCls, wk, '2026-10-22');
   assert.equal((html.match(/class="tt-special"/g) ?? []).length, 1);
-  assert.match(html, /동아리<small class="tt-special">창체<\/small>/);
+  assert.match(html, /동아리<small class="tt-special"><span class="sr-only">, <\/span>창체<\/small>/);
 });
 
 test('weekTableHTML: day off shows its name once; until dims later cells and labels header', () => {

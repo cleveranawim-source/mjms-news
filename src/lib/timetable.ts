@@ -42,12 +42,6 @@ export async function loadTimetable(api: string, fetcher: typeof fetch = fetch):
   }
 }
 
-/** 그날 바뀐 칸(교시 순). */
-export function todayChanges(feed: TimetableFeed, classId: string, ymd: string): TtCell[] {
-  const day = feed.classes.find((c) => c.id === classId)?.days.find((d) => d.ymd === ymd);
-  return (day?.cells ?? []).filter((c) => c.changed).sort((a, b) => a.period - b.period);
-}
-
 /** 바뀐 칸 한 줄의 재료: 「1교시 영어」 + 원래 과목(줄긋기) 또는 학사일정 이름. 「오늘은 N교시까지」는 글자 그대로. */
 export type ChangeItem = { text: string; from: string | null; note: string | null };
 
@@ -138,7 +132,8 @@ export function weekTableHTML(cls: ClassTimetable, weekDays: string[], today: st
       if (!cell || cut || (cell.subject === '' && !cell.changed)) return `<td${at(d, cut ? 'tt-cut' : '')}></td>`;
       const subject = cell.subject || '수업 없음';
       const special = cell.special && cell.subject !== '창체';
-      const tag = special ? '<small class="tt-special">창체</small>' : '';
+      // 과목과 「창체」가 붙어 읽히지 않게 숨은 쉼표를 둔다
+      const tag = special ? '<small class="tt-special"><span class="sr-only">, </span>창체</small>' : '';
       if (!cell.changed) return `<td${at(d)}>${escapeHTML(subject)}${tag}</td>`;
       const { from, note } = cell.changed;
       const why = from ? `<s>${escapeHTML(from)}</s>` : note ? `<small class="tt-note">${escapeHTML(note)}</small>` : '';

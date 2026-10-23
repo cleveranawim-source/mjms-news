@@ -36,7 +36,13 @@ test('gradeLabel reads naturally', () => {
   assert.equal(gradeLabel([3, 1]), '1·3학년'); // 배지 글자(스펙: 「1·2학년」)
 });
 
-import { formatRange } from '../src/lib/dates.ts';
+import { formatRange, formatShortRange } from '../src/lib/dates.ts';
+
+test('formatShortRange: 첫 화면 일정 줄의 짧은 날짜', () => {
+  assert.equal(formatShortRange('2026-11-20', '2026-11-20'), '11월 20일 금');
+  assert.equal(formatShortRange('2026-10-26', '2026-10-28'), '10월 26~28일');
+  assert.equal(formatShortRange('2026-10-30', '2026-11-02'), '10월 30일~11월 2일');
+});
 
 test('formatRange drops the repeated month', () => {
   assert.equal(formatRange('2026-10-20', '2026-10-22'), '10월 20일 (화) ~ 22일 (목)');

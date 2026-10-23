@@ -2,7 +2,6 @@
 // 보기(전체·1·2·3학년)마다 앞에서 몇 개만 보이게, 줄마다 어느 보기에 들어가는지 data-show로 적어 둔다(CSS가 <html data-grade>로 고른다).
 import { addDays } from './dates.ts';
 import type { FeedLetter, FeedScheduleItem } from './feed.ts';
-import { badgeHTML } from './grades.ts';
 
 const VIEWS = ['all', '1', '2', '3'];
 
@@ -33,11 +32,4 @@ export function newLetterRows(letters: FeedLetter[], today: string): Row<FeedLet
     .filter((l) => isNewLetter(l, today))
     .sort((a, b) => b.publishedOn.localeCompare(a.publishedOn) || b.postedOn.localeCompare(a.postedOn));
   return perView(recent, (l) => l.grades, 3);
-}
-
-/** 일정 줄 끝의 배지: 공휴일·쉬는 날은 빨간 글자, 행사는 학년 배지. */
-export function scheduleBadgeHTML(item: FeedScheduleItem): string {
-  if (item.kind === 'holiday') return '<span class="badge-off">공휴일</span>';
-  if (item.kind === 'dayoff') return '<span class="badge-off">쉬는 날</span>';
-  return badgeHTML(item.grades);
 }

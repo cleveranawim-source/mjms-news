@@ -65,6 +65,16 @@ export function formatRange(start: string, end?: string): string {
   return `${formatDate(start)} ~ ${sameMonth ? formatDate(end).replace(/^\d+월 /, '') : formatDate(end)}`;
 }
 
+// 첫 화면 일정 줄의 짧은 날짜: 「11월 20일 금」, 「10월 26~28일」, 「10월 30일~11월 2일」.
+export function formatShortRange(start: string, end?: string): string {
+  const a = parse(start);
+  const m = a.getUTCMonth() + 1;
+  if (!end || end === start) return `${m}월 ${a.getUTCDate()}일 ${weekday(start)}`;
+  const b = parse(end);
+  if (start.slice(0, 7) === end.slice(0, 7)) return `${m}월 ${a.getUTCDate()}~${b.getUTCDate()}일`;
+  return `${m}월 ${a.getUTCDate()}일~${b.getUTCMonth() + 1}월 ${b.getUTCDate()}일`;
+}
+
 // 공휴일 달력과 학교 구글 캘린더가 같은 쉬는 날을 따로 싣는다. 날짜 범위가 똑같으면 한 줄로 합치고,
 // 「쉬는 날 」 머리말을 뗀 짧은 이름을 고른다. 날짜 계산에는 영향이 없다.
 export function mergeDaysOff<T extends { title: string; start: string; end: string }>(daysOff: T[]): T[] {

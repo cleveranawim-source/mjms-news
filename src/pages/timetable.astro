@@ -99,12 +99,13 @@ import { site } from '../site.config.ts';
       renderGrid(cls);
     };
 
+    // 늦게 온 답이라 버렸으면 false
     const load = async () => {
       const my = ++ticket;
       feed = undefined;
       render();
       const got = await loadTimetable(root.dataset.api!);
-      if (my !== ticket) return; // 그새 다시 불렀으면 늦게 온 답은 버린다
+      if (my !== ticket) return false; // 그새 다시 불렀으면 늦게 온 답은 버린다
       feed = got && got.classes.length && got.days.length ? got : null;
       if (feed) {
         groups = weekGroups(feed.days, today);
@@ -112,6 +113,7 @@ import { site } from '../site.config.ts';
         weeksEl.innerHTML = '';
       }
       render();
+      return true;
     };
 
     document.addEventListener('mjms:class', (e) => {
@@ -131,9 +133,15 @@ import { site } from '../site.config.ts';
         return;
       }
       // 다시 불러오기: 단추가 잠깐 사라지므로 결과(바뀐 수업 안내판 제목, 또 실패면 그 단추)로 포커스를 옮긴다.
-      await load();
-      const next = feed ? root.querySelector<HTMLElement>('#tt-changes-title') : $('[data-tt-retry]');
-      if (next && feed) next.tabIndex = -1;
+      // 답을 버렸거나 저장된 반이 피드에 없으면 보이는 「반 고르기」 단추로.
+      const fresh = await load();
+      let next: HTMLElement | null = null;
+      if (fresh && feed === null) next = $('[data-tt-retry]');
+      else if (fresh && mine()) {
+        next = root.querySelector<HTMLElement>('#tt-changes-title');
+        if (next) next.tabIndex = -1;
+      }
+      next ??= pick.hidden ? document.querySelector<HTMLElement>('.plate-btn') : pick.querySelector<HTMLElement>('[data-open-class-sheet]');
       next?.focus();
     });
 

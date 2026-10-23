@@ -4,10 +4,10 @@ import Plate from '../components/Plate.astro';
 import Chalkboard from '../components/Chalkboard.astro';
 import Sign from '../components/Sign.astro';
 import { getSchedule } from '../lib/content.ts';
-import { buildToday, formatRange, offRanges } from '../lib/dates.ts';
+import { buildToday, formatShortRange, offRanges } from '../lib/dates.ts';
 import { getFeed } from '../lib/feed.ts';
-import { badgeHTML } from '../lib/grades.ts';
-import { newLetterRows, scheduleBadgeHTML, upcomingRows } from '../lib/home.ts';
+import { badgeHTML, scheduleBadgeHTML } from '../lib/grades.ts';
+import { newLetterRows, upcomingRows } from '../lib/home.ts';
 import { mealHTML, pickMeal } from '../lib/meal.ts';
 import { href } from '../lib/paths.ts';
 import { site } from '../site.config.ts';
@@ -34,8 +34,8 @@ const letters = newLetterRows(feed.letters, today);
           <>
             <ul class="sign-rows sign-rows--dated">
               {upcoming.map(({ item, show }) => (
-                <li data-show={show}>
-                  <span class="sign-date">{formatRange(item.start, item.end)}</span>
+                <li data-show={show} data-end={item.end}>
+                  <span class="sign-date">{formatShortRange(item.start, item.end)}</span>
                   <span class="sign-title">{item.title}</span>
                   <Fragment set:html={scheduleBadgeHTML(item)} />
                 </li>
@@ -51,7 +51,7 @@ const letters = newLetterRows(feed.letters, today);
       <ul class="sign-rows">
         {
           letters.map(({ item, show }) => (
-            <li data-show={show}>
+            <li data-show={show} data-published={item.publishedOn}>
               <a href={href(`notices/${item.id}/`)}>
                 <span class="sign-title">{item.subject}</span>
                 <Fragment set:html={badgeHTML(item.grades)} />
@@ -74,7 +74,13 @@ const letters = newLetterRows(feed.letters, today);
 </Base>
 
 <script>
+  import { addDays, seoulToday } from '../lib/dates.ts';
   import { loadLost } from '../lib/lost.ts';
+
+  // 일정·가정통신문 판은 빌드한 날 기준이다. 아침 빌드를 놓쳐도 지난 일정, 2주 지난 글은 브라우저가 뺀다.
+  const today = seoulToday();
+  for (const li of document.querySelectorAll<HTMLElement>('[data-end]')) if (li.dataset.end! < today) li.remove();
+  for (const li of document.querySelectorAll<HTMLElement>('[data-published]')) if (li.dataset.published! < addDays(today, -14)) li.remove();
 
   // 분실물 판: 보관 중인 물건이 있을 때만 「분실물 N개」로 보인다. 못 받거나 0개면 감춘 채로 둔다.
   const sign = document.querySelector<HTMLElement>('[data-lost-sign]');

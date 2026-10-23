@@ -19,7 +19,7 @@ const pills = [
 ---
 
 <Base title="가정통신문">
-  <Plate kind="page" title="가정통신문" sub="학교 홈페이지 가정통신문" classSub=" 기준" />
+  <Plate kind="page" title="가정통신문" sub="학교 홈페이지 가정통신문" classSub="기준" />
   <div class="letters">
     <div class="pills" role="group" aria-label="대상 학년으로 거르기" data-letter-filter hidden>
       {pills.map((p) => <button type="button" class="pill" data-view={p.view} aria-pressed="false"><span>{p.label}</span></button>)}
@@ -27,7 +27,7 @@ const pills = [
     <ul class="docs" data-letters>
       {letters.map((l) => <DocCard letter={l} isNew={isNewLetter(l, today)} />)}
     </ul>
-    <p class="docs-note" data-letters-note hidden></p>
+    <p class="docs-note" data-letters-note role="status"></p>
     {letters.length === 0 && <p class="docs-note">아직 올라온 가정통신문이 없어요</p>}
   </div>
   <script is:inline>
@@ -56,11 +56,12 @@ const pills = [
         const hidden = g ? items.filter((li) => !li.dataset.grades.split(' ').includes(String(g))) : [];
         const gs = [...new Set(hidden.flatMap((li) => li.dataset.grades.split(' ')))].sort();
         note.textContent = hidden.length ? `${gs.join('·')}학년 대상 ${hidden.length}건은 '모든 학년'에서 볼 수 있어요` : '';
-        note.hidden = !hidden.length;
       };
       const setClass = (id) => {
+        // 1~3학년이 아니면 반을 안 고른 것으로 본다
         const m = /^class-(\d+)_\d+$/.exec(id || '');
-        grade = m ? Number(m[1]) : 0;
+        const g = m ? Number(m[1]) : 0;
+        grade = g >= 1 && g <= 3 ? g : 0;
         view = grade ? 'mine' : 'all';
         show();
       };

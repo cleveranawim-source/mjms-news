@@ -74,14 +74,12 @@ const boardJson = JSON.stringify({ base, letters, schedule: feed.schedule, daysO
       if (mine !== ticket) return; // 그새 반을 바꿨으면 늦게 온 답은 버린다
       const state = changesFor(feed, classId, today);
       slot.innerHTML = state ? changesStateHTML(state) : '';
-      // 「다시 불러오기」를 눌렀으면 초점을 결과로 옮긴다(단추가 사라지므로).
+      // 「다시 불러오기」를 눌렀으면 초점을 결과로 옮긴다(단추가 사라지므로). 칸이 비면(쉬는 날) 칠판 날짜로.
       if (retried) {
         const again = slot.querySelector<HTMLElement>('[data-retry-changes]');
-        if (again) again.focus();
-        else {
-          slot.tabIndex = -1;
-          slot.focus();
-        }
+        const target = again ?? (slot.innerHTML ? slot : board.querySelector<HTMLElement>('#board-date')!);
+        if (!again) target.tabIndex = -1;
+        target.focus();
       }
     };
     groups.addEventListener('click', (e) => {

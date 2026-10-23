@@ -5,10 +5,11 @@ import { escapeHTML } from './html.ts';
 const KEY = 'mjms-class';
 const ID = /^class-(\d+)_(\d+)$/;
 
-/** class-1_5 → 1. 꼴이 아니면 null. */
+/** class-1_5 → 1. 꼴이 아니거나 1~3학년이 아니면 null. */
 export function gradeOf(classId: string): number | null {
   const m = ID.exec(classId);
-  return m ? Number(m[1]) : null;
+  const g = m ? Number(m[1]) : 0;
+  return g >= 1 && g <= 3 ? g : null;
 }
 
 /** class-1_5 → 「1학년 5반」. 꼴이 아니면 null. */

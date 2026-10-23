@@ -76,10 +76,11 @@ test('가정통신문 목록: 학년 알약(자바스크립트 전엔 감춤), �
   for (const v of ['mine', 'all', '1', '2', '3']) assert.match(filter, new RegExp(`<button type="button"[^>]*data-view="${v}"[^>]*aria-pressed="(true|false)"`), v);
   assert.match(filter, /학년 \+ 전 학년/);
   assert.match(filter, />모든 학년</);
-  assert.match(html, /<p class="docs-note" data-letters-note hidden><\/p>/);
+  // 숨긴 글 안내는 늘 있는 상태 칸(비면 자리만 없앤다)이라 바뀌면 읽어 준다.
+  assert.match(html, /<p class="docs-note" data-letters-note role="status"><\/p>/);
   assert.match(html, /볼 수 있어요/); // 문구는 브라우저가 센다(스크립트 안)
   const plate = html.match(/<header[^>]*class="plate[\s\S]*?<\/header>/)[0];
-  assert.match(plate, /data-plate-class-sub=" 기준"/);
+  assert.match(plate, /data-plate-class-sub="기준"/);
   assert.match(plate, /학교 홈페이지 가정통신문/);
   assert.ok(!plate.includes('data-open-class-sheet'));
   // 알약 줄의 display:flex가 hidden을 덮지 않는다(자바스크립트가 없으면 감춘 채).
@@ -193,7 +194,7 @@ test('다가오는 일정 안내판: 보기마다 두 개, 날짜 · 이름 · �
   const sign = html.match(/<section class="sign[^"]*"[^>]*aria-labelledby="upcoming"[\s\S]*?<\/section>/)[0];
   assert.match(sign, /<h2 id="upcoming"[^>]*>다가오는 일정<\/h2>[\s\S]*href="\/schedule\/"[^>]*>달력</);
   for (const v of ['all', '1', '2', '3']) assert.ok((sign.match(new RegExp(`data-show="[^"]*\\b${v}\\b`, 'g')) ?? []).length <= 2, v);
-  assert.match(sign, /10월 26일 \(월\) ~ 28일 \(수\)[\s\S]*기말고사[\s\S]*badge badge--g3">3학년/);
+  assert.match(sign, /data-end="2026-10-28">\s*<span class="sign-date">10월 26~28일<\/span>[\s\S]*기말고사[\s\S]*badge badge--g3">3학년/);
   assert.match(sign, /재량휴업일[\s\S]*class="badge-off">쉬는 날/);
   assert.ok(!sign.includes('개교기념 체육대회')); // 옛 events는 첫 화면에 쓰지 않는다
 });
@@ -232,7 +233,8 @@ test('명패: 화면 이름이 h1, 첫 화면·시간표는 반 명패와 반 �
     const html = read(f);
     assert.match(html, /data-plate-class/, f);
     assert.match(html, /우리 반을 골라 주세요/, f);
-    assert.match(html, /<button[^>]*data-open-class-sheet/, f);
+    // 반 고르기 단추는 자바스크립트가 켠다(없으면 누를 수 없는 단추를 보이지 않는다).
+    assert.match(html, /<button[^>]*class="plate-btn"[^>]*data-open-class-sheet[^>]*hidden/, f);
     assert.equal((html.match(/<h1[\s>]/g) ?? []).length, 1, f);
   }
   assert.match(read('timetable/index.html'), /data-plate-suffix=" 시간표"/);
