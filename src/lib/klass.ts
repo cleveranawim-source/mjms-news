@@ -31,6 +31,11 @@ export function saveClass(id: string): void {
   } catch {}
 }
 
+/** 그 반이 목록(시간표 피드)에 있으면 id, 없으면 ''. */
+export function knownClass(classes: { id: string }[], id: string): string {
+  return id && classes.some((c) => c.id === id) ? id : '';
+}
+
 // 「1-5」 → 5. 끝 숫자가 없으면 null(이름을 그대로 쓴다).
 const classNo = (name: string) => {
   const m = /(\d+)\s*$/.exec(name);

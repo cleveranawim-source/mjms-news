@@ -432,6 +432,10 @@ p.sheet-status {
   cursor: pointer;
 }
 
+.sheet-ok[hidden] {
+  display: none;
+}
+
 .sheet-ok:disabled {
   background: var(--g-all);
   color: var(--muted);

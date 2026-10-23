@@ -25,14 +25,14 @@ import { site } from '../site.config.ts';
       <p class="sheet-hint" data-sheet-hint>학년을 먼저 골라 주세요.</p>
       <div class="sheet-classes" role="group" aria-labelledby="class-sheet-class" data-sheet-classes></div>
     </div>
-    <button type="button" class="sheet-ok" data-sheet-ok disabled>반을 골라 주세요</button>
+    <button type="button" class="sheet-ok" data-sheet-ok disabled hidden>반을 골라 주세요</button>
     <p class="sheet-note">이 휴대폰에만 저장돼요. 이름이나 번호는 묻지 않아요.</p>
   </div>
 </dialog>
 
 <script>
   import { loadTimetable, type ClassTimetable } from '../lib/timetable.ts';
-  import { readClass, saveClass, gradeOf, classLabel, sheetClassesHTML } from '../lib/klass.ts';
+  import { readClass, saveClass, gradeOf, classLabel, knownClass, sheetClassesHTML } from '../lib/klass.ts';
 
   const sheet = document.querySelector<HTMLDialogElement>('[data-class-sheet]');
   if (sheet) {
@@ -45,7 +45,14 @@ import { site } from '../site.config.ts';
     let opener: HTMLElement | null = null;
 
     const render = () => {
+      // 반 목록이 오기 전(불러오는 중·실패)에는 확인 단추를 감춘다.
+      ok.hidden = !classes;
       if (!classes) return;
+      // 저장된 반이 피드에 없으면 고른 것이 없는 것으로 연다(열 때마다 확인).
+      if (picked && !knownClass(classes, picked)) {
+        picked = '';
+        grade = 0;
+      }
       const has = (g: number) => classes!.some((c) => c.grade === g);
       sheet.querySelectorAll<HTMLButtonElement>('[data-pick-grade]').forEach((b) => {
         const g = Number(b.dataset.pickGrade);
@@ -78,11 +85,6 @@ import { site } from '../site.config.ts';
         }
         classes = feed.classes;
         $('[data-sheet-pick]').hidden = false;
-        // 저장된 반이 피드에 없으면 고른 것이 없는 것으로 연다.
-        if (!classes.some((c) => c.id === picked)) {
-          picked = '';
-          grade = 0;
-        }
         render();
       })());
     };
@@ -129,9 +131,16 @@ import { site } from '../site.config.ts';
       }
     });
 
-    // 닫히면 연 단추로 포커스를 돌려준다(브라우저가 안 해 주는 경우를 위해).
+    // 닫히면 연 단추로 포커스를 돌려준다. 그 단추가 사라졌으면(예: 시간표 본문의 「반 고르기」는 반을 고르면 숨는다)
+    // 명패의 단추로, 그것도 없으면 명패 제목으로 보낸다.
+    const shown = (el: HTMLElement | null): el is HTMLElement =>
+      !!el && el.isConnected && (typeof el.checkVisibility === 'function' ? el.checkVisibility() : el.offsetParent !== null);
     sheet.addEventListener('close', () => {
-      if (opener?.isConnected) opener.focus();
+      const plateBtn = document.querySelector<HTMLElement>('.plate [data-open-class-sheet]');
+      const plateTitle = document.querySelector<HTMLElement>('.plate-title');
+      const target = [opener, plateBtn].find(shown) ?? plateTitle;
+      if (target === plateTitle && plateTitle) plateTitle.tabIndex = -1;
+      target?.focus();
       opener = null;
     });
   }

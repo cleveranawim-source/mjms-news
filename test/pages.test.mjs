@@ -125,6 +125,8 @@ test('반 고르기 창: dialog, 학년 세 칸, 확인 단추, 저장 안내, �
   const sheet = html.match(/<dialog[^>]*data-class-sheet[\s\S]*?<\/dialog>/)[0];
   assert.equal((sheet.match(/data-pick-grade="[123]"/g) ?? []).length, 3);
   assert.match(sheet, /data-sheet-ok[^>]*disabled/);
+  // 반 목록이 오기 전(불러오는 중·실패)에는 확인 단추가 보이지 않는다.
+  assert.match(sheet, /data-sheet-ok[^>]*hidden/);
   assert.match(sheet, /이 휴대폰에만 저장돼요\. 이름이나 번호는 묻지 않아요\./);
   assert.match(sheet, /반 목록을 불러오지 못했어요/);
   assert.match(sheet, /다시 불러오기/);

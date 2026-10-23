@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gradeOf, classLabel, sheetClassesHTML } from '../src/lib/klass.ts';
+import { gradeOf, classLabel, knownClass, sheetClassesHTML } from '../src/lib/klass.ts';
 
 test('반 id에서 학년을 얻는다', () => {
   assert.equal(gradeOf('class-1_5'), 1);
@@ -32,4 +32,10 @@ test('반 버튼은 번호순, 이름 글자는 escape', () => {
   assert.ok(!html.includes('aria-pressed="true"'));
   assert.ok(!html.includes('<b>') && html.includes('&lt;b&gt;'));
   assert.ok(html.includes('data-pick-class="x&quot;y"'));
+});
+test('피드에 없는 반은 고른 것이 없는 것으로', () => {
+  const classes = [{ id: 'class-1_5' }, { id: 'class-2_1' }];
+  assert.equal(knownClass(classes, 'class-1_5'), 'class-1_5');
+  assert.equal(knownClass(classes, 'class-3_9'), '');
+  assert.equal(knownClass(classes, ''), '');
 });
