@@ -49,8 +49,10 @@ export function monthsOf(items: Item[], today: string): string[] {
     return `${m >= 3 ? from : from + 1}-${String(m).padStart(2, '0')}`;
   });
   const extra = [`${from + 1}-03`, `${from + 1}-04`];
-  const last = extra.findLastIndex((ym) => monthItems(ym, items, null).length > 0);
-  return [...year, ...extra.slice(0, last + 1)];
+  // findLastIndex는 옛 iOS 사파리(15.3 이하)에 없어 쓰지 않는다 — 이 함수는 브라우저에서도 돈다.
+  const has = (ym: string) => monthItems(ym, items, null).length > 0;
+  const keep = has(extra[1]) ? 2 : has(extra[0]) ? 1 : 0;
+  return [...year, ...extra.slice(0, keep)];
 }
 
 /** 처음 고른 날: 오늘이 그 달이면 오늘, 아니면 그 달 첫 일정 날(앞 달에서 이어지면 1일), 없으면 1일. items는 이미 거른 것을 준다. */
