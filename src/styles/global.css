@@ -28,6 +28,11 @@
   --g3-ink: #0b3550;
   --g-all: #e8eef6;
   --g-all-ink: #033e7b;
+  --select: #cddcee; /* 고른 글자 바탕: 연한 남색 */
+
+  /* 움직임은 반 고르기 창이 올라오는 것과 명패 반 이름 바뀜 한 가지(지수 감속) */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur: 240ms;
 
   --font: 'Pretendard Variable', Pretendard, -apple-system, system-ui, sans-serif;
 
@@ -68,6 +73,17 @@ html {
   html {
     scroll-behavior: auto;
   }
+}
+
+::selection {
+  background: var(--select);
+  color: var(--ink);
+}
+
+/* 칠판 안에서는 분필 색 바탕에 칠판 색 글자 */
+.board ::selection {
+  background: var(--chalk-dim);
+  color: var(--board);
 }
 
 /* 반 고르기 창이 열려 있으면 뒤 화면은 움직이지 않는다 */
@@ -171,8 +187,16 @@ main {
 }
 
 .plate-text {
+  position: relative;
   flex: 1;
   min-width: 0;
+}
+
+/* 반이 바뀔 때 옛 반 이름이 겹쳐 사라지는 그림자(명패 스크립트가 잠깐 넣는다) */
+.plate-ghost {
+  position: absolute;
+  margin: 0;
+  pointer-events: none;
 }
 
 .plate-sub {
@@ -253,6 +277,17 @@ main {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* 넓은 화면: 흰 띠를 가운데 한 단(40rem) 폭으로, 위 모서리를 둥글게 */
+@media (min-width: 48rem) {
+  .tabbar {
+    width: var(--wide);
+    margin-inline: auto;
+    border: 1px solid var(--rule);
+    border-bottom: 0;
+    border-radius: 14px 14px 0 0;
+  }
+}
+
 .tabbar a {
   display: flex;
   flex-direction: column;
@@ -320,10 +355,41 @@ main {
   background: #fff;
   color: var(--ink);
   overflow-y: auto;
+  scrollbar-color: var(--rule) transparent;
+  scrollbar-width: thin;
 }
 
 .sheet::backdrop {
   background: rgb(10 20 35 / 0.45);
+}
+
+/* 열릴 때 아래에서 올라오고 뒤 바탕은 서서히 어두워진다. 닫힐 때는 바로 닫힌다. */
+.sheet[open] {
+  animation: sheet-rise var(--dur) var(--ease-out);
+}
+
+.sheet[open]::backdrop {
+  animation: sheet-fade var(--dur) var(--ease-out);
+}
+
+@keyframes sheet-rise {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes sheet-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sheet[open],
+  .sheet[open]::backdrop {
+    animation: none;
+  }
 }
 
 .sheet-inner {
@@ -1810,6 +1876,8 @@ html[data-grade] .docs[data-view='all'] > li {
   position: relative;
   overflow-x: auto;
   overscroll-behavior-x: contain;
+  scrollbar-color: var(--rule) transparent;
+  scrollbar-width: thin;
   border: 1px solid var(--rule);
   border-radius: 12px;
   background: #fff;

@@ -48,6 +48,28 @@ const subText = isClass ? '명지중학교 알림장' : sub;
     const plate = document.currentScript.previousElementSibling;
     const sub = plate.querySelector('[data-plate-sub]');
     const baseSub = sub?.textContent ?? '';
+    // 반이 바뀌면 옛 이름을 겹쳐 두고 서로 엇갈려 흐려지게(240ms 지수 감속). 움직임 줄이기를 켰으면 바로 바꾼다.
+    const title = plate.querySelector('[data-plate-title]');
+    const crossFade = (change) => {
+      const before = title.textContent;
+      if (!title.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return change();
+      const ghost = document.createElement('p');
+      ghost.className = 'plate-title plate-ghost';
+      ghost.setAttribute('aria-hidden', 'true');
+      ghost.textContent = before;
+      Object.assign(ghost.style, {
+        top: `${title.offsetTop}px`,
+        left: `${title.offsetLeft}px`,
+        width: `${title.offsetWidth}px`,
+        fontSize: getComputedStyle(title).fontSize,
+      });
+      change();
+      if (title.textContent === before) return;
+      title.before(ghost);
+      const opts = { duration: 240, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' };
+      ghost.animate([{ opacity: 1 }, { opacity: 0 }], opts).finished.finally(() => ghost.remove());
+      title.animate([{ opacity: 0 }, { opacity: 1 }], opts);
+    };
     const fill = (id) => {
       // 1~3학년이 아니면 반을 안 고른 것으로 본다(Base·가정통신문과 같은 규칙)
       const hit = /^class-(\d+)_(\d+)$/.exec(id || '');
@@ -62,7 +84,7 @@ const subText = isClass ? '명지중학교 알림장' : sub;
       if (!plate.hasAttribute('data-plate-class')) return;
       plate.classList.toggle('plate--empty', !m);
       sub.textContent = m ? plate.dataset.platePickedSub : '명지중학교 알림장';
-      plate.querySelector('[data-plate-title]').textContent = m
+      title.textContent = m
         ? `${Number(m[1])}학년 ${Number(m[2])}반${plate.dataset.plateSuffix || ''}`
         : '우리 반을 골라 주세요';
     };
@@ -71,6 +93,7 @@ const subText = isClass ? '명지중학교 알림장' : sub;
       id = localStorage.getItem('mjms-class') || '';
     } catch {}
     fill(id);
-    document.addEventListener('mjms:class', (e) => fill(e.detail));
+    // 처음 채울 때는 움직이지 않고, 반을 바꿨을 때만 반 이름이 엇갈려 바뀐다.
+    document.addEventListener('mjms:class', (e) => crossFade(() => fill(e.detail)));
   })();
 </script>
