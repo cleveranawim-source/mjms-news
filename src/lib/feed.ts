@@ -89,6 +89,13 @@ function pick<T>(name: string, list: unknown[], convert: (x: unknown) => T | nul
   return out;
 }
 
+// 학사일정: 배열이 아니거나, 항목이 왔는데 하나도 못 읽었으면 null(편지와 같은 원칙 — 빈 달력보다 「불러오지 못했어요」).
+function parseSchedule(list: unknown): FeedScheduleItem[] | null {
+  if (!Array.isArray(list)) return null;
+  const items = pick('schedule', list, toScheduleItem);
+  return list.length > 0 && items.length === 0 ? null : items;
+}
+
 // 큰 틀이 틀리면 던진다: 빌드가 실패하면 직전에 올라간 사이트가 그대로 남기 때문이다.
 // 항목 하나가 이상한 것은 그 항목만 뺀다.
 function parseFeed(raw: unknown): Feed {
@@ -108,7 +115,7 @@ function parseFeed(raw: unknown): Feed {
     events: pick('events', events, toEvent),
     daysOff: pick('daysOff', daysOff, toDayOff),
     meals: pick('meals', meals, toMeal),
-    schedule: Array.isArray(raw.schedule) ? pick('schedule', raw.schedule, toScheduleItem) : null,
+    schedule: parseSchedule(raw.schedule),
   };
 }
 

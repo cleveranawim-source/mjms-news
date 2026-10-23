@@ -20,9 +20,10 @@ export function badgeHTML(grades: number[], extra = ''): string {
   return `<span class="badge badge--${tone}${extra ? ` ${extra}` : ''}">${escapeHTML(text)}</span>`;
 }
 
-/** 일정 줄 끝의 배지: 공휴일·쉬는 날은 빨간 글자, 행사는 학년 배지. */
+/** 일정 줄 끝의 배지: 공휴일·쉬는 날은 빨간 글자(학년만 쉬면 학년 배지를 앞에), 행사는 학년 배지. */
 export function scheduleBadgeHTML(item: FeedScheduleItem): string {
-  if (item.kind === 'holiday') return '<span class="badge-off">공휴일</span>';
-  if (item.kind === 'dayoff') return '<span class="badge-off">쉬는 날</span>';
-  return badgeHTML(item.grades);
+  const off = item.kind === 'holiday' ? '공휴일' : item.kind === 'dayoff' ? '쉬는 날' : null;
+  if (!off) return badgeHTML(item.grades);
+  const red = `<span class="badge-off">${off}</span>`;
+  return item.grades.length ? `${badgeHTML(item.grades)} ${red}` : red;
 }

@@ -26,8 +26,8 @@ export function boardFromFeed(today: string, feed: Pick<Feed, 'letters' | 'daysO
   // 학년이 비어 있으면 전 학년 대상이다(목록·일정 화면과 같은 규칙).
   const daysOff = offRanges(feed);
   const letters = feed.letters.map((l) => ({ ...l, grades: l.grades.length ? l.grades : all }));
-  // 쉬는 날·공휴일은 「오늘은 ○○입니다」 줄로 쓰므로 오늘 일정에는 행사만.
-  const events = (feed.schedule ?? []).filter((e) => e.kind === 'event').map((e) => ({ title: e.title, start: e.start, end: e.end, grades: e.grades.length ? e.grades : all }));
+  // 전 학년 쉬는 날·공휴일은 「오늘은 ○○입니다」 줄로 쓰므로 오늘 일정에는 행사와 학년만 쉬는 날만.
+  const events = (feed.schedule ?? []).filter((e) => e.kind === 'event' || e.grades.length > 0).map((e) => ({ title: e.title, start: e.start, end: e.end, grades: e.grades.length ? e.grades : all }));
   const next = nextSchoolDay(today, daysOff);
   const bringOn = (day: string) =>
     letters

@@ -88,4 +88,10 @@ test('schedule: 검사 통과한 항목만, 없으면 null', async () => {
   assert.equal(none.schedule, null);
   const notArray = await loadFeed({ fetcher: respond({ ...base, schedule: 'x' }), url: 'x' });
   assert.equal(notArray.schedule, null);
+  // 일정이 왔는데 하나도 못 읽었으면 모양이 바뀐 것 — 빈 달력([]) 대신 「불러오지 못했어요」(null).
+  const allBad = await loadFeed({ fetcher: respond({ ...base, schedule: bad }), url: 'x' });
+  assert.equal(allBad.schedule, null);
+  // 빈 배열은 그대로 「일정 없음」.
+  const empty = await loadFeed({ fetcher: respond({ ...base, schedule: [] }), url: 'x' });
+  assert.deepEqual(empty.schedule, []);
 });

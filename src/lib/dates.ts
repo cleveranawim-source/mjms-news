@@ -89,10 +89,11 @@ export function mergeDaysOff<T extends { title: string; start: string; end: stri
   return [...byRange.values()];
 }
 
-// 등교일 계산에 쓸 쉬는 날: 피드의 쉬는 날 + 나이스 학사일정의 공휴일·재량휴업일.
-export function offRanges(feed: { daysOff: { title: string; start: string; end: string }[]; schedule?: { title: string; start: string; end: string; kind: string }[] | null }): { title: string; start: string; end: string }[] {
+// 등교일 계산에 쓸 쉬는 날: 피드의 쉬는 날 + 나이스 학사일정의 전 학년 공휴일·재량휴업일.
+// 학년만 쉬는 날은 학교 전체 쉬는 날이 아니다 — 그 학년 일정(학년 배지 + 「쉬는 날」)으로만 보인다.
+export function offRanges(feed: { daysOff: { title: string; start: string; end: string }[]; schedule?: { title: string; start: string; end: string; kind: string; grades: number[] }[] | null }): { title: string; start: string; end: string }[] {
   const fromSchedule = (feed.schedule ?? [])
-    .filter((s) => s.kind === 'holiday' || s.kind === 'dayoff')
+    .filter((s) => (s.kind === 'holiday' || s.kind === 'dayoff') && s.grades.length === 0)
     .map(({ title, start, end }) => ({ title, start, end }));
   return mergeDaysOff([...feed.daysOff, ...fromSchedule]);
 }

@@ -103,6 +103,15 @@ test('나이스 쉬는 날(dayoff)이 다음 날이면 다음 등교일과 그�
   assert.match(boardHTML(board, '/'), /10월 26일 \(월\) 준비물/);
 });
 
+test('학년만 쉬는 날은 쉬는 날 줄이 아니라 그 학년 오늘 일정, 등교일도 밀지 않는다', () => {
+  const board = boardFromFeed('2026-10-22', feed({ schedule: [
+    { title: '3학년 재량휴업일', start: '2026-10-22', end: '2026-10-23', grades: [3], kind: 'dayoff' },
+  ] }));
+  assert.equal(board.dayOff, null);
+  assert.equal(board.next, '2026-10-23');
+  assert.deepEqual(board.events, [{ title: '3학년 재량휴업일', start: '2026-10-22', end: '2026-10-23', grades: [3] }]);
+});
+
 test('칠판 오늘 일정에는 쉬는 날·공휴일을 다시 쓰지 않는다(쉬는 날 줄이 있다)', () => {
   const board = boardFromFeed('2026-10-09', feed({ schedule: [{ title: '한글날', start: '2026-10-09', end: '2026-10-09', grades: [], kind: 'holiday' }] }));
   assert.equal(board.dayOff, '한글날');

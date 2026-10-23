@@ -108,6 +108,16 @@ test('나이스 쉬는 날도 등교일 계산에 들어간다', async () => {
   assert.deepEqual(offRanges({ daysOff: [], schedule: null }), []);
 });
 
+test('학년만 쉬는 날은 학교 전체 쉬는 날이 아니다(전 학년 공휴일·휴업일만)', async () => {
+  const { offRanges } = await import('../src/lib/dates.ts');
+  const off = offRanges({ daysOff: [], schedule: [
+    { title: '3학년 재량휴업일', start: '2026-11-20', end: '2026-11-20', grades: [3], kind: 'dayoff' },
+    { title: '개교기념일', start: '2026-11-23', end: '2026-11-23', grades: [], kind: 'dayoff' },
+  ] });
+  assert.deepEqual(off.map((d) => d.title), ['개교기념일']);
+  assert.equal(nextSchoolDay('2026-11-19', off), '2026-11-20');
+});
+
 test('formatMonthDay: 요일 없이 「10월 22일」', () => {
   assert.equal(formatMonthDay('2026-10-22'), '10월 22일');
   assert.equal(formatMonthDay('2026-01-05'), '1월 5일');

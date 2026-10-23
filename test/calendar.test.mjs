@@ -50,6 +50,27 @@ test('학년도 12달: 3월부터 다음 해 2월, 1·2월은 전 해 3월의 �
   assert.equal(monthsOf([], '2027-03-02')[0], '2027-03');
 });
 
+test('다음 학년도 3·4월은 일정이 있는 마지막 달까지만 더한다', () => {
+  const ev = (start, end = start) => ({ title: 'x', start, end, grades: [], kind: 'event' });
+  assert.equal(monthsOf([ev('2027-03-02')], '2026-10-23').at(-1), '2027-03');
+  assert.deepEqual(monthsOf([ev('2027-04-20')], '2026-10-23').slice(-3), ['2027-02', '2027-03', '2027-04']);
+  // 2월에서 3월로 이어진 일정도 3월까지
+  assert.equal(monthsOf([ev('2027-02-26', '2027-03-03')], '2026-10-23').at(-1), '2027-03');
+  // 4월 뒤는 열지 않는다
+  assert.equal(monthsOf([ev('2027-05-01')], '2026-10-23').length, 12);
+  assert.equal(monthsOf([ev('2027-04-30', '2027-05-02')], '2026-10-23').length, 14);
+  // 지난 학년도 일정은 상관없다
+  assert.equal(monthsOf([ev('2026-03-02')], '2027-01-10').length, 12);
+});
+
+test('학년만 쉬는 날은 전체 보기에서 빨간 날이 아니고, 그 학년 보기에서만 빨갛다', () => {
+  const g3 = [{ title: '재량휴업일', start: '2026-11-20', end: '2026-11-20', grades: [3], kind: 'dayoff' }];
+  const cell = (grade) => gridHTML('2026-11', '2026-10-23', '2026-11-01', g3, grade).match(/<button[^>]*data-ymd="2026-11-20"[^>]*>/)[0];
+  assert.doesNotMatch(cell(null), /is-off/);
+  assert.match(cell(3), /is-off/);
+  assert.doesNotMatch(cell(1), /is-off/);
+});
+
 test('처음 고른 날, 읽기 이름', () => {
   assert.equal(initialDay('2026-10', '2026-10-23', items), '2026-10-23');
   assert.equal(initialDay('2026-11', '2026-10-23', items), '2026-11-01');

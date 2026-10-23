@@ -37,14 +37,20 @@ export function monthItems(ym: string, items: Item[], grade: number | null): Ite
   return items.filter((i) => i.start.slice(0, 7) <= ym && ym <= i.end.slice(0, 7) && fits(i, grade));
 }
 
-/** 오늘이 든 학년도의 12달(3월 ~ 다음 해 2월). 1·2월은 전 해 3월의 학년도. 피드는 이 범위를 보낸다. */
-export function monthsOf(_items: Item[], today: string): string[] {
+/**
+ * 오늘이 든 학년도의 12달(3월 ~ 다음 해 2월). 1·2월은 전 해 3월의 학년도.
+ * 피드는 다음 학년도 3~4월도 보낸다 — 그 달은 일정이 있는 마지막 달까지만 더한다(빈 3·4월로 넘기지 않게).
+ */
+export function monthsOf(items: Item[], today: string): string[] {
   const y = Number(today.slice(0, 4));
   const from = Number(today.slice(5, 7)) >= 3 ? y : y - 1;
-  return Array.from({ length: 12 }, (_, k) => {
+  const year = Array.from({ length: 12 }, (_, k) => {
     const m = ((k + 2) % 12) + 1;
     return `${m >= 3 ? from : from + 1}-${String(m).padStart(2, '0')}`;
   });
+  const extra = [`${from + 1}-03`, `${from + 1}-04`];
+  const last = extra.findLastIndex((ym) => monthItems(ym, items, null).length > 0);
+  return [...year, ...extra.slice(0, last + 1)];
 }
 
 /** 처음 고른 날: 오늘이 그 달이면 오늘, 아니면 그 달 첫 일정 날(앞 달에서 이어지면 1일), 없으면 1일. items는 이미 거른 것을 준다. */
@@ -88,7 +94,8 @@ export function gridHTML(ym: string, today: string, selected: string, items: Ite
       const d = Number(ymd.slice(8, 10));
       if (!inMonth) return `<span class="cal-out" aria-hidden="true">${d}</span>`;
       const on = itemsOn(ymd, items, grade);
-      const off = on.some((i) => i.kind !== 'event');
+      // 학년만 쉬는 날은 그 학년 보기에서만 빨간 날
+      const off = on.some((i) => i.kind !== 'event' && (i.grades.length === 0 || grade !== null));
       const dow = weekday(ymd);
       const cls = ['cal-day', dow === '일' && 'is-sun', dow === '토' && 'is-sat', off && 'is-off', ymd === today && 'is-today'].filter(Boolean).join(' ');
       const dot = on.length > 0 ? '<i class="cal-dot" aria-hidden="true"></i>' : '';
