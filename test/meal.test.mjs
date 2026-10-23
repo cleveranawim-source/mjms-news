@@ -33,9 +33,11 @@ test('오늘 항목의 요리가 비었으면 다음 등교일로 넘어간다',
   assert.equal(m.ymd, '2026-10-20');
 });
 
-test('mealHTML: 이스케이프, 쉼표, 날짜, 알레르기 이름', () => {
+test('mealHTML: 이스케이프, 「 · 」로 잇기, 날짜, 알레르기 이름', () => {
   const today = mealHTML({ title: '오늘 급식', ymd: '2026-10-19', dishes: [d('<b>밥'), d('우유국', [2])] });
-  assert.ok(today.includes('&lt;b&gt;밥, 우유국'));
+  assert.ok(today.includes('&lt;b&gt;밥 · 우유국'));
+  assert.match(today, /<h2 id="meal-title">오늘 급식<\/h2>/);
+  assert.match(today, /<summary>알레르기<\/summary>/);
   assert.ok(!today.includes('<b>'));
   assert.ok(!today.includes('<small>'));
   assert.match(today, /<details>.*2 우유/s);

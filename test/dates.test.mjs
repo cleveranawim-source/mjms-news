@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildToday, seoulToday, addDays, nextSchoolDay, formatDate, toISODate } from '../src/lib/dates.ts';
+import { buildToday, seoulToday, addDays, nextSchoolDay, formatDate, formatMonthDay, toISODate } from '../src/lib/dates.ts';
 
 test('seoulToday uses Korea time, not UTC', () => {
   // 2026-10-22 16:00 UTC is already 10-23 01:00 in Seoul
@@ -33,10 +33,16 @@ import { gradeLabel } from '../src/lib/grades.ts';
 test('gradeLabel reads naturally', () => {
   assert.equal(gradeLabel([1, 2, 3]), '전 학년');
   assert.equal(gradeLabel([2]), '2학년');
-  assert.equal(gradeLabel([3, 1]), '1, 3학년');
+  assert.equal(gradeLabel([3, 1]), '1·3학년'); // 배지 글자(스펙: 「1·2학년」)
 });
 
-import { formatRange } from '../src/lib/dates.ts';
+import { formatRange, formatShortRange } from '../src/lib/dates.ts';
+
+test('formatShortRange: 첫 화면 일정 줄의 짧은 날짜', () => {
+  assert.equal(formatShortRange('2026-11-20', '2026-11-20'), '11월 20일 금');
+  assert.equal(formatShortRange('2026-10-26', '2026-10-28'), '10월 26~28일');
+  assert.equal(formatShortRange('2026-10-30', '2026-11-02'), '10월 30일~11월 2일');
+});
 
 test('formatRange drops the repeated month', () => {
   assert.equal(formatRange('2026-10-20', '2026-10-22'), '10월 20일 (화) ~ 22일 (목)');
@@ -93,4 +99,26 @@ test('mergeDaysOff: 같은 날짜 범위의 쉬는 날은 짧은 이름 하나�
     { title: '개천절 대체', start: '2026-10-05', end: '2026-10-05' },
   ]);
   assert.deepEqual(merged.map((d) => d.title), ['추석 연휴', '개천절', '개천절 대체']);
+});
+
+test('나이스 쉬는 날도 등교일 계산에 들어간다', async () => {
+  const { offRanges } = await import('../src/lib/dates.ts');
+  const off = offRanges({ daysOff: [], schedule: [{ title: '재량휴업일', start: '2026-11-20', end: '2026-11-20', grades: [], kind: 'dayoff' }, { title: '학생예배', start: '2026-11-19', end: '2026-11-19', grades: [], kind: 'event' }] });
+  assert.equal(nextSchoolDay('2026-11-19', off), '2026-11-23');
+  assert.deepEqual(offRanges({ daysOff: [], schedule: null }), []);
+});
+
+test('학년만 쉬는 날은 학교 전체 쉬는 날이 아니다(전 학년 공휴일·휴업일만)', async () => {
+  const { offRanges } = await import('../src/lib/dates.ts');
+  const off = offRanges({ daysOff: [], schedule: [
+    { title: '3학년 재량휴업일', start: '2026-11-20', end: '2026-11-20', grades: [3], kind: 'dayoff' },
+    { title: '개교기념일', start: '2026-11-23', end: '2026-11-23', grades: [], kind: 'dayoff' },
+  ] });
+  assert.deepEqual(off.map((d) => d.title), ['개교기념일']);
+  assert.equal(nextSchoolDay('2026-11-19', off), '2026-11-20');
+});
+
+test('formatMonthDay: 요일 없이 「10월 22일」', () => {
+  assert.equal(formatMonthDay('2026-10-22'), '10월 22일');
+  assert.equal(formatMonthDay('2026-01-05'), '1월 5일');
 });

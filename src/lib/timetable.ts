@@ -42,90 +42,116 @@ export async function loadTimetable(api: string, fetcher: typeof fetch = fetch):
   }
 }
 
-/** 그날 바뀐 칸(교시 순). */
-export function todayChanges(feed: TimetableFeed, classId: string, ymd: string): TtCell[] {
-  const day = feed.classes.find((c) => c.id === classId)?.days.find((d) => d.ymd === ymd);
-  return (day?.cells ?? []).filter((c) => c.changed).sort((a, b) => a.period - b.period);
-}
+/** 바뀐 칸 한 줄의 재료: 「1교시 영어」 + 원래 과목(줄긋기) 또는 학사일정 이름. 「오늘은 N교시까지」는 글자 그대로. */
+export type ChangeItem = { text: string; from: string | null; note: string | null };
 
-/** 칠판에 쓰는 한 줄. 예: 3교시 과학 (원래 체육). 비운 칸은 「수업 없음」. */
-export function changeLine(cell: TtCell): string {
-  const why = cell.changed?.from ? `원래 ${cell.changed.from}` : cell.changed?.note;
-  return `${cell.period}교시 ${cell.subject || '수업 없음'}${why ? ` (${why})` : ''}`;
-}
+const itemOf = (c: TtCell): ChangeItem => ({
+  text: `${c.period}교시 ${c.subject || '수업 없음'}`,
+  from: c.changed?.from ?? null,
+  note: c.changed?.from ? null : (c.changed?.note ?? null),
+});
 
-/** 칠판 「오늘 바뀐 수업」 줄들. 「N교시까지」로 잘린 교시는 줄마다 쓰지 않고 한 줄로 모은다. */
-export function changeLines(feed: TimetableFeed, classId: string, ymd: string): string[] {
-  const until = feed.classes.find((c) => c.id === classId)?.days.find((d) => d.ymd === ymd)?.until ?? null;
-  const cells = todayChanges(feed, classId, ymd);
+// 바뀐 칸 규칙은 여기 한 곳: 교시 순, 「N교시까지」 뒤 비운 칸은 줄마다 쓰지 않고 until 하나로 알린다.
+function changesOf(cls: ClassTimetable | undefined, ymd: string): { cells: TtCell[]; until: number | null } {
+  const day = cls?.days.find((d) => d.ymd === ymd);
+  const until = day?.until ?? null;
+  const all = (day?.cells ?? []).filter((c) => c.changed).sort((a, b) => a.period - b.period);
   const cut = (c: TtCell) => until !== null && c.subject === '' && c.period > until;
-  const lines = cells.filter((c) => !cut(c)).map(changeLine);
-  if (until !== null && cells.some(cut)) lines.push(`오늘은 ${until}교시까지`);
-  return lines;
+  return { cells: all.filter((c) => !cut(c)), until: all.some(cut) ? until : null };
+}
+
+/** 칠판 「오늘 바뀐 수업」 줄의 재료. 잘린 교시는 「오늘은 N교시까지」 한 줄. */
+export function changeItems(feed: TimetableFeed, classId: string, ymd: string): (ChangeItem | string)[] {
+  const { cells, until } = changesOf(feed.classes.find((c) => c.id === classId), ymd);
+  const items: (ChangeItem | string)[] = cells.map(itemOf);
+  if (until !== null) items.push(`오늘은 ${until}교시까지`);
+  return items;
+}
+
+/** 원래 과목(줄긋기) 또는 학사일정 이름(작게). 줄긋기는 들리지 않으므로 「원래」를 숨은 글자로 둔다. 칠판과 시간표 안내판이 같이 쓴다. */
+export function changeWhyHTML(i: { from: string | null; note: string | null }): string {
+  if (i.from) return ` <s><span class="sr-only">원래 </span>${escapeHTML(i.from)}</s>`;
+  return i.note ? ` <small>${escapeHTML(i.note)}</small>` : '';
 }
 
 /** 날짜를 주(월요일) 단위로 묶고 '이번 주'·'다음 주' 이름을 붙인다. */
 export function weekGroups(days: string[], today: string): { label: string; days: string[] }[] {
-  const monday = (ymd: string) => addDays(ymd, -((['일', '월', '화', '수', '목', '금', '토'].indexOf(weekday(ymd)) + 6) % 7));
-  const thisMonday = monday(today);
+  const thisMonday = mondayOf(today);
   const groups = new Map<string, string[]>();
-  for (const d of days) groups.set(monday(d), [...(groups.get(monday(d)) ?? []), d]);
+  for (const d of days) groups.set(mondayOf(d), [...(groups.get(mondayOf(d)) ?? []), d]);
   return [...groups].map(([m, ds]) => ({
-    label: m === thisMonday ? '이번 주' : m === addDays(thisMonday, 7) ? '다음 주' : `${m.slice(5).replace('-', '/')} 주`,
+    label: m === thisMonday ? '이번 주' : m === addDays(thisMonday, 7) ? '다음 주' : `${md(m)} 주`,
     days: ds,
   }));
 }
 
-export function classButtonsHTML(classes: ClassTimetable[], grade: number, selected: string): string {
-  return classes
-    .filter((c) => c.grade === grade)
-    .map((c) => `<button type="button" class="class-btn" data-class="${escapeHTML(c.id)}" aria-pressed="${c.id === selected}">${escapeHTML(c.name)}</button>`)
-    .join('');
-}
-
+const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
+export const mondayOf = (ymd: string) => addDays(ymd, -((DAYS.indexOf(weekday(ymd)) + 6) % 7));
+const md = (ymd: string) => `${Number(ymd.slice(5, 7))}/${Number(ymd.slice(8))}`;
 const mdw = (ymd: string) => `${Number(ymd.slice(5, 7))}월 ${Number(ymd.slice(8))}일 ${weekday(ymd)}`;
 
-/** 한 주 전체 표: 열 = 날짜(월~금), 행 = 교시. 바뀐 칸은 노랑 단추 — 누르면 원래 수업이 표 아래에 나온다(page가 data-reveal을 읽는다). */
+/** 그 주 월~금: 「10/19~23」, 달이 바뀌면 「9/28~10/2」. */
+export function weekRange(monday: string): string {
+  const fri = addDays(monday, 4);
+  return `${md(monday)}~${fri.slice(5, 7) === monday.slice(5, 7) ? Number(fri.slice(8)) : md(fri)}`;
+}
+
+/** 한 주 전체 표: 열 = 날짜(월~금), 행 = 교시. 바뀐 칸은 굵은 남색 과목 + 아래 줄 그은 원래 과목(없으면 사유를 작게). */
 export function weekTableHTML(cls: ClassTimetable, weekDays: string[], today: string): string {
   const days = weekDays.map((ymd) => cls.days.find((d) => d.ymd === ymd) ?? { ymd, off: null, until: null, cells: [] as TtCell[] });
   const rows = Math.max(1, ...days.flatMap((d) => d.cells.map((c) => Number(c.period))), ...days.map((d) => Number(d.until ?? 0)));
-  const cls_ = (d: TtDay, extra = '') => `${d.ymd === today ? 'tt-today ' : ''}${extra}`.trim();
+  const at = (d: TtDay, extra = '') => {
+    const c = `${d.ymd === today ? 'tt-today ' : ''}${extra}`.trim();
+    return c ? ` class="${c}"` : '';
+  };
+  const dayNo = (d: TtDay) => Number(d.ymd.slice(8));
   const head = days
-    .map((d) => `<th scope="col" class="${cls_(d)}"><span>${escapeHTML(weekday(d.ymd))}</span><small>${Number(d.ymd.slice(8))}일</small>${d.until !== null && !d.off ? `<small class="tt-until-h">${Number(d.until)}교시까지</small>` : ''}</th>`)
+    .map((d) => {
+      const date = d.ymd === today ? `<span class="sr-only">${dayNo(d)}일 </span>오늘` : `${dayNo(d)}<span class="sr-only">일</span>`;
+      const until = d.until !== null && !d.off ? `<small class="tt-until-h">${Number(d.until)}교시까지</small>` : '';
+      return `<th scope="col"${at(d)}><span>${escapeHTML(weekday(d.ymd))}</span><small>${date}</small>${until}</th>`;
+    })
     .join('');
   const body: string[] = [];
   for (let p = 1; p <= rows; p++) {
     const tds = days.map((d) => {
-      if (d.off) return p === 1 ? `<td rowspan="${rows}" class="${cls_(d, 'tt-off-col')}">${escapeHTML(d.off)}</td>` : '';
+      if (d.off) return p === 1 ? `<td rowspan="${rows}"${at(d, 'tt-off-col')}><span>${escapeHTML(d.off)}</span></td>` : '';
       const cell = d.cells.find((c) => Number(c.period) === p);
       const cut = d.until !== null && p > d.until;
-      if (!cell || cut || (cell.subject === '' && !cell.changed)) return `<td class="${cls_(d, cut ? 'tt-cut' : 'tt-blank')}"></td>`;
-      const tag = cell.special && cell.subject !== '창체' ? '<i class="tt-mark">창체</i>' : '';
-      const inner = `<span>${escapeHTML(cell.subject) || '수업 없음'}</span>${tag}`;
-      const sp = cell.special ? ' tt-special' : '';
-      if (!cell.changed) return `<td class="${cls_(d, sp.trim())}">${inner}</td>`;
-      const why = cell.changed.from ? `원래 ${cell.changed.from}` : cell.changed.note;
-      const reveal = `${mdw(d.ymd)} ${p}교시: ${cell.subject || '수업 없음'}${why ? ` (${why})` : ''}${cell.changed.from && cell.changed.note ? ` · ${cell.changed.note}` : ''}`;
-      return `<td class="${cls_(d, 'tt-changed' + sp)}"><button type="button" data-reveal="${escapeHTML(reveal)}" aria-expanded="false" aria-controls="tt-reveal" aria-label="${escapeHTML(`${p}교시 ${cell.subject || '수업 없음'}, 바뀐 수업. 누르면 원래 수업이 보여요`)}">${inner}</button></td>`;
+      if (!cell || cut || (cell.subject === '' && !cell.changed)) return `<td${at(d, cut ? 'tt-cut' : '')}></td>`;
+      const subject = cell.subject || '수업 없음';
+      const special = cell.special && cell.subject !== '창체';
+      // 과목과 「창체」가 붙어 읽히지 않게 숨은 쉼표를 둔다
+      const tag = special ? '<small class="tt-special"><span class="sr-only">, </span>창체</small>' : '';
+      if (!cell.changed) return `<td${at(d)}>${escapeHTML(subject)}${tag}</td>`;
+      const { from, note } = cell.changed;
+      const why = from ? `<s>${escapeHTML(from)}</s>` : note ? `<small class="tt-note">${escapeHTML(note)}</small>` : '';
+      const label = `${weekday(d.ymd)}요일 ${p}교시 ${subject}${special ? '(창체)' : ''}, ${from ? `원래 ${from}, ` : note ? `${note}, ` : ''}바뀜`;
+      return `<td${at(d, 'tt-changed')} aria-label="${escapeHTML(label)}"><b>${escapeHTML(subject)}</b>${why}${tag}</td>`;
     });
-    body.push(`<tr><th scope="row">${p}</th>${tds.join('')}</tr>`);
+    body.push(`<tr><th scope="row">${p}<span class="sr-only">교시</span></th>${tds.join('')}</tr>`);
   }
-  return `<table class="tt-grid"><caption class="sr-only">${escapeHTML(cls.name)} 주간 시간표</caption><thead><tr><td></td>${head}</tr></thead><tbody>${body.join('')}</tbody></table>`;
+  const caption = `${cls.name} 시간표 ${weekRange(mondayOf(weekDays[0]))}`;
+  return `<table class="tt-grid"><caption class="sr-only">${escapeHTML(caption)}</caption><thead><tr><td class="tt-corner"></td>${head}</tr></thead><tbody>${body.join('')}</tbody></table>`;
 }
 
-/** 「오늘 바뀐 수업」 상자가 다룰 날: 오늘, 주말·쉬는 날이면 다음 등교일. */
-export function changesTarget(cls: ClassTimetable, today: string): { ymd: string; label: string; empty: string } {
+/** 「오늘 바뀐 수업」 안내판이 다룰 날: 오늘, 주말·쉬는 날이면 다음 등교일(날짜를 제목 옆에). */
+export function changesTarget(cls: ClassTimetable, today: string): { ymd: string; label: string; empty: string; date: string } {
   const offs = cls.days.filter((d) => d.off).map((d) => ({ start: d.ymd, end: d.ymd }));
   const closed = ['토', '일'].includes(weekday(today)) || offs.some((o) => o.start === today);
-  if (!closed) return { ymd: today, label: `오늘 바뀐 수업 (${mdw(today)})`, empty: '오늘은 바뀐 수업이 없어요' };
+  if (!closed) return { ymd: today, label: '오늘 바뀐 수업', empty: '바뀐 수업 없어요', date: '' };
   const ymd = nextSchoolDay(today, offs);
-  return { ymd, label: `다음 등교일 바뀐 수업 (${mdw(ymd)})`, empty: '다음 등교일은 바뀐 수업이 없어요' };
+  return { ymd, label: '다음 등교일 바뀐 수업', empty: '바뀐 수업 없어요', date: mdw(ymd) };
 }
 
-export function changesBoxHTML(cls: ClassTimetable, ymd: string, label: string, empty = '바뀐 수업이 없어요'): string {
-  const lines = changeLines({ version: 1, generatedAt: '', days: [], classes: [cls] }, cls.id, ymd);
+/** 안내판: 줄 = 「1교시」 · 굵은 과목 + 줄 그은 원래 과목. 없으면 「바뀐 수업 없어요」, 그날이 피드에 없으면 「그날 시간표가 아직 없어요」. */
+export function changesBoxHTML(cls: ClassTimetable, ymd: string, label: string, empty = '바뀐 수업 없어요', date = ''): string {
+  const { cells, until } = changesOf(cls, ymd);
+  const rows = cells.map((c) => `<li><span>${c.period}교시</span><span><b>${escapeHTML(c.subject || '수업 없음')}</b>${changeWhyHTML(itemOf(c))}</span></li>`);
+  if (until !== null) rows.push(`<li><span>${until + 1}교시부터</span><span>수업 없음</span></li>`);
   // 피드에 그 날짜가 없으면 「바뀐 수업 없음」이라고 단정하지 않는다.
   const none = cls.days.some((d) => d.ymd === ymd) ? empty : '그날 시간표가 아직 없어요';
-  const list = lines.length ? `<ul>${lines.map((l) => `<li>${escapeHTML(l)}</li>`).join('')}</ul>` : `<p>${none}</p>`;
-  return `<h3>${escapeHTML(label)}</h3>${list}`;
+  const list = rows.length ? `<ul class="sign-rows tt-change-rows">${rows.join('')}</ul>` : `<p class="sign-note">${escapeHTML(none)}</p>`;
+  const when = date ? `<span class="sign-date">${escapeHTML(date)}</span>` : '';
+  return `<section class="sign tt-changes" aria-labelledby="tt-changes-title"><div class="sign-head"><h2 id="tt-changes-title">${escapeHTML(label)}</h2>${when}</div>${list}</section>`;
 }

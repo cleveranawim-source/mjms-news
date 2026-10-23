@@ -1,27 +1,83 @@
 ---
 import Base from '../../layouts/Base.astro';
-import GradePicker from '../../components/GradePicker.astro';
-import NoticeRow from '../../components/NoticeRow.astro';
-import { getLetters, groupByMonth } from '../../lib/content.ts';
-import { formatMonth } from '../../lib/dates.ts';
+import Plate from '../../components/Plate.astro';
+import DocCard from '../../components/DocCard.astro';
+import { getLetters } from '../../lib/content.ts';
+import { buildToday } from '../../lib/dates.ts';
+import { isNewLetter } from '../../lib/home.ts';
 
-const months = groupByMonth(await getLetters(), (n) => n.postedOn);
+// 게시일 최신순. 「새 글」은 매일 아침 빌드 날 기준 2주 안.
+const letters = await getLetters();
+const today = buildToday();
+const pills = [
+  { view: 'mine', label: '학년 + 전 학년' }, // 앞의 「N」은 브라우저가 채운다
+  { view: 'all', label: '모든 학년' },
+  { view: '1', label: '1학년' },
+  { view: '2', label: '2학년' },
+  { view: '3', label: '3학년' },
+];
 ---
 
-<Base title="알림">
-  <h1 class="page-title">알림</h1>
-  <p class="lede">학교 홈페이지 가정통신문을 옮긴 요약입니다. 최근 것부터 모았습니다.</p>
-  <GradePicker />
-  {
-    months.map(([month, items]) => (
-      <section class="month filter-group">
-        <h2>{formatMonth(`${month}-01`)}</h2>
-        <ul class="lined">
-          {items.map((n) => <NoticeRow letter={n} />)}
-        </ul>
-        <p class="list-empty">이 달에는 해당 학년 알림이 없습니다.</p>
-      </section>
-    ))
-  }
-  {months.length === 0 && <p>아직 올라온 알림이 없습니다.</p>}
+<Base title="가정통신문">
+  <Plate kind="page" title="가정통신문" sub="학교 홈페이지 가정통신문" classSub="기준" />
+  <div class="letters">
+    <div class="pills" role="group" aria-label="대상 학년으로 거르기" data-letter-filter hidden>
+      {pills.map((p) => <button type="button" class="pill" data-view={p.view} aria-pressed="false"><span>{p.label}</span></button>)}
+    </div>
+    <ul class="docs" data-letters>
+      {letters.map((l) => <DocCard letter={l} isNew={isNewLetter(l, today)} />)}
+    </ul>
+    <p class="docs-note" data-letters-note role="status"></p>
+    {letters.length === 0 && <p class="docs-note">아직 올라온 가정통신문이 없어요</p>}
+  </div>
+  <script is:inline>
+    // 학년 알약: 반을 골랐으면 「N학년 + 전 학년」(기본)·「모든 학년」, 안 골랐으면 「모든 학년」(기본)·「1~3학년」.
+    // 저장된 반은 건드리지 않고 목록의 data-view만 바꾼다. 처음 그림은 <html data-grade> CSS가 맡는다.
+    // 자바스크립트가 없으면 알약은 감춘 채 모든 카드가 보인다.
+    (() => {
+      const box = document.currentScript.previousElementSibling;
+      const filter = box.querySelector('[data-letter-filter]');
+      const list = box.querySelector('[data-letters]');
+      const note = box.querySelector('[data-letters-note]');
+      const pills = [...filter.querySelectorAll('[data-view]')];
+      const items = [...list.children];
+      let grade = 0;
+      let view = 'all';
+      const show = () => {
+        for (const b of pills) {
+          const v = b.dataset.view;
+          b.hidden = grade ? v !== 'mine' && v !== 'all' : v === 'mine';
+          b.setAttribute('aria-pressed', String(v === view));
+          if (v === 'mine') b.firstElementChild.textContent = `${grade}학년 + 전 학년`;
+        }
+        const g = view === 'mine' ? grade : Number(view) || 0;
+        list.dataset.view = g ? String(g) : 'all';
+        // 지금 알약에서 숨은 글 수와 그 대상 학년
+        const hidden = g ? items.filter((li) => !li.dataset.grades.split(' ').includes(String(g))) : [];
+        const gs = [...new Set(hidden.flatMap((li) => li.dataset.grades.split(' ')))].sort();
+        note.textContent = hidden.length ? `${gs.join('·')}학년 대상 ${hidden.length}건은 '모든 학년'에서 볼 수 있어요` : '';
+      };
+      const setClass = (id) => {
+        // 1~3학년이 아니면 반을 안 고른 것으로 본다
+        const m = /^class-(\d+)_\d+$/.exec(id || '');
+        const g = m ? Number(m[1]) : 0;
+        grade = g >= 1 && g <= 3 ? g : 0;
+        view = grade ? 'mine' : 'all';
+        show();
+      };
+      for (const b of pills) {
+        b.addEventListener('click', () => {
+          view = b.dataset.view;
+          show();
+        });
+      }
+      let id = '';
+      try {
+        id = localStorage.getItem('mjms-class') || '';
+      } catch {}
+      setClass(id);
+      filter.hidden = false;
+      document.addEventListener('mjms:class', (e) => setClass(e.detail));
+    })();
+  </script>
 </Base>

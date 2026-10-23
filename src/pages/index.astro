@@ -1,54 +1,101 @@
 ---
 import Base from '../layouts/Base.astro';
+import Plate from '../components/Plate.astro';
 import Chalkboard from '../components/Chalkboard.astro';
-import NoticeRow from '../components/NoticeRow.astro';
-import EventRow from '../components/EventRow.astro';
-import LostStrip from '../components/LostStrip.astro';
-import { getLetters, getScheduleEntries } from '../lib/content.ts';
-import { buildToday } from '../lib/dates.ts';
+import Sign from '../components/Sign.astro';
+import { getSchedule } from '../lib/content.ts';
+import { buildToday, formatShortRange, offRanges } from '../lib/dates.ts';
+import { getFeed } from '../lib/feed.ts';
+import { badgeHTML, scheduleBadgeHTML } from '../lib/grades.ts';
+import { LETTERS_N, UPCOMING_N, newLetterRows, upcomingRows } from '../lib/home.ts';
+import { mealHTML, pickMeal } from '../lib/meal.ts';
 import { href } from '../lib/paths.ts';
+import { site } from '../site.config.ts';
 
+// 칠판·급식은 브라우저가 서울 날짜로 다시 그린다. 일정·가정통신문 판은 매일 아침 빌드 기준이면 된다.
+const feed = await getFeed();
 const today = buildToday();
-const notices = (await getLetters()).slice(0, 8);
-// 다가오는 일정은 보기(전체·1·2·3학년)마다 가까운 2개씩만. 어느 보기에 들어가는지 data-show로 적어 두고 CSS가 고른다.
-const future = (await getScheduleEntries()).filter((e) => e.end >= today);
-const views = ['all', '1', '2', '3'];
-const firstTwo = (v: string) => future.filter((e) => v === 'all' || e.grades.length === 0 || e.grades.includes(Number(v))).slice(0, 2);
-const upcoming = future
-  .map((e) => ({ event: e, show: views.filter((v) => firstTwo(v).includes(e)).join(' ') }))
-  .filter((u) => u.show);
+const meal = pickMeal(today, feed.meals, offRanges(feed));
+const upcoming = upcomingRows(await getSchedule(), today);
+const letters = newLetterRows(feed.letters, today);
 ---
 
 <Base>
-  <h1 class="sr-only">오늘의 알림</h1>
-  <Chalkboard />
-  <section class="section section--home filter-group" aria-labelledby="upcoming">
-    <div class="section-head">
-      <h2 id="upcoming">다가오는 일정</h2>
-      <a href={href('schedule/')}>학사일정 전체</a>
-    </div>
-    <ul class="lined lined--compact">
-      {upcoming.map((u) => <EventRow event={u.event} show={u.show} />)}
-    </ul>
-    <p class="list-empty">예정된 일정이 없습니다.</p>
-  </section>
-  <LostStrip />
+  <Plate kind="class" />
+  <div class="home">
+    <Chalkboard />
+    <section class="sign sign--meal" aria-labelledby="meal-title" data-meal-sign hidden={!meal} set:html={mealHTML(meal)} />
 
-  <section class="section section--home filter-group" aria-labelledby="recent">
-    <div class="section-head">
-      <h2 id="recent">최근 알림</h2>
-      <a href={href('notices/')}>알림 모두 보기</a>
-    </div>
-    <ul class="lined">
-      {notices.map((n) => <NoticeRow letter={n} />)}
-    </ul>
+    <Sign title="다가오는 일정" id="upcoming" link={{ href: href('schedule/'), label: '달력' }} class="sign--views">
+      {
+        upcoming === null ? (
+          <p class="sign-note">학사일정을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.</p>
+        ) : (
+          <>
+            <ul class="sign-rows sign-rows--dated" data-cap={UPCOMING_N}>
+              {upcoming.map(({ item, show, spare }) => (
+                <li data-show={show} data-spare={spare || undefined} data-start={item.start}>
+                  <span class="sign-date">{formatShortRange(item.start, item.end)}</span>
+                  <span class="sign-title">{item.title}</span>
+                  <Fragment set:html={scheduleBadgeHTML(item)} />
+                </li>
+              ))}
+            </ul>
+            <p class="sign-note sign-empty">다가오는 학사일정이 없어요</p>
+          </>
+        )
+      }
+    </Sign>
+
+    <Sign title="새 가정통신문" id="new-letters" link={{ href: href('notices/'), label: '전체' }} class="sign--views">
+      <ul class="sign-rows" data-cap={LETTERS_N}>
+        {
+          letters.map(({ item, show, spare }) => (
+            <li data-show={show} data-spare={spare || undefined} data-published={item.publishedOn}>
+              <a href={href(`notices/${item.id}/`)}>
+                <span class="sign-title">{item.subject}</span>
+                <Fragment set:html={badgeHTML(item.grades)} />
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+      <p class="sign-note sign-empty">2주 안에 새 가정통신문이 없어요</p>
+    </Sign>
+
     {
-      notices.length > 0 ? (
-        <p class="list-empty">이 학년에 해당하는 최근 알림이 없습니다.</p>
-      ) : (
-        <p class="list-empty">아직 올라온 알림이 없습니다.</p>
+      site.lostFoundApi && (
+        <Sign title="분실물" id="lost-title" link={{ href: href('lost/'), label: '분실물함' }} class="sign--lost" data-lost-sign data-api={site.lostFoundApi} hidden>
+          <p class="sign-note">주인을 기다리는 물건이 있어요.</p>
+        </Sign>
       )
     }
-  </section>
-
+  </div>
 </Base>
+
+<script>
+  import { addDays, seoulToday } from '../lib/dates.ts';
+  import { visibleShows } from '../lib/home.ts';
+  import { loadLost } from '../lib/lost.ts';
+
+  // 일정·가정통신문 판은 빌드한 날 기준이다. 아침 빌드를 놓쳐도 오늘·지난 일정(오늘 것은 칠판에), 2주 지난 글은 브라우저가 뺀다.
+  // 빌드는 보기마다 예비 줄을 더 실어 두므로, 뺀 뒤 보기마다 앞에서 n개를 다시 고른다.
+  const today = seoulToday();
+  for (const li of document.querySelectorAll<HTMLElement>('[data-start]')) if (li.dataset.start! <= today) li.remove();
+  for (const li of document.querySelectorAll<HTMLElement>('[data-published]')) if (li.dataset.published! < addDays(today, -14)) li.remove();
+  for (const ul of document.querySelectorAll<HTMLElement>('[data-cap]')) {
+    const lis = [...ul.querySelectorAll<HTMLElement>(':scope > li')];
+    const shows = visibleShows(lis.map((li) => ({ show: li.dataset.show ?? '', spare: li.dataset.spare ?? '' })), Number(ul.dataset.cap));
+    lis.forEach((li, i) => (li.dataset.show = shows[i]));
+  }
+
+  // 분실물 판: 보관 중인 물건이 있을 때만 「분실물 N개」로 보인다. 못 받거나 0개면 감춘 채로 둔다.
+  const sign = document.querySelector<HTMLElement>('[data-lost-sign]');
+  if (sign) {
+    const items = await loadLost(sign.dataset.api!);
+    if (items && items.length > 0) {
+      sign.querySelector('[data-sign-title]')!.textContent = `분실물 ${items.length}개`;
+      sign.hidden = false;
+    }
+  }
+</script>

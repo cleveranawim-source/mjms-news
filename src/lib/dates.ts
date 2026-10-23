@@ -48,6 +48,12 @@ export function formatDate(iso: string): string {
   return `${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일 (${weekday(iso)})`;
 }
 
+// 「10월 22일」(요일 없이). 가정통신문 카드의 게시일에 쓴다.
+export function formatMonthDay(iso: string): string {
+  const d = parse(iso);
+  return `${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일`;
+}
+
 export function formatMonth(iso: string): string {
   const d = parse(iso);
   return `${d.getUTCFullYear()}년 ${d.getUTCMonth() + 1}월`;
@@ -57,6 +63,16 @@ export function formatRange(start: string, end?: string): string {
   if (!end || end === start) return formatDate(start);
   const sameMonth = start.slice(0, 7) === end.slice(0, 7);
   return `${formatDate(start)} ~ ${sameMonth ? formatDate(end).replace(/^\d+월 /, '') : formatDate(end)}`;
+}
+
+// 첫 화면 일정 줄의 짧은 날짜: 「11월 20일 금」, 「10월 26~28일」, 「10월 30일~11월 2일」.
+export function formatShortRange(start: string, end?: string): string {
+  const a = parse(start);
+  const m = a.getUTCMonth() + 1;
+  if (!end || end === start) return `${m}월 ${a.getUTCDate()}일 ${weekday(start)}`;
+  const b = parse(end);
+  if (start.slice(0, 7) === end.slice(0, 7)) return `${m}월 ${a.getUTCDate()}~${b.getUTCDate()}일`;
+  return `${m}월 ${a.getUTCDate()}일~${b.getUTCMonth() + 1}월 ${b.getUTCDate()}일`;
 }
 
 // 공휴일 달력과 학교 구글 캘린더가 같은 쉬는 날을 따로 싣는다. 날짜 범위가 똑같으면 한 줄로 합치고,
@@ -71,4 +87,13 @@ export function mergeDaysOff<T extends { title: string; start: string; end: stri
     if (!have || title.length < have.title.length) byRange.set(key, { ...d, title });
   }
   return [...byRange.values()];
+}
+
+// 등교일 계산에 쓸 쉬는 날: 피드의 쉬는 날 + 나이스 학사일정의 전 학년 공휴일·재량휴업일.
+// 학년만 쉬는 날은 학교 전체 쉬는 날이 아니다 — 그 학년 일정(학년 배지 + 「쉬는 날」)으로만 보인다.
+export function offRanges(feed: { daysOff: { title: string; start: string; end: string }[]; schedule?: { title: string; start: string; end: string; kind: string; grades: number[] }[] | null }): { title: string; start: string; end: string }[] {
+  const fromSchedule = (feed.schedule ?? [])
+    .filter((s) => (s.kind === 'holiday' || s.kind === 'dayoff') && s.grades.length === 0)
+    .map(({ title, start, end }) => ({ title, start, end }));
+  return mergeDaysOff([...feed.daysOff, ...fromSchedule]);
 }

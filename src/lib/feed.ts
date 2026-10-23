@@ -7,11 +7,13 @@ export type FeedLetter = {
   attachments: string[]; sourceUrl: string; postedOn: string; publishedOn: string;
 };
 export type FeedEvent = { title: string; start: string; end: string; grades: number[] };
+export type FeedScheduleItem = { title: string; start: string; end: string; grades: number[]; kind: 'holiday' | 'dayoff' | 'event' };
 export type FeedDayOff = { title: string; start: string; end: string };
 export type FeedMeal = { ymd: string; dishes: { name: string; allergens: number[] }[] };
 export type Feed = {
   version: 1; generatedAt: string;
   letters: FeedLetter[]; events: FeedEvent[]; daysOff: FeedDayOff[]; meals: FeedMeal[];
+  schedule: FeedScheduleItem[] | null; // 나이스 학사일정. 피드에 없으면 null
 };
 
 const DEFAULT_URL = 'https://mjms-office.vercel.app/api/news/feed';
@@ -52,6 +54,17 @@ function toEvent(x: unknown): FeedEvent | null {
     : null;
 }
 
+const KINDS = ['holiday', 'dayoff', 'event'];
+function toScheduleItem(x: unknown): FeedScheduleItem | null {
+  if (!isObj(x)) return null;
+  const ok =
+    isStr(x.title) && x.title.length >= 1 && x.title.length <= 100 && isYmd(x.start) && isYmd(x.end) && x.start <= x.end &&
+    isGrades(x.grades) && isStr(x.kind) && KINDS.includes(x.kind);
+  return ok
+    ? { title: x.title as string, start: x.start as string, end: x.end as string, grades: [...(x.grades as number[])], kind: x.kind as FeedScheduleItem['kind'] }
+    : null;
+}
+
 function toDayOff(x: unknown): FeedDayOff | null {
   if (!isObj(x)) return null;
   return isStr(x.title) && isYmd(x.start) && isYmd(x.end) ? { title: x.title, start: x.start, end: x.end } : null;
@@ -76,6 +89,13 @@ function pick<T>(name: string, list: unknown[], convert: (x: unknown) => T | nul
   return out;
 }
 
+// 학사일정: 배열이 아니거나, 항목이 왔는데 하나도 못 읽었으면 null(편지와 같은 원칙 — 빈 달력보다 「불러오지 못했어요」).
+function parseSchedule(list: unknown): FeedScheduleItem[] | null {
+  if (!Array.isArray(list)) return null;
+  const items = pick('schedule', list, toScheduleItem);
+  return list.length > 0 && items.length === 0 ? null : items;
+}
+
 // 큰 틀이 틀리면 던진다: 빌드가 실패하면 직전에 올라간 사이트가 그대로 남기 때문이다.
 // 항목 하나가 이상한 것은 그 항목만 뺀다.
 function parseFeed(raw: unknown): Feed {
@@ -95,6 +115,7 @@ function parseFeed(raw: unknown): Feed {
     events: pick('events', events, toEvent),
     daysOff: pick('daysOff', daysOff, toDayOff),
     meals: pick('meals', meals, toMeal),
+    schedule: parseSchedule(raw.schedule),
   };
 }
 
