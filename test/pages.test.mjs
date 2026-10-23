@@ -20,6 +20,19 @@ execFileSync('npx', ['astro', 'build'], {
 });
 const read = (p) => readFileSync(resolve(root, 'dist', p), 'utf8');
 
+// 학사일정(schedule)이 없는 피드 사본도 따로 빌드한다(나이스를 못 읽은 날).
+const noScheduleDir = mkdtempSync(resolve(tmpdir(), 'feed-nosched-'));
+const noScheduleFeed = resolve(noScheduleDir, 'feed.json');
+const { schedule: _dropped, ...withoutSchedule } = feed;
+writeFileSync(noScheduleFeed, JSON.stringify(withoutSchedule));
+const noScheduleOut = resolve(noScheduleDir, 'dist');
+execFileSync('npx', ['astro', 'build', '--outDir', noScheduleOut], {
+  cwd: root,
+  env: { ...process.env, NEWS_FEED_FILE: noScheduleFeed, NEWS_TODAY: '2026-10-22' },
+  stdio: 'pipe',
+});
+const readNoSchedule = (p) => readFileSync(resolve(noScheduleOut, p), 'utf8');
+
 test('가정통신문 한 건: 원문 링크·요약·첨부, 준비물은 정보 표에', () => {
   const l = feed.letters[0];
   const html = read(`notices/${l.id}/index.html`);
@@ -194,9 +207,10 @@ test('다가오는 일정 안내판: 보기마다 두 개, 날짜 · 이름 · �
   const sign = html.match(/<section class="sign[^"]*"[^>]*aria-labelledby="upcoming"[\s\S]*?<\/section>/)[0];
   assert.match(sign, /<h2 id="upcoming"[^>]*>다가오는 일정<\/h2>[\s\S]*href="\/schedule\/"[^>]*>달력</);
   for (const v of ['all', '1', '2', '3']) assert.ok((sign.match(new RegExp(`data-show="[^"]*\\b${v}\\b`, 'g')) ?? []).length <= 2, v);
-  assert.match(sign, /data-end="2026-10-28">\s*<span class="sign-date">10월 26~28일<\/span>[\s\S]*기말고사[\s\S]*badge badge--g3">3학년/);
+  assert.match(sign, /data-start="2026-10-26">\s*<span class="sign-date">10월 26~28일<\/span>[\s\S]*기말고사[\s\S]*badge badge--g3">3학년/);
   assert.match(sign, /재량휴업일[\s\S]*class="badge-off">쉬는 날/);
   assert.ok(!sign.includes('개교기념 체육대회')); // 옛 events는 첫 화면에 쓰지 않는다
+  assert.ok(!sign.includes('학생예배')); // 오늘(10/22) 일정은 칠판 「오늘 일정」에만
 });
 
 test('새 가정통신문 안내판: 2주 안 것만, 제목 + 대상 배지, 전체 링크', () => {
@@ -269,4 +283,16 @@ test('시간표 화면: 범례 한 줄, 실패 문구 + 다시 불러오기, 옛
   assert.match(html, /시간표를 불러오지 못했어요[\s\S]*<button[^>]*data-tt-retry[^>]*>다시 불러오기<\/button>/);
   assert.match(html, /<button[^>]*data-open-class-sheet[^>]*>반 고르기<\/button>/);
   assert.ok(!html.includes('tt-reveal') && !html.includes('data-reveal') && !html.includes('strip-note'));
+});
+
+test('학사일정을 못 받은 날: 첫 화면 일정 안내판과 학사일정 화면이 「불러오지 못했어요」', () => {
+  const msg = '학사일정을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.';
+  const home = readNoSchedule('index.html');
+  const sign = home.match(/<section class="sign[^"]*"[^>]*aria-labelledby="upcoming"[\s\S]*?<\/section>/)[0];
+  assert.ok(sign.includes(msg));
+  assert.ok(!sign.includes('data-show'));
+  const cal = readNoSchedule('schedule/index.html');
+  assert.ok(cal.includes(msg));
+  assert.ok(!cal.includes('data-calendar'));
+  assert.ok(!cal.includes('data-cal-grid'));
 });

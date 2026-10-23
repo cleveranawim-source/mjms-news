@@ -7,7 +7,7 @@ import { getSchedule } from '../lib/content.ts';
 import { buildToday, formatShortRange, offRanges } from '../lib/dates.ts';
 import { getFeed } from '../lib/feed.ts';
 import { badgeHTML, scheduleBadgeHTML } from '../lib/grades.ts';
-import { newLetterRows, upcomingRows } from '../lib/home.ts';
+import { LETTERS_N, UPCOMING_N, newLetterRows, upcomingRows } from '../lib/home.ts';
 import { mealHTML, pickMeal } from '../lib/meal.ts';
 import { href } from '../lib/paths.ts';
 import { site } from '../site.config.ts';
@@ -32,9 +32,9 @@ const letters = newLetterRows(feed.letters, today);
           <p class="sign-note">학사일정을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.</p>
         ) : (
           <>
-            <ul class="sign-rows sign-rows--dated">
-              {upcoming.map(({ item, show }) => (
-                <li data-show={show} data-end={item.end}>
+            <ul class="sign-rows sign-rows--dated" data-cap={UPCOMING_N}>
+              {upcoming.map(({ item, show, spare }) => (
+                <li data-show={show} data-spare={spare || undefined} data-start={item.start}>
                   <span class="sign-date">{formatShortRange(item.start, item.end)}</span>
                   <span class="sign-title">{item.title}</span>
                   <Fragment set:html={scheduleBadgeHTML(item)} />
@@ -48,10 +48,10 @@ const letters = newLetterRows(feed.letters, today);
     </Sign>
 
     <Sign title="새 가정통신문" id="new-letters" link={{ href: href('notices/'), label: '전체' }} class="sign--views">
-      <ul class="sign-rows">
+      <ul class="sign-rows" data-cap={LETTERS_N}>
         {
-          letters.map(({ item, show }) => (
-            <li data-show={show} data-published={item.publishedOn}>
+          letters.map(({ item, show, spare }) => (
+            <li data-show={show} data-spare={spare || undefined} data-published={item.publishedOn}>
               <a href={href(`notices/${item.id}/`)}>
                 <span class="sign-title">{item.subject}</span>
                 <Fragment set:html={badgeHTML(item.grades)} />
@@ -75,12 +75,19 @@ const letters = newLetterRows(feed.letters, today);
 
 <script>
   import { addDays, seoulToday } from '../lib/dates.ts';
+  import { visibleShows } from '../lib/home.ts';
   import { loadLost } from '../lib/lost.ts';
 
-  // 일정·가정통신문 판은 빌드한 날 기준이다. 아침 빌드를 놓쳐도 지난 일정, 2주 지난 글은 브라우저가 뺀다.
+  // 일정·가정통신문 판은 빌드한 날 기준이다. 아침 빌드를 놓쳐도 오늘·지난 일정(오늘 것은 칠판에), 2주 지난 글은 브라우저가 뺀다.
+  // 빌드는 보기마다 예비 줄을 더 실어 두므로, 뺀 뒤 보기마다 앞에서 n개를 다시 고른다.
   const today = seoulToday();
-  for (const li of document.querySelectorAll<HTMLElement>('[data-end]')) if (li.dataset.end! < today) li.remove();
+  for (const li of document.querySelectorAll<HTMLElement>('[data-start]')) if (li.dataset.start! <= today) li.remove();
   for (const li of document.querySelectorAll<HTMLElement>('[data-published]')) if (li.dataset.published! < addDays(today, -14)) li.remove();
+  for (const ul of document.querySelectorAll<HTMLElement>('[data-cap]')) {
+    const lis = [...ul.querySelectorAll<HTMLElement>(':scope > li')];
+    const shows = visibleShows(lis.map((li) => ({ show: li.dataset.show ?? '', spare: li.dataset.spare ?? '' })), Number(ul.dataset.cap));
+    lis.forEach((li, i) => (li.dataset.show = shows[i]));
+  }
 
   // 분실물 판: 보관 중인 물건이 있을 때만 「분실물 N개」로 보인다. 못 받거나 0개면 감춘 채로 둔다.
   const sign = document.querySelector<HTMLElement>('[data-lost-sign]');
