@@ -19,7 +19,7 @@ const pills = [
 ---
 
 <Base title="가정통신문">
-  <Plate kind="page" title="가정통신문" sub="학교 홈페이지 가정통신문" classSub="기준" />
+  <Plate kind="page" title="가정통신문" />
   <div class="letters">
     <div class="pills" role="group" aria-label="대상 학년으로 거르기" data-letter-filter hidden>
       {pills.map((p) => <button type="button" class="pill" data-view={p.view} aria-pressed="false"><span>{p.label}</span></button>)}

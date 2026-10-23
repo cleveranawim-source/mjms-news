@@ -5,7 +5,7 @@ import { site } from '../site.config.ts';
 ---
 
 <Base title="시간표" description="우리 반 이번 주·다음 주 시간표와 오늘 바뀐 수업을 한눈에 볼 수 있습니다.">
-  <Plate kind="class" title=" 시간표" sub="우리 반" compact />
+  <Plate kind="class" title=" 시간표" sub="" compact />
   {
     site.timetableApi && (
       <div class="tt" data-timetable data-api={site.timetableApi}>

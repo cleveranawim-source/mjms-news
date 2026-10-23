@@ -257,6 +257,60 @@ main {
   color: var(--navy);
 }
 
+/* 첫 화면 명패: 「명지중학교」 작게 + 「알림장」 크게, 오른쪽 흰 단추에 우리 반 */
+.plate-brand {
+  line-height: 1.15;
+}
+
+.plate-brand small {
+  display: block;
+  margin-bottom: 2px;
+  font-size: var(--fs-12);
+  font-weight: 500;
+  letter-spacing: 0;
+  color: rgb(255 255 255 / 0.8);
+}
+
+.plate-chip {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 12px 0 16px;
+  border: 0;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--navy);
+  font: inherit;
+  font-size: var(--fs-15);
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.plate-chip:hover {
+  background: var(--g-all);
+}
+
+.plate-chip svg {
+  opacity: 0.7;
+}
+
+.plate-chip.is-empty {
+  padding-inline: 16px;
+}
+
+.plate-chip.is-empty svg {
+  display: none;
+}
+
+.plate-chip[hidden] {
+  display: none;
+}
+
 .plate :focus-visible {
   outline-color: #fff;
   border-radius: 999px;
@@ -1729,6 +1783,7 @@ html[data-grade] .docs[data-view='all'] > li {
   .site-footer,
   .plate,
   .plate-btn,
+  .plate-chip,
   .pills,
   .print,
   .letter-print,
