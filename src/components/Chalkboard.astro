@@ -19,7 +19,7 @@ const notes = [...feed.letters]
   .slice(0, 3);
 const magnet = (grades: number[]) => (grades.length === 1 ? `g${grades[0]}` : '');
 // <script> 안의 JSON이 </script>로 끊기지 않도록 <를 이스케이프한다.
-const boardJson = JSON.stringify({ base, letters: feed.letters, events: feed.events, daysOff: feed.daysOff }).replace(/</g, '\\u003c');
+const boardJson = JSON.stringify({ base, letters: feed.letters, events: feed.events, daysOff: feed.daysOff, meals: feed.meals }).replace(/</g, '\\u003c');
 ---
 
 <script is:inline>
@@ -33,7 +33,7 @@ const boardJson = JSON.stringify({ base, letters: feed.letters, events: feed.eve
 </script>
 
 <div class="board-wrap">
-  <section class="board" aria-label="오늘의 알림" data-today={today} data-tt-api={site.timetableApi || undefined}>
+  <section class="board" aria-label="오늘의 알림" data-today={today} data-tt-api={site.timetableApi || undefined} data-tt-href={href('timetable/')}>
     <img class="board-emblem" src={href('emblem-chalk.png')} alt="" width="80" height="82" />
     <p class="board-date">
       <span class="board-day" data-board-day>{dayLabel(today)}</span>
@@ -69,29 +69,42 @@ const boardJson = JSON.stringify({ base, letters: feed.letters, events: feed.eve
   const board = document.querySelector<HTMLElement>('.board');
   const today = seoulToday();
   if (board && board.dataset.today !== today) {
-    const { base, letters, events, daysOff } = JSON.parse(board.querySelector('[data-board-json]')!.textContent!);
+    const { base, letters, events, daysOff, meals } = JSON.parse(board.querySelector('[data-board-json]')!.textContent!);
     board.dataset.today = today;
     board.querySelector('[data-board-day]')!.textContent = formatDate(today).replace(/ \(.\)$/, '');
     board.querySelector('[data-board-weekday]')!.textContent = `${weekday(today)}요일`;
-    board.querySelector('[data-board-groups]')!.innerHTML = boardHTML(boardFromFeed(today, { letters, events, daysOff, meals: [] }), base);
+    board.querySelector('[data-board-groups]')!.innerHTML = boardHTML(boardFromFeed(today, { letters, events, daysOff, meals }), base);
   }
 
-  // 반을 골랐고 오늘 바뀐 수업이 있으면 「오늘 챙길 것」 앞에 칸을 끼운다. 빌드 결과는 시간표와 무관하다.
+  // 칠판 맨 위(쉬는 날 줄 다음)에 우리 반 「오늘 바뀐 수업」을 끼운다. 빌드 결과는 시간표와 무관하다.
+  // 반을 안 골랐으면 고르러 가는 줄을, 등교일인데 바뀐 수업이 없으면 '없어요'를 쓴다.
+  const groups = board?.querySelector<HTMLElement>('[data-board-groups]');
+  const putFirst = (html: string) => {
+    const dayOff = groups!.querySelector('.board-dayoff');
+    if (dayOff) dayOff.insertAdjacentHTML('afterend', html);
+    else groups!.insertAdjacentHTML('afterbegin', html);
+  };
   let picked = '';
   try {
     picked = localStorage.getItem('mjms-class') ?? '';
   } catch {}
-  if (board && board.dataset.ttApi && picked) {
-    const feed = await loadTimetable(board.dataset.ttApi);
-    const cls = feed?.classes.find((c) => c.id === picked);
-    const changes = feed && cls ? changeLines(feed, cls.id, today) : [];
-    const groups = board.querySelector<HTMLElement>('[data-board-groups]');
-    if (cls && changes.length > 0 && groups) {
-      const items = changes.map((line) => `<li>${escapeHTML(line)}</li>`).join('');
-      const html = `<section class="board-group board-group--changes" data-class-grade="${cls.grade}"><h2>${escapeHTML(cls.name)} 오늘 바뀐 수업</h2><ul>${items}</ul></section>`;
-      const first = groups.querySelector('.board-group');
-      if (first) first.insertAdjacentHTML('beforebegin', html);
-      else groups.insertAdjacentHTML('beforeend', html);
+  if (board && groups && board.dataset.ttApi) {
+    if (!picked) {
+      putFirst(`<p class="board-pick"><a href="${board.dataset.ttHref}">우리 반을 고르면 바뀐 수업이 보여요</a></p>`);
+    } else {
+      const feed = await loadTimetable(board.dataset.ttApi);
+      const cls = feed?.classes.find((c) => c.id === picked);
+      if (feed && cls) {
+        const changes = changeLines(feed, cls.id, today);
+        const schoolDay = cls.days.some((d) => d.ymd === today);
+        const title = `<h2>${escapeHTML(cls.name)} 오늘 바뀐 수업</h2>`;
+        const body =
+          changes.length > 0
+            ? `<ul>${changes.map((line) => `<li>${escapeHTML(line)}</li>`).join('')}</ul>`
+            : '<span class="board-none">없어요</span>';
+        if (changes.length > 0 || schoolDay)
+          putFirst(`<section class="board-group board-group--changes" data-class-grade="${cls.grade}">${title}${body}</section>`);
+      }
     }
   }
 </script>

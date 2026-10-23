@@ -460,9 +460,9 @@ main {
   border: 10px solid var(--frame);
   border-bottom: 0;
   border-radius: 8px 8px 0 0;
-  padding: 1.25rem 1rem 1.5rem;
+  padding: 0.875rem 0.875rem 1rem;
   display: grid;
-  gap: 1.25rem;
+  gap: 0.75rem;
   font-family: 'Gaegu', 'IBM Plex Sans KR', sans-serif;
   text-shadow: 0 0 1px rgb(238 241 234 / 0.35);
   position: relative;
@@ -471,9 +471,9 @@ main {
 /* 분필로 그린 교표 */
 .board-emblem {
   position: absolute;
-  top: 1rem;
-  right: 1rem;
-  width: 3.5rem;
+  top: 0.75rem;
+  right: 0.875rem;
+  width: 2.75rem;
   height: auto;
   opacity: 0.22;
   pointer-events: none;
@@ -489,7 +489,7 @@ main {
 }
 
 .board-date {
-  font-size: clamp(2.75rem, 12vw, 4.5rem);
+  font-size: clamp(2.25rem, 10vw, 4.5rem);
   line-height: 1.05;
   font-weight: 700;
   margin: 0;
@@ -503,7 +503,7 @@ main {
 .board-date small {
   display: inline-block;
   margin-left: 0.5rem;
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 400;
   color: var(--chalk-dim);
 }
@@ -518,7 +518,7 @@ main {
 
 .board-groups {
   display: grid;
-  gap: 1rem 2rem;
+  gap: 0.625rem 2rem;
 }
 
 .board-dayoff {
@@ -532,20 +532,41 @@ main {
 .board-group h2 {
   font-family: inherit;
   font-weight: 700;
-  font-size: 1.375rem;
-  color: var(--chalk);
+  font-size: 1.25rem;
+  color: rgb(var(--title));
   line-height: 1.2;
   display: inline-block;
   padding-bottom: 0.125rem;
-  background: linear-gradient(90deg, rgb(238 241 234 / 0.6), rgb(238 241 234 / 0.25)) left bottom / 100% 2px no-repeat;
+  background: linear-gradient(90deg, rgb(var(--title) / 0.7), rgb(var(--title) / 0.3)) left bottom / 100% 2px no-repeat;
+}
+
+/* 칸마다 제목 분필 색이 다르다. 분홍·하늘은 학년 표시 색이라 쓰지 않는다. */
+.board {
+  --title: 238 241 234;
+}
+
+.board-group--changes {
+  --title: 241 214 90; /* 노랑: 바뀐 수업 */
+}
+
+.board-bring {
+  --title: 247 178 107; /* 주황: 챙길 것 */
+}
+
+.board-meal {
+  --title: 160 224 150; /* 연두: 급식 */
+}
+
+.board-group--events {
+  --title: 196 178 245; /* 보라: 일정 */
 }
 
 .board-group ul {
   list-style: none;
-  margin: 0.25rem 0 0;
+  margin: 0.125rem 0 0;
   padding: 0;
-  font-size: 1.3125rem;
-  line-height: 1.45;
+  font-size: 1.25rem;
+  line-height: 1.35;
 }
 
 .board-group li {
@@ -595,13 +616,84 @@ main {
   --empty-display: inline-block;
 }
 
-/* 빈 칸은 제목 옆에 '없어요'만. 목록 페이지의 .filter-group > .list-empty보다 앞서도록 .board를 붙인다. */
-.board .board-group .list-empty {
-  padding: 0;
+/* 칠판의 '없어요'는 제목 옆에 흐리게 붙인다 */
+.board-none,
+.board-bring-none span {
+  margin-left: 0.5rem;
+  font-size: 1.125rem;
   color: var(--chalk-dim);
-  margin: 0 0 0 0.625rem;
+}
+
+/* 빈 칸은 그리지 않는다. 학년을 골랐으면 그 학년 것이 없는 칸도 숨긴다. */
+[data-grade='1'] .board-group--opt:not(:has([data-grades~='1'])),
+[data-grade='2'] .board-group--opt:not(:has([data-grades~='2'])),
+[data-grade='3'] .board-group--opt:not(:has([data-grades~='3'])) {
+  display: none;
+}
+
+/* 챙길 것: 오늘 것과 다음 등교일 준비물이 모두 없으면 '챙길 것 없어요' 한 줄 */
+.board-bring {
+  display: grid;
+  gap: 0.625rem 2rem;
+}
+
+.board-bring-none {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+.board-bring-none b {
+  display: inline-block;
+  padding-bottom: 0.125rem;
+  color: rgb(var(--title));
+  background: linear-gradient(90deg, rgb(var(--title) / 0.7), rgb(var(--title) / 0.3)) left bottom / 100% 2px no-repeat;
+}
+
+:root:not([data-grade]) .board-bring:has(li) .board-bring-none,
+[data-grade='1'] .board-bring:has([data-grades~='1']) .board-bring-none,
+[data-grade='2'] .board-bring:has([data-grades~='2']) .board-bring-none,
+[data-grade='3'] .board-bring:has([data-grades~='3']) .board-bring-none {
+  display: none;
+}
+
+/* 칠판 급식: 분필로 한 문단. 알레르기 번호는 눌러야 펼쳐진다. */
+.board-meal h2 small {
+  margin-left: 0.375rem;
+  font-size: 1rem;
+  font-weight: 400;
+  color: var(--chalk-dim);
+}
+
+.board-meal .meal-dishes {
+  margin: 0.125rem 0 0;
   font-size: 1.1875rem;
+  line-height: 1.35;
+}
+
+.board-meal summary {
+  cursor: pointer;
   color: var(--chalk-dim);
+  font-size: 1rem;
+  padding-top: 0.25rem;
+}
+
+.board-meal .meal-allergy {
+  font-family: 'IBM Plex Sans KR', sans-serif;
+  text-shadow: none;
+  color: var(--chalk);
+}
+
+/* 반을 안 골랐을 때 시간표로 가는 줄 */
+.board-pick {
+  margin: 0;
+  font-size: 1.1875rem;
+  color: var(--chalk-yellow);
+}
+
+.board-pick a {
+  color: inherit;
+  text-decoration-color: rgb(241 214 90 / 0.5);
 }
 
 /* 자석으로 붙인 쪽지 */
@@ -765,6 +857,10 @@ main {
   margin-top: 3rem;
 }
 
+.section.section--home {
+  margin-top: 1.75rem;
+}
+
 .section-head {
   display: flex;
   justify-content: space-between;
@@ -867,6 +963,29 @@ a.row:hover .row-title {
   .row-meta {
     grid-column: 1;
   }
+}
+
+/* 첫 화면 다가오는 일정: 날짜·이름·쉬는 날을 한 줄에, 보기마다 2개씩 */
+.lined--compact .row {
+  grid-template-columns: auto 1fr auto;
+  align-items: baseline;
+  gap: 0 0.75rem;
+  padding: 0.5rem 0;
+}
+
+.lined--compact .row-date {
+  grid-row: auto;
+}
+
+.lined--compact .row-meta {
+  grid-column: auto;
+}
+
+:root:not([data-grade]) .lined--compact > li:not([data-show~='all']),
+[data-grade='1'] .lined--compact > li:not([data-show~='1']),
+[data-grade='2'] .lined--compact > li:not([data-show~='2']),
+[data-grade='3'] .lined--compact > li:not([data-show~='3']) {
+  display: none;
 }
 
 /* 알림 본문 */
@@ -1023,7 +1142,7 @@ a.row:hover .row-title {
 }
 
 .strip li {
-  width: 7.5rem;
+  width: 6rem;
   flex: none;
   padding: 0 0.375rem;
   text-align: center;
@@ -1276,37 +1395,7 @@ a.row:hover .row-title {
   color: var(--muted, inherit);
 }
 
-/* 오늘 급식: 한 줄짜리 작은 칸. 알레르기 번호는 눌러야 펼쳐진다. */
-.meal-card {
-  margin-top: 1.25rem;
-}
-
-.meal-card[hidden] {
-  display: none;
-}
-
-.meal-card h2 {
-  font-size: var(--text-md);
-  margin-bottom: 0.25rem;
-}
-
-.meal-card h2 small {
-  font-size: var(--text-sm);
-  color: var(--muted);
-  font-weight: 400;
-}
-
-.meal-dishes {
-  margin: 0;
-}
-
-.meal-card summary {
-  cursor: pointer;
-  color: var(--muted);
-  font-size: var(--text-sm);
-  padding-block: 0.625rem;
-}
-
+/* 급식 알레르기 목록 */
 .meal-allergy {
   list-style: none;
   margin: 0 0 0.5rem;
@@ -1544,8 +1633,4 @@ a.row:hover .row-title {
 [data-grade='2'] .board-group[data-class-grade]:not([data-class-grade='2']),
 [data-grade='3'] .board-group[data-class-grade]:not([data-class-grade='3']) {
   display: none;
-}
-
-.board-group--changes h2 {
-  color: var(--chalk-yellow);
 }

@@ -4,23 +4,37 @@ import Chalkboard from '../components/Chalkboard.astro';
 import NoticeRow from '../components/NoticeRow.astro';
 import EventRow from '../components/EventRow.astro';
 import LostStrip from '../components/LostStrip.astro';
-import MealCard from '../components/MealCard.astro';
 import { getLetters, getScheduleEntries } from '../lib/content.ts';
 import { buildToday } from '../lib/dates.ts';
 import { href } from '../lib/paths.ts';
 
 const today = buildToday();
 const notices = (await getLetters()).slice(0, 8);
-const upcoming = (await getScheduleEntries()).filter((e) => e.end >= today).slice(0, 5);
+// 다가오는 일정은 보기(전체·1·2·3학년)마다 가까운 2개씩만. 어느 보기에 들어가는지 data-show로 적어 두고 CSS가 고른다.
+const future = (await getScheduleEntries()).filter((e) => e.end >= today);
+const views = ['all', '1', '2', '3'];
+const firstTwo = (v: string) => future.filter((e) => v === 'all' || e.grades.length === 0 || e.grades.includes(Number(v))).slice(0, 2);
+const upcoming = future
+  .map((e) => ({ event: e, show: views.filter((v) => firstTwo(v).includes(e)).join(' ') }))
+  .filter((u) => u.show);
 ---
 
 <Base>
   <h1 class="sr-only">오늘의 알림</h1>
   <Chalkboard />
+  <section class="section section--home filter-group" aria-labelledby="upcoming">
+    <div class="section-head">
+      <h2 id="upcoming">다가오는 일정</h2>
+      <a href={href('schedule/')}>학사일정 전체</a>
+    </div>
+    <ul class="lined lined--compact">
+      {upcoming.map((u) => <EventRow event={u.event} show={u.show} />)}
+    </ul>
+    <p class="list-empty">예정된 일정이 없습니다.</p>
+  </section>
   <LostStrip />
-  <MealCard />
 
-  <section class="section filter-group" aria-labelledby="recent">
+  <section class="section section--home filter-group" aria-labelledby="recent">
     <div class="section-head">
       <h2 id="recent">최근 알림</h2>
       <a href={href('notices/')}>알림 모두 보기</a>
@@ -37,14 +51,4 @@ const upcoming = (await getScheduleEntries()).filter((e) => e.end >= today).slic
     }
   </section>
 
-  <section class="section filter-group" aria-labelledby="upcoming">
-    <div class="section-head">
-      <h2 id="upcoming">다가오는 일정</h2>
-      <a href={href('schedule/')}>학사일정 전체</a>
-    </div>
-    <ul class="lined">
-      {upcoming.map((e) => <EventRow event={e} />)}
-    </ul>
-    <p class="list-empty">예정된 일정이 없습니다.</p>
-  </section>
 </Base>

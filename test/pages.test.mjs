@@ -71,14 +71,23 @@ test('칠판에 2주 안에 올라온 알림이 쪽지로 붙고 오래된 것�
   assert.ok(html.includes('href="/notices/L-evil/"'));
 });
 
-test('첫 화면에 오늘 급식 칸이 있고 알레르기 정보는 접혀 있다', () => {
+test('첫 화면 칠판에 오늘 급식이 있고 알레르기 정보는 접혀 있다', () => {
   const html = read('index.html');
-  const meal = html.match(/<section[^>]*data-meal[^>]*>.*?<\/section>/s)[0];
+  const board = html.match(/<section class="board".*?<\/section>\s*<div class="tray/s)[0];
+  const meal = board.match(/<section class="board-group board-meal">.*?<\/section>/s)[0];
   assert.match(meal, /오늘 급식/);
   assert.ok(meal.includes('흑미밥, 순두부찌개, 떡갈비, 시금치나물'));
   assert.match(meal, /<details>/);
   assert.match(meal, /알레르기 정보/);
   assert.match(meal, /1 난류/);
-  // 칸은 분실물 띠 다음, 최근 알림 앞에 있다.
-  assert.ok(html.indexOf('data-meal') < html.indexOf('id="recent"'));
+  // 따로 있던 급식 칸은 없다. 칠판 다음은 다가오는 일정이다.
+  assert.ok(!html.includes('data-meal'));
+  assert.ok(html.indexOf('id="upcoming"') < html.indexOf('id="recent"'));
+});
+test('첫 화면 다가오는 일정은 두 개까지, 한 줄짜리로', () => {
+  const html = read('index.html');
+  const list = html.match(/id="upcoming".*?<ul class="lined lined--compact">(.*?)<\/ul>/s)[1];
+  const all = list.match(/<li [^>]*data-show="[^"]*\ball\b/g) ?? [];
+  assert.ok(all.length >= 1 && all.length <= 2);
+  for (const g of ['1', '2', '3']) assert.ok((list.match(new RegExp(`<li [^>]*data-show="[^"]*\\b${g}\\b`, 'g')) ?? []).length <= 2);
 });

@@ -3,8 +3,8 @@
 import { formatDate, mergeDaysOff, nextSchoolDay } from './dates.ts';
 import type { Feed } from './feed.ts';
 import { escapeHTML as escape } from './html.ts';
+import { mealHTML, pickMeal, type MealView } from './meal.ts';
 
-export type BoardNotice = { slug: string; title: string; grades: number[] };
 export type BoardEvent = { title: string; start: string; end: string; grades: number[] };
 
 type Item = { item: string; grades: number[]; slug: string };
@@ -15,8 +15,7 @@ export type Board = {
   events: BoardEvent[];
   bringToday: Item[];
   bringNext: Item[];
-  newNotices: BoardNotice[];
-  meal: { ymd: string; dishes: string[] } | null; // 칠판에는 그리지 않는다(급식 칸은 따로)
+  meal: MealView | null; // 오늘 급식, 없으면 다음 등교일 급식
   dayOff: string | null; // 오늘이 쉬는 날이면 그 이름
 };
 
@@ -35,7 +34,6 @@ export function boardFromFeed(today: string, feed: Pick<Feed, 'letters' | 'event
   const letterEvents = letters
     .filter((l) => l.eventDate && l.eventDate <= today && today <= (l.eventEnd ?? l.eventDate))
     .map((l) => ({ title: l.subject, start: l.eventDate!, end: l.eventEnd ?? l.eventDate!, grades: l.grades }));
-  const meal = feed.meals.find((m) => m.ymd === today);
 
   return {
     today,
@@ -43,8 +41,7 @@ export function boardFromFeed(today: string, feed: Pick<Feed, 'letters' | 'event
     events: [...events.filter((e) => e.start <= today && today <= e.end), ...letterEvents],
     bringToday: bringOn(today),
     bringNext: bringOn(next),
-    newNotices: letters.filter((l) => l.publishedOn === today).map((l) => ({ slug: l.id, title: l.subject, grades: l.grades })),
-    meal: meal ? { ymd: meal.ymd, dishes: meal.dishes.map((d) => d.name) } : null,
+    meal: pickMeal(today, feed.meals, daysOff),
     dayOff: daysOff.find((d) => d.start <= today && today <= d.end)?.title ?? null,
   };
 }
@@ -54,20 +51,23 @@ function li(text: string, grades: number[], href?: string): string {
   return `<li data-grades="${grades.join(' ')}">${body}</li>`;
 }
 
-// '없어요'(list-empty)를 목록보다 앞에 두어야 비었을 때 제목 옆에 붙는다.
-// inline: 준비물처럼 짧은 낱말은 한 줄에 이어 적는다.
-function group(title: string, items: string[], empty: string, inline = false): string {
-  return `<section class="board-group filter-group${inline ? ' board-group--inline' : ''}"><h2>${title}</h2><p class="list-empty">${empty}</p><ul>${items.join('')}</ul></section>`;
+// 빈 칸은 아예 그리지 않는다. 학년을 고르면 그 학년 것이 없는 칸은 CSS가 숨긴다.
+// kind: 제목 분필 색(CSS). inline: 준비물처럼 짧은 낱말은 한 줄에 이어 적는다.
+function group(title: string, items: string[], kind: string, inline = false): string {
+  if (items.length === 0) return '';
+  return `<section class="board-group board-group--opt board-group--${kind}${inline ? ' board-group--inline' : ''}"><h2>${title}</h2><ul>${items.join('')}</ul></section>`;
 }
 
 export function boardHTML(board: Board, base: string): string {
   const noticeHref = (slug: string) => `${base}notices/${slug}/`;
-  // 학부모가 아침에 가장 먼저 찾는 '챙길 것'부터 적는다.
   const dayOff = board.dayOff ? `<p class="board-dayoff">오늘은 ${escape(board.dayOff)}입니다</p>` : '';
-  return dayOff + [
-    group('오늘 챙길 것', board.bringToday.map((b) => li(b.item, b.grades, noticeHref(b.slug))), '없어요', true),
-    group(`${formatDate(board.next)} 준비물`, board.bringNext.map((b) => li(b.item, b.grades, noticeHref(b.slug))), '없어요', true),
-    group('오늘 일정', board.events.map((e) => li(e.title, e.grades)), '없어요'),
-    group('새로 올라온 알림', board.newNotices.map((n) => li(n.title, n.grades, noticeHref(n.slug))), '없어요'),
-  ].join('');
+  // 챙길 것이 하나도 없으면(고른 학년 기준) '챙길 것 없어요' 한 줄만 보인다.
+  const bring =
+    '<div class="board-bring"><p class="board-bring-none"><b>챙길 것</b> <span>없어요</span></p>' +
+    group('오늘 챙길 것', board.bringToday.map((b) => li(b.item, b.grades, noticeHref(b.slug))), 'bring', true) +
+    group(`${formatDate(board.next)} 준비물`, board.bringNext.map((b) => li(b.item, b.grades, noticeHref(b.slug))), 'bring', true) +
+    '</div>';
+  const meal = board.meal ? `<section class="board-group board-meal">${mealHTML(board.meal)}</section>` : '';
+  // 새 알림은 칠판 쪽지와 '최근 알림' 목록에 있으므로 칠판 줄로는 쓰지 않는다.
+  return dayOff + bring + meal + group('오늘 일정', board.events.map((e) => li(e.title, e.grades)), 'events');
 }
