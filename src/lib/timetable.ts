@@ -50,12 +50,6 @@ const itemOf = (c: TtCell): ChangeItem => ({
   from: c.changed?.from ?? null,
   note: c.changed?.from ? null : (c.changed?.note ?? null),
 });
-const lineOf = (i: ChangeItem): string => `${i.text}${i.from ? ` (원래 ${i.from})` : i.note ? ` (${i.note})` : ''}`;
-
-/** 칠판에 쓰는 한 줄. 예: 3교시 과학 (원래 체육). 비운 칸은 「수업 없음」. */
-export function changeLine(cell: TtCell): string {
-  return lineOf(itemOf(cell));
-}
 
 // 바뀐 칸 규칙은 여기 한 곳: 교시 순, 「N교시까지」 뒤 비운 칸은 줄마다 쓰지 않고 until 하나로 알린다.
 function changesOf(cls: ClassTimetable | undefined, ymd: string): { cells: TtCell[]; until: number | null } {
@@ -72,11 +66,6 @@ export function changeItems(feed: TimetableFeed, classId: string, ymd: string): 
   const items: (ChangeItem | string)[] = cells.map(itemOf);
   if (until !== null) items.push(`오늘은 ${until}교시까지`);
   return items;
-}
-
-/** changeItems를 글자 한 줄씩으로. */
-export function changeLines(feed: TimetableFeed, classId: string, ymd: string): string[] {
-  return changeItems(feed, classId, ymd).map((i) => (typeof i === 'string' ? i : lineOf(i)));
 }
 
 /** 원래 과목(줄긋기) 또는 학사일정 이름(작게). 줄긋기는 들리지 않으므로 「원래」를 숨은 글자로 둔다. 칠판과 시간표 안내판이 같이 쓴다. */

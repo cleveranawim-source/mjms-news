@@ -37,6 +37,21 @@ export function knownClass(classes: { id: string }[], id: string): string {
   return id && classes.some((c) => c.id === id) ? id : '';
 }
 
+/** 시간표 피드를 받았는데 저장된 반이 그 안에 없으면 true(학년이 바뀌었거나 없어진 반). 못 받았거나 반 목록이 비면 false(지우지 않는다). */
+export function isStaleClass(classes: { id: string }[] | null | undefined, stored: string): boolean {
+  return !!stored && !!classes && classes.length > 0 && !knownClass(classes, stored);
+}
+
+/** 저장된 반이 피드에 없으면 지우고(학년 거르기도 끈다) 'mjms:class'('')로 알린다 — 명패는 「우리 반을 골라 주세요」. */
+export function forgetStaleClass(classes: { id: string }[] | null | undefined): void {
+  if (!isStaleClass(classes, readClass())) return;
+  try {
+    localStorage.removeItem(KEY);
+  } catch {}
+  delete document.documentElement.dataset.grade;
+  document.dispatchEvent(new CustomEvent('mjms:class', { detail: '' }));
+}
+
 // 「1-5」 → 5. 끝 숫자가 없으면 null(이름을 그대로 쓴다).
 const classNo = (name: string) => {
   const m = /(\d+)\s*$/.exec(name);

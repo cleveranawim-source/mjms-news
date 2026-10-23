@@ -32,7 +32,7 @@ const boardJson = JSON.stringify({ base, letters, schedule: feed.schedule, daysO
 <script>
   import { boardFromFeed, boardHTML, changesFor, changesStateHTML } from '../lib/board.ts';
   import { seoulToday, formatDate, weekday, isDayOff, offRanges } from '../lib/dates.ts';
-  import { readClass } from '../lib/klass.ts';
+  import { forgetStaleClass, isStaleClass, readClass } from '../lib/klass.ts';
   import { mealHTML } from '../lib/meal.ts';
   import { loadTimetable } from '../lib/timetable.ts';
 
@@ -72,6 +72,8 @@ const boardJson = JSON.stringify({ base, letters, schedule: feed.schedule, daysO
       slot.innerHTML = changesStateHTML({ kind: 'loading' });
       const feed = await loadTimetable(api);
       if (mine !== ticket) return; // 그새 반을 바꿨으면 늦게 온 답은 버린다
+      // 저장된 반이 피드에 없으면 지운다 — 'mjms:class'로 다시 그려지므로 여기서 끝낸다.
+      if (isStaleClass(feed?.classes, classId)) return forgetStaleClass(feed!.classes);
       const state = changesFor(feed, classId, today);
       slot.innerHTML = state ? changesStateHTML(state) : '';
       // 「다시 불러오기」를 눌렀으면 초점을 결과로 옮긴다(단추가 사라지므로). 칸이 비면(쉬는 날) 칠판 날짜로.

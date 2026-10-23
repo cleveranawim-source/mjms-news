@@ -32,7 +32,7 @@ import { site } from '../site.config.ts';
 
 <script>
   import { loadTimetable, type ClassTimetable } from '../lib/timetable.ts';
-  import { readClass, saveClass, gradeOf, classLabel, knownClass, sheetClassesHTML } from '../lib/klass.ts';
+  import { readClass, saveClass, gradeOf, classLabel, knownClass, sheetClassesHTML, forgetStaleClass } from '../lib/klass.ts';
 
   const sheet = document.querySelector<HTMLDialogElement>('[data-class-sheet]');
   if (sheet) {
@@ -84,6 +84,8 @@ import { site } from '../site.config.ts';
           return;
         }
         classes = feed.classes;
+        // 저장된 반이 피드에 없으면 지우고 알린다(명패가 「우리 반을 골라 주세요」로).
+        forgetStaleClass(classes);
         $('[data-sheet-pick]').hidden = false;
         render();
       })());

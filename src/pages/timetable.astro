@@ -32,7 +32,7 @@ import { site } from '../site.config.ts';
 
 <script>
   import { loadTimetable, weekTableHTML, changesTarget, changesBoxHTML, weekGroups, weekRange, mondayOf, type TimetableFeed } from '../lib/timetable.ts';
-  import { readClass, knownClass } from '../lib/klass.ts';
+  import { readClass, knownClass, forgetStaleClass } from '../lib/klass.ts';
   import { seoulToday, addDays, weekday } from '../lib/dates.ts';
   import { escapeHTML } from '../lib/html.ts';
 
@@ -111,6 +111,8 @@ import { site } from '../site.config.ts';
         groups = weekGroups(feed.days, today);
         week = firstWeek();
         weeksEl.innerHTML = '';
+        // 저장된 반이 피드에 없으면 지우고 알린다(명패·본문이 「반 고르기」로).
+        forgetStaleClass(feed.classes);
       }
       render();
       return true;

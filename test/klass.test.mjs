@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gradeOf, classLabel, knownClass, sheetClassesHTML } from '../src/lib/klass.ts';
+import { gradeOf, classLabel, knownClass, sheetClassesHTML, isStaleClass } from '../src/lib/klass.ts';
 
 test('반 id에서 학년을 얻는다', () => {
   assert.equal(gradeOf('class-1_5'), 1);
@@ -40,4 +40,14 @@ test('피드에 없는 반은 고른 것이 없는 것으로', () => {
   assert.equal(knownClass(classes, 'class-1_5'), 'class-1_5');
   assert.equal(knownClass(classes, 'class-3_9'), '');
   assert.equal(knownClass(classes, ''), '');
+});
+
+test('isStaleClass: 시간표를 받았는데 저장된 반이 없으면 지운다(못 받았거나 빈 목록이면 두기)', () => {
+  const classes = [{ id: 'class-1_5' }, { id: 'class-2_1' }];
+  assert.equal(isStaleClass(classes, 'class-1_9'), true);
+  assert.equal(isStaleClass(classes, 'class-9_1'), true);
+  assert.equal(isStaleClass(classes, 'class-1_5'), false);
+  assert.equal(isStaleClass(classes, ''), false);
+  assert.equal(isStaleClass(null, 'class-1_9'), false);
+  assert.equal(isStaleClass([], 'class-1_9'), false);
 });

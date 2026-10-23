@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadTimetable, weekTableHTML, changesBoxHTML, changesTarget, changeLine, weekGroups, weekRange } from '../src/lib/timetable.ts';
+import { loadTimetable, weekTableHTML, changesBoxHTML, changesTarget, changeItems, weekGroups, weekRange } from '../src/lib/timetable.ts';
 
 const cell = (period, subject, extra = {}) => ({ period, subject, special: false, changed: null, ...extra });
 const feed = {
@@ -30,24 +30,17 @@ test('loadTimetable returns null on 500, wrong version, or network failure', asy
   assert.equal(await loadTimetable('u', async () => { throw new Error('offline'); }), null);
 });
 
-test('changeLine writes the original subject or the calendar note', () => {
-  assert.equal(changeLine(feed.classes[0].days[0].cells[1]), '3교시 과학 (원래 체육)');
-  assert.equal(changeLine(feed.classes[0].days[0].cells[2]), '5교시 창체 (동아리활동)');
+test('changeItems carries the original subject or the calendar note', () => {
+  assert.deepEqual(changeItems(feed, 'c15', '2026-10-22'), [
+    { text: '3교시 과학', from: '체육', note: null },
+    { text: '5교시 창체', from: null, note: '동아리활동' },
+  ]);
 });
 
 test('weekGroups names this week and next week', () => {
   const days = ['2026-10-22', '2026-10-23', '2026-10-26', '2026-10-27'];
   assert.deepEqual(weekGroups(days, '2026-10-22').map((g) => g.label), ['이번 주', '다음 주']);
 });
-
-import { changeLines } from '../src/lib/timetable.ts';
-
-test('changeLines writes 수업 없음 for a cleared cell', () => {
-  const f = { ...feed, classes: [{ id: 'c', name: '1-1', grade: 1, days: [{ ymd: 'd', off: null, until: null, cells: [cell(2, '', { changed: { from: '수학', note: null } })] }] }] };
-  assert.deepEqual(changeLines(f, 'c', 'd'), ['2교시 수업 없음 (원래 수학)']);
-});
-
-import { changeItems } from '../src/lib/timetable.ts';
 
 test('changeItems: 칸 데이터로 「N교시 과목」 + 원래 과목/학사일정 이름, N교시까지는 한 줄', () => {
   const cut = (p) => cell(p, '', { changed: { from: '국어', note: null } });
@@ -64,10 +57,10 @@ test('changeItems: 칸 데이터로 「N교시 과목」 + 원래 과목/학사�
   assert.deepEqual(changeItems(feed, 'nope', '2026-10-22'), []);
 });
 
-test('changeLines collapses periods cut by until into one line', () => {
+test('changeItems collapses periods cut by until into one line', () => {
   const cut = (p) => cell(p, '', { changed: { from: '국어', note: null } });
   const f = { ...feed, classes: [{ id: 'c', name: '1-1', grade: 1, days: [{ ymd: 'd', off: null, until: 4, cells: [cell(3, '과학', { changed: { from: '체육', note: null } }), cut(5), cut(6)] }] }] };
-  assert.deepEqual(changeLines(f, 'c', 'd'), ['3교시 과학 (원래 체육)', '오늘은 4교시까지']);
+  assert.deepEqual(changeItems(f, 'c', 'd'), [{ text: '3교시 과학', from: '체육', note: null }, '오늘은 4교시까지']);
 });
 
 test('loadTimetable drops malformed days and cells', async () => {
@@ -189,8 +182,11 @@ test('changesBoxHTML: date outside the feed is not called empty', () => {
   assert.match(changesBoxHTML(gridCls, t.ymd, t.label, t.empty, t.date), /<p class="sign-note">그날 시간표가 아직 없어요<\/p>/);
 });
 
-test('changeLine/changeLines/changeItems는 같은 줄 규칙을 쓴다', () => {
+test('changeItems와 changesBoxHTML은 같은 줄 규칙을 쓴다', () => {
   const f = { ...feed, classes: [gridCls] };
   assert.deepEqual(changeItems(f, 'c', '2026-10-23'), [{ text: '1교시 영어', from: '체육', note: null }, { text: '3교시 창체', from: null, note: '동아리활동' }]);
-  assert.deepEqual(changeLines(f, 'c', '2026-10-23'), ['1교시 영어 (원래 체육)', '3교시 창체 (동아리활동)']);
+  const box = changesBoxHTML(gridCls, '2026-10-23', '오늘 바뀐 수업');
+  assert.ok(box.indexOf('1교시') < box.indexOf('3교시'));
+  assert.match(box, /<b>영어<\/b> <s><span class="sr-only">원래 <\/span>체육<\/s>/);
+  assert.match(box, /<b>창체<\/b> <small>동아리활동<\/small>/);
 });
