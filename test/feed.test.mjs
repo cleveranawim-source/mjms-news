@@ -78,3 +78,14 @@ test('loadFeed throws when letters arrived but none survived validation', async 
     /no letter/,
   );
 });
+
+test('schedule: 검사 통과한 항목만, 없으면 null', async () => {
+  const good = { title: '기말고사', start: '2026-10-26', end: '2026-10-28', grades: [3], kind: 'event' };
+  const bad = [{ ...good, kind: 'party' }, { ...good, start: '2026-10-29' }, { ...good, grades: [4] }, { ...good, title: '' }];
+  const feed = await loadFeed({ fetcher: respond({ ...base, schedule: [good, ...bad] }), url: 'x' });
+  assert.deepEqual(feed.schedule, [good]);
+  const none = await loadFeed({ fetcher: respond(base), url: 'x' });
+  assert.equal(none.schedule, null);
+  const notArray = await loadFeed({ fetcher: respond({ ...base, schedule: 'x' }), url: 'x' });
+  assert.equal(notArray.schedule, null);
+});

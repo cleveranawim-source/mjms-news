@@ -7,11 +7,13 @@ export type FeedLetter = {
   attachments: string[]; sourceUrl: string; postedOn: string; publishedOn: string;
 };
 export type FeedEvent = { title: string; start: string; end: string; grades: number[] };
+export type FeedScheduleItem = { title: string; start: string; end: string; grades: number[]; kind: 'holiday' | 'dayoff' | 'event' };
 export type FeedDayOff = { title: string; start: string; end: string };
 export type FeedMeal = { ymd: string; dishes: { name: string; allergens: number[] }[] };
 export type Feed = {
   version: 1; generatedAt: string;
   letters: FeedLetter[]; events: FeedEvent[]; daysOff: FeedDayOff[]; meals: FeedMeal[];
+  schedule: FeedScheduleItem[] | null; // 나이스 학사일정. 피드에 없으면 null
 };
 
 const DEFAULT_URL = 'https://mjms-office.vercel.app/api/news/feed';
@@ -49,6 +51,17 @@ function toEvent(x: unknown): FeedEvent | null {
   if (!isObj(x)) return null;
   return isStr(x.title) && isYmd(x.start) && isYmd(x.end) && isGrades(x.grades)
     ? { title: x.title, start: x.start, end: x.end, grades: [...x.grades] }
+    : null;
+}
+
+const KINDS = ['holiday', 'dayoff', 'event'];
+function toScheduleItem(x: unknown): FeedScheduleItem | null {
+  if (!isObj(x)) return null;
+  const ok =
+    isStr(x.title) && x.title.length >= 1 && x.title.length <= 100 && isYmd(x.start) && isYmd(x.end) && x.start <= x.end &&
+    isGrades(x.grades) && isStr(x.kind) && KINDS.includes(x.kind);
+  return ok
+    ? { title: x.title as string, start: x.start as string, end: x.end as string, grades: [...(x.grades as number[])], kind: x.kind as FeedScheduleItem['kind'] }
     : null;
 }
 
@@ -95,6 +108,7 @@ function parseFeed(raw: unknown): Feed {
     events: pick('events', events, toEvent),
     daysOff: pick('daysOff', daysOff, toDayOff),
     meals: pick('meals', meals, toMeal),
+    schedule: Array.isArray(raw.schedule) ? pick('schedule', raw.schedule, toScheduleItem) : null,
   };
 }
 

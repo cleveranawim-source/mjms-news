@@ -1,6 +1,6 @@
 // 첫 화면 칠판에 적을 내용을 고르고 HTML로 만든다.
 // 빌드할 때와 브라우저에서 같은 함수를 써서, 사이트를 다시 빌드하지 않아도 '오늘'이 맞게 보이게 한다.
-import { formatDate, mergeDaysOff, nextSchoolDay } from './dates.ts';
+import { formatDate, nextSchoolDay, offRanges } from './dates.ts';
 import type { Feed } from './feed.ts';
 import { escapeHTML as escape } from './html.ts';
 import { mealHTML, pickMeal, type MealView } from './meal.ts';
@@ -19,26 +19,21 @@ export type Board = {
   dayOff: string | null; // 오늘이 쉬는 날이면 그 이름
 };
 
-export function boardFromFeed(today: string, feed: Pick<Feed, 'letters' | 'events' | 'daysOff' | 'meals'>): Board {
+export function boardFromFeed(today: string, feed: Pick<Feed, 'letters' | 'daysOff' | 'meals'> & { schedule?: Feed['schedule'] }): Board {
   const all = [1, 2, 3];
   // 학년이 비어 있으면 전 학년 대상이다(목록·일정 화면과 같은 규칙).
-  const daysOff = mergeDaysOff(feed.daysOff);
+  const daysOff = offRanges(feed);
   const letters = feed.letters.map((l) => ({ ...l, grades: l.grades.length ? l.grades : all }));
-  const events = feed.events.map((e) => ({ ...e, grades: e.grades.length ? e.grades : all }));
+  const events = (feed.schedule ?? []).map((e) => ({ title: e.title, start: e.start, end: e.end, grades: e.grades.length ? e.grades : all }));
   const next = nextSchoolDay(today, daysOff);
   const bringOn = (day: string) =>
     letters
       .filter((l) => l.due === day)
       .flatMap((l) => l.bring.map((item) => ({ item, grades: l.grades, slug: l.id })));
-  // 가정통신문의 행사 날짜도 오늘 일정이다. 끝 날짜가 없으면 하루짜리.
-  const letterEvents = letters
-    .filter((l) => l.eventDate && l.eventDate <= today && today <= (l.eventEnd ?? l.eventDate))
-    .map((l) => ({ title: l.subject, start: l.eventDate!, end: l.eventEnd ?? l.eventDate!, grades: l.grades }));
-
   return {
     today,
     next,
-    events: [...events.filter((e) => e.start <= today && today <= e.end), ...letterEvents],
+    events: events.filter((e) => e.start <= today && today <= e.end),
     bringToday: bringOn(today),
     bringNext: bringOn(next),
     meal: pickMeal(today, feed.meals, daysOff),

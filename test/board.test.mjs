@@ -12,11 +12,11 @@ const letters = [
   letter({ id: 'b', subject: '과학 실험', grades: [2], bring: ['실험 노트'], due: '2026-10-22' }),
   letter({ id: 'c', subject: '지난 공지' }),
 ];
-const events = [
-  { title: '2학기 중간고사', start: '2026-10-20', end: '2026-10-22', grades: [1, 2, 3] },
-  { title: '현장체험학습', start: '2026-10-30', end: '2026-10-30', grades: [1] },
+const schedule = [
+  { title: '2학기 중간고사', start: '2026-10-20', end: '2026-10-22', grades: [1, 2, 3], kind: 'event' },
+  { title: '현장체험학습', start: '2026-10-30', end: '2026-10-30', grades: [1], kind: 'event' },
 ];
-const feed = (o = {}) => ({ version: 1, generatedAt: '', letters, events, daysOff: [], meals: [], ...o });
+const feed = (o = {}) => ({ version: 1, generatedAt: '', letters, events: [], schedule, daysOff: [], meals: [], ...o });
 
 test('board collects today events and today and next-day items', () => {
   const board = boardFromFeed('2026-10-22', feed());
@@ -38,12 +38,6 @@ test('Friday before a Monday holiday shows Tuesday supplies as next', () => {
   const board = boardFromFeed('2026-10-23', feed({ letters: l, daysOff: [{ title: '대체공휴일', start: '2026-10-26', end: '2026-10-26' }] }));
   assert.equal(board.next, '2026-10-27');
   assert.deepEqual(board.bringNext.map((b) => b.item), ['리코더']);
-});
-
-test('a letter whose event date is today shows its subject under today events', () => {
-  const l = [letter({ subject: '현장체험학습 안내', eventDate: '2026-10-30' }), letter({ subject: '시험', eventDate: '2026-10-29', eventEnd: '2026-10-31' })];
-  const board = boardFromFeed('2026-10-30', feed({ letters: l, events: [] }));
-  assert.deepEqual(board.events.map((e) => e.title), ['현장체험학습 안내', '시험']);
 });
 
 test('day off shows in the HTML and on the board', () => {
@@ -72,7 +66,7 @@ test('the meal goes on the board; on a day without one, the next school day\'s',
 });
 
 test('empty groups are not drawn; nothing to bring collapses to one line', () => {
-  const quiet = boardHTML(boardFromFeed('2026-10-22', feed({ letters: [], events: [] })), '/');
+  const quiet = boardHTML(boardFromFeed('2026-10-22', feed({ letters: [], schedule: [] })), '/');
   assert.ok(!quiet.includes('오늘 일정'));
   assert.ok(!quiet.includes('새로 올라온 알림'));
   assert.ok(!quiet.includes('오늘 챙길 것'));
@@ -88,7 +82,7 @@ test('empty groups are not drawn; nothing to bring collapses to one line', () =>
 });
 
 test('boardHTML escapes teacher-written text', () => {
-  const board = boardFromFeed('2026-10-22', feed({ letters: [letter({ subject: '<b>주의</b>', eventDate: '2026-10-22' })] }));
+  const board = boardFromFeed('2026-10-22', feed({ schedule: [{ title: '<b>주의</b>', start: '2026-10-22', end: '2026-10-22', grades: [], kind: 'event' }] }));
   const html = boardHTML(board, '/');
   assert.ok(html.includes('&lt;b&gt;주의&lt;/b&gt;'));
   assert.ok(!html.includes('<b>주의'));
@@ -109,7 +103,7 @@ test('boardFromFeed treats empty grades as all grades', async () => {
   };
   const b = boardFromFeed('2026-10-22', {
     letters: [letter], daysOff: [], meals: [],
-    events: [{ title: '행사', start: '2026-10-22', end: '2026-10-22', grades: [] }],
+    schedule: [{ title: '행사', start: '2026-10-22', end: '2026-10-22', grades: [], kind: 'event' }],
   });
   assert.deepEqual(b.bringToday[0].grades, [1, 2, 3]);
   assert.ok(b.events.every((e) => e.grades.length === 3));
@@ -121,4 +115,10 @@ test('칠판: 같은 날 쉬는 날이 두 번 실려도 깔끔한 이름 하나
     { title: '개천절', start: '2026-10-03', end: '2026-10-03' },
   ] }));
   assert.equal(board.dayOff, '개천절');
+});
+
+test('칠판 오늘 일정은 나이스 학사일정에서만', () => {
+  const b = boardFromFeed('2026-10-22', feed({ schedule: [{ title: '학생예배', start: '2026-10-22', end: '2026-10-22', grades: [], kind: 'event' }], letters: [letter({ eventDate: '2026-10-22', subject: '체험학습' })] }));
+  assert.deepEqual(b.events.map((e) => e.title), ['학생예배']);
+  assert.deepEqual(boardFromFeed('2026-10-22', feed({ schedule: null })).events, []);
 });

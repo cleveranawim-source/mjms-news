@@ -94,3 +94,10 @@ test('mergeDaysOff: 같은 날짜 범위의 쉬는 날은 짧은 이름 하나�
   ]);
   assert.deepEqual(merged.map((d) => d.title), ['추석 연휴', '개천절', '개천절 대체']);
 });
+
+test('나이스 쉬는 날도 등교일 계산에 들어간다', async () => {
+  const { offRanges } = await import('../src/lib/dates.ts');
+  const off = offRanges({ daysOff: [], schedule: [{ title: '재량휴업일', start: '2026-11-20', end: '2026-11-20', grades: [], kind: 'dayoff' }, { title: '학생예배', start: '2026-11-19', end: '2026-11-19', grades: [], kind: 'event' }] });
+  assert.equal(nextSchoolDay('2026-11-19', off), '2026-11-23');
+  assert.deepEqual(offRanges({ daysOff: [], schedule: null }), []);
+});

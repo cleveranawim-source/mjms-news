@@ -18,7 +18,7 @@ const notes = [...feed.letters]
   .slice(0, 3);
 const magnet = (grades: number[]) => (grades.length === 1 ? `g${grades[0]}` : '');
 // <script> 안의 JSON이 </script>로 끊기지 않도록 <를 이스케이프한다.
-const boardJson = JSON.stringify({ base, letters: feed.letters, events: feed.events, daysOff: feed.daysOff, meals: feed.meals }).replace(/</g, '\\u003c');
+const boardJson = JSON.stringify({ base, letters: feed.letters, schedule: feed.schedule, daysOff: feed.daysOff, meals: feed.meals }).replace(/</g, '\\u003c');
 ---
 
 <script is:inline>
@@ -67,11 +67,11 @@ const boardJson = JSON.stringify({ base, letters: feed.letters, events: feed.eve
   const board = document.querySelector<HTMLElement>('.board');
   const today = seoulToday();
   if (board && board.dataset.today !== today) {
-    const { base, letters, events, daysOff, meals } = JSON.parse(board.querySelector('[data-board-json]')!.textContent!);
+    const { base, letters, schedule, daysOff, meals } = JSON.parse(board.querySelector('[data-board-json]')!.textContent!);
     board.dataset.today = today;
     board.querySelector('[data-board-day]')!.textContent = formatDate(today).replace(/ \(.\)$/, '');
     board.querySelector('[data-board-weekday]')!.textContent = `${weekday(today)}요일`;
-    board.querySelector('[data-board-groups]')!.innerHTML = boardHTML(boardFromFeed(today, { letters, events, daysOff, meals }), base);
+    board.querySelector('[data-board-groups]')!.innerHTML = boardHTML(boardFromFeed(today, { letters, schedule, daysOff, meals }), base);
   }
 
   // 칠판 맨 위(쉬는 날 줄 다음)에 우리 반 「오늘 바뀐 수업」을 끼운다. 빌드 결과는 시간표와 무관하다.
