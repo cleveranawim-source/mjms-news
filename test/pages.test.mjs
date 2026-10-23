@@ -111,11 +111,27 @@ test('가정통신문 한 건: 기간 일정, 준비물 없으면 그 줄도 없
   assert.ok(!flu.includes('class="letter-no"'));
 });
 
-test('학사일정에 쉬는 날이 섞여 있다', () => {
+test('학사일정: 달력 판, 출처 줄, 자바스크립트 없을 때 목록', () => {
   const html = read('schedule/index.html');
-  assert.ok(html.includes(feed.daysOff[0].title));
-  assert.match(html, /쉬는 날/);
-  assert.ok(html.includes('개교기념 체육대회'));
+  assert.match(html, /data-calendar/);
+  assert.match(html, /나이스 교육정보 개방 포털/);
+  assert.match(html, /<noscript>[\s\S]*기말고사/);
+});
+
+test('학사일정: 나이스 일정만, 빌드한 달을 먼저 그려 둔다, JSON은 그대로 읽힌다', () => {
+  const html = read('schedule/index.html');
+  assert.match(html, /<h1 class="plate-title"[^>]*>학사일정<\/h1>/);
+  assert.match(html, /나이스 공개 학사일정/);
+  // 옛 공개 행사·피드 쉬는 날은 섞지 않는다
+  assert.ok(!html.includes('개교기념 체육대회'));
+  assert.ok(!html.includes('겨울방학') && !html.includes('(3학년) 기말고사'));
+  // 빌드한 날(10월 22일): 10월 달력, 고른 날 = 오늘, 학생예배 점
+  assert.match(html, /<h2[^>]*data-cal-month[^>]*>2026년 10월<\/h2>/);
+  assert.match(html, /class="cal-day is-today"[^>]*data-ymd="2026-10-22"[^>]*aria-label="10월 22일, 일정 1개" aria-pressed="true"/);
+  assert.match(html, /10월 22일 목요일/);
+  assert.match(html, /10월 일정 전체/);
+  const json = html.match(/<script type="application\/json" data-cal-json>(.*?)<\/script>/s)[1];
+  assert.deepEqual(JSON.parse(json).map((s) => s.title), feed.schedule.map((s) => s.title));
 });
 
 test('첫 화면에 예전 예시 알림이 없다', () => {

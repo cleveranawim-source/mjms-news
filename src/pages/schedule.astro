@@ -1,36 +1,176 @@
 ---
 import Base from '../layouts/Base.astro';
 import Plate from '../components/Plate.astro';
-import EventRow from '../components/EventRow.astro';
-import { getScheduleEntries, groupByMonth } from '../lib/content.ts';
-import { formatMonth } from '../lib/dates.ts';
+import Sign from '../components/Sign.astro';
+import { getSchedule } from '../lib/content.ts';
+import { buildToday, formatMonth } from '../lib/dates.ts';
+import { dayRowsHTML, dayTitle, gridHTML, initialDay, monthItems, monthRowsHTML, monthTitle, monthsOf } from '../lib/calendar.ts';
 
-const months = groupByMonth(await getScheduleEntries(), (e) => e.start);
+// 나이스 공개 학사일정만. 빌드한 날의 달을 먼저 그려 두고, 브라우저가 서울 날짜·우리 반 학년으로 다시 그린다.
+const schedule = await getSchedule();
+const items = schedule ?? [];
+const today = buildToday();
+const ym = today.slice(0, 7);
+const months = monthsOf(items, today);
+const selected = initialDay(ym, today, items);
+const listMonths = months.filter((m) => monthItems(m, items, null).length > 0);
+// <script> 안의 JSON이 </script>로 끊기지 않도록 <를 이스케이프한다.
+const json = JSON.stringify(items).replace(/</g, '\\u003c');
+const WEEK = ['일', '월', '화', '수', '목', '금', '토'];
+const chevron = (d: string) => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${d}"/></svg>`;
 ---
 
 <Base title="학사일정">
-  <Plate kind="page" title="학사일정" />
-  <p class="lede">시험, 행사, 쉬는 날을 날짜순으로 모았습니다. 지난 일정은 흐리게 보입니다.</p>
+  <Plate kind="page" title="학사일정" sub="나이스 공개 학사일정" />
   {
-    months.map(([month, items]) => (
-      <section class="month filter-group">
-        <h2>{formatMonth(`${month}-01`)}</h2>
-        <ul class="lined">
-          {items.map((e) => <EventRow event={e} />)}
-        </ul>
-        <p class="list-empty">이 달에는 해당 학년 일정이 없습니다.</p>
-      </section>
-    ))
+    schedule === null ? (
+      <div class="sign">
+        <p class="sign-note">학사일정을 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.</p>
+      </div>
+    ) : (
+      <>
+        <div class="cal-page" data-calendar>
+          <div class="cal-bar">
+            <button type="button" class="cal-nav" data-cal-prev aria-label="이전 달" disabled={ym === months[0]} set:html={chevron('M15 5l-7 7 7 7')} />
+            <h2 class="cal-month" id="cal-month" data-cal-month>{formatMonth(`${ym}-01`)}</h2>
+            <div class="cal-bar-end">
+              <button type="button" class="cal-today" data-cal-today hidden>오늘</button>
+              <button type="button" class="cal-nav" data-cal-next aria-label="다음 달" disabled={ym === months.at(-1)} set:html={chevron('M9 5l7 7-7 7')} />
+            </div>
+          </div>
+          <div class="cal">
+            <div class="cal-head" aria-hidden="true">{WEEK.map((w) => <span>{w}</span>)}</div>
+            <div class="cal-grid" role="group" aria-labelledby="cal-month" data-cal-grid set:html={gridHTML(ym, today, selected, items, null)} />
+          </div>
+          <div class="cal-filter" data-cal-filter hidden>
+            <p class="cal-filter-note" data-cal-filter-note></p>
+            <button type="button" class="pill" data-cal-all aria-pressed="false"><span>모든 학년 보기</span></button>
+          </div>
+          <Sign title={dayTitle(selected)} id="cal-day-title" data-cal-day>
+            <div data-cal-day-rows set:html={dayRowsHTML(selected, items, null)} />
+          </Sign>
+          <Sign title={monthTitle(ym)} id="cal-list-title" data-cal-list>
+            <div data-cal-list-rows set:html={monthRowsHTML(ym, items, null)} />
+          </Sign>
+          <script type="application/json" data-cal-json set:html={json} />
+        </div>
+        <noscript>
+          <style is:inline>
+            [data-calendar] {
+              display: none !important;
+            }
+          </style>
+          <div class="cal-noscript">
+            {listMonths.map((m) => (
+              <Sign title={formatMonth(`${m}-01`)}>
+                <Fragment set:html={monthRowsHTML(m, items, null)} />
+              </Sign>
+            ))}
+            {listMonths.length === 0 && (
+              <div class="sign">
+                <p class="sign-note">이번 학년도 학사일정이 아직 없어요</p>
+              </div>
+            )}
+          </div>
+        </noscript>
+      </>
+    )
   }
+  <p class="cal-src">출처: 나이스 교육정보 개방 포털 · 매일 새벽 갱신</p>
 </Base>
 
 <script>
-  import { seoulToday } from '../lib/dates.ts';
+  import { dayRowsHTML, dayTitle, gridHTML, initialDay, monthItems, monthRowsHTML, monthTitle, monthsOf } from '../lib/calendar.ts';
+  import { formatMonth, seoulToday } from '../lib/dates.ts';
+  import type { FeedScheduleItem } from '../lib/feed.ts';
+  import { gradeOf, readClass } from '../lib/klass.ts';
 
-  const today = seoulToday();
-  document.querySelectorAll<HTMLElement>('[data-start]').forEach((li) => {
-    const { start = '', end = '' } = li.dataset;
-    li.classList.toggle('is-past', end < today);
-    li.classList.toggle('is-today', start <= today && today <= end);
-  });
+  const root = document.querySelector<HTMLElement>('[data-calendar]');
+  if (root) {
+    const q = <T extends HTMLElement = HTMLElement>(s: string) => root.querySelector<T>(s)!;
+    const items: FeedScheduleItem[] = JSON.parse(q('[data-cal-json]').textContent!);
+    const today = seoulToday();
+    const months = monthsOf(items, today);
+    const prev = q<HTMLButtonElement>('[data-cal-prev]');
+    const next = q<HTMLButtonElement>('[data-cal-next]');
+    const toToday = q<HTMLButtonElement>('[data-cal-today]');
+    const grid = q('[data-cal-grid]');
+    const filter = q('[data-cal-filter]');
+    const allBtn = q<HTMLButtonElement>('[data-cal-all]');
+
+    let grade = gradeOf(readClass());
+    let all = false; // 「모든 학년 보기」
+    let ym = today.slice(0, 7);
+    // 반을 골랐으면 그 학년 + 전 학년만
+    const g = () => (grade && !all ? grade : null);
+    const firstDay = () => initialDay(ym, today, monthItems(ym, items, g()));
+    let selected = firstDay();
+
+    const drawDay = () => {
+      q('#cal-day-title').textContent = dayTitle(selected);
+      q('[data-cal-day-rows]').innerHTML = dayRowsHTML(selected, items, g());
+      for (const b of grid.querySelectorAll<HTMLElement>('[data-ymd]')) b.setAttribute('aria-pressed', String(b.dataset.ymd === selected));
+    };
+    const draw = () => {
+      const i = months.indexOf(ym);
+      q('[data-cal-month]').textContent = formatMonth(`${ym}-01`);
+      prev.disabled = i <= 0;
+      next.disabled = i < 0 || i >= months.length - 1;
+      toToday.hidden = ym === today.slice(0, 7);
+      grid.innerHTML = gridHTML(ym, today, selected, items, g());
+      q('#cal-list-title').textContent = monthTitle(ym);
+      q('[data-cal-list-rows]').innerHTML = monthRowsHTML(ym, items, g());
+      filter.hidden = !grade;
+      q('[data-cal-filter-note]').textContent = all ? '모든 학년 일정' : `${grade}학년 + 전 학년 일정`;
+      allBtn.setAttribute('aria-pressed', String(all));
+      drawDay();
+    };
+    const go = (step: number, from: HTMLButtonElement) => {
+      const i = months.indexOf(ym) + step;
+      if (i < 0 || i >= months.length) return;
+      ym = months[i];
+      selected = firstDay();
+      draw();
+      // 끝 달에 닿아 누른 단추가 꺼지면 반대쪽 단추로 초점을 옮긴다
+      if (from.disabled) (from === prev ? next : prev).focus();
+    };
+
+    prev.addEventListener('click', () => go(-1, prev));
+    next.addEventListener('click', () => go(1, next));
+    toToday.addEventListener('click', () => {
+      ym = today.slice(0, 7);
+      selected = today;
+      draw();
+      grid.querySelector<HTMLElement>(`[data-ymd="${today}"]`)?.focus(); // 「오늘」 단추가 사라지므로
+    });
+    grid.addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLElement>('[data-ymd]');
+      if (!b) return;
+      selected = b.dataset.ymd!;
+      drawDay();
+    });
+    // 화살표로 그 달 날짜 사이를 옮겨 다닌다
+    const STEP: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
+    grid.addEventListener('keydown', (e) => {
+      const step = STEP[e.key];
+      const days = [...grid.querySelectorAll<HTMLElement>('[data-ymd]')];
+      const i = days.indexOf(e.target as HTMLElement);
+      if (!step || i < 0 || !days[i + step]) return;
+      e.preventDefault();
+      days[i + step].focus();
+    });
+    allBtn.addEventListener('click', () => {
+      all = !all;
+      draw();
+    });
+    document.addEventListener('mjms:class', (e) => {
+      grade = gradeOf((e as CustomEvent<string>).detail);
+      all = false;
+      selected = firstDay();
+      draw();
+    });
+    draw();
+    // 처음 그림은 읽어 주지 않고, 그 뒤 고른 날이 바뀌면 읽어 준다
+    q('[data-cal-day]').setAttribute('aria-live', 'polite');
+  }
 </script>
