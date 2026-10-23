@@ -1,17 +1,19 @@
 ---
 // 명패: 모든 화면 맨 위의 남색 판. 제목이 그 화면의 h1이다.
 // kind='class'는 저장된 반으로 제목을 채운다(「1학년 5반」 + title 접미사). 반이 없으면 「우리 반을 골라 주세요」.
-// switchLabel: 반 고르기 창을 여는 단추(반이 있으면 「반 바꾸기」, 없으면 「반 고르기」). class 명패는 기본으로 켠다.
+// classButton: 반 고르기 창을 여는 단추를 둘지(반이 있으면 「반 바꾸기」, 없으면 「반 고르기」). class 명패는 기본으로 켠다.
+// classSub: page 명패에서 반을 골랐으면 보조 줄을 「1학년 5반」 + classSub로 바꾼다(예 「1학년 5반 기준」). 안 골랐으면 sub 그대로.
 import { href } from '../lib/paths.ts';
 
 interface Props {
   kind: 'class' | 'page';
   title?: string;
   sub?: string;
-  switchLabel?: boolean;
+  classButton?: boolean;
+  classSub?: string;
 }
 
-const { kind, title = '', sub, switchLabel = kind === 'class' } = Astro.props;
+const { kind, title = '', sub, classButton = kind === 'class', classSub } = Astro.props;
 const isClass = kind === 'class';
 const subText = isClass ? '명지중학교 알림장' : sub;
 ---
@@ -20,6 +22,7 @@ const subText = isClass ? '명지중학교 알림장' : sub;
   class:list={['plate', `plate--${kind}`, { 'plate--empty': isClass }]}
   data-plate-class={isClass ? '' : undefined}
   data-plate-suffix={isClass && title ? title : undefined}
+  data-plate-class-sub={!isClass && classSub && sub ? classSub : undefined}
 >
   {isClass && <img class="plate-emblem" src={href('emblem.png')} alt="" width="32" height="33" />}
   <div class="plate-text">
@@ -27,7 +30,7 @@ const subText = isClass ? '명지중학교 알림장' : sub;
     <h1 class="plate-title" data-plate-title>{isClass ? '우리 반을 골라 주세요' : title}</h1>
   </div>
   {
-    switchLabel && (
+    classButton && (
       <button type="button" class="plate-btn" data-open-class-sheet aria-haspopup="dialog">
         <span data-plate-btn>반 고르기</span>
       </button>
@@ -38,13 +41,17 @@ const subText = isClass ? '명지중학교 알림장' : sub;
   // 그리기 전에 바로 채워서 「우리 반을 골라 주세요」가 깜빡이지 않게 한다. 반 id 꼴은 lib/klass.ts와 같다.
   (() => {
     const plate = document.currentScript.previousElementSibling;
+    const sub = plate.querySelector('[data-plate-sub]');
+    const baseSub = sub?.textContent ?? '';
     const fill = (id) => {
       const m = /^class-(\d+)_(\d+)$/.exec(id || '');
       const btn = plate.querySelector('[data-plate-btn]');
       if (btn) btn.textContent = m ? '반 바꾸기' : '반 고르기';
+      const classSub = plate.dataset.plateClassSub;
+      if (classSub !== undefined) sub.textContent = m ? `${Number(m[1])}학년 ${Number(m[2])}반${classSub}` : baseSub;
       if (!plate.hasAttribute('data-plate-class')) return;
       plate.classList.toggle('plate--empty', !m);
-      plate.querySelector('[data-plate-sub]').textContent = m ? '명지중학교 알림장 · 우리 반' : '명지중학교 알림장';
+      sub.textContent = m ? '명지중학교 알림장 · 우리 반' : '명지중학교 알림장';
       plate.querySelector('[data-plate-title]').textContent = m
         ? `${Number(m[1])}학년 ${Number(m[2])}반${plate.dataset.plateSuffix || ''}`
         : '우리 반을 골라 주세요';

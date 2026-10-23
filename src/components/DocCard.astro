@@ -1,0 +1,30 @@
+---
+// 가정통신문 문서 카드: 배지 줄(대상 · 새 글 · 준비물) → 제목 → 게시일 · 호수. 카드 전체가 링크다.
+import type { FeedLetter } from '../lib/feed.ts';
+import { gradesOrAll } from '../lib/content.ts';
+import { formatMonthDay } from '../lib/dates.ts';
+import { href } from '../lib/paths.ts';
+import GradeBadge from './GradeBadge.astro';
+
+interface Props {
+  letter: FeedLetter;
+  isNew: boolean;
+}
+
+const { letter: l, isNew } = Astro.props;
+---
+
+<li data-grades={gradesOrAll(l.grades).join(' ')}>
+  <article class="doc">
+    <a class="doc-link" href={href(`notices/${l.id}/`)}>
+      <span class="doc-badges">
+        <GradeBadge grades={l.grades} />
+        {l.classes && <span class="doc-classes">{l.classes}</span>}
+        {isNew && <span class="badge badge--new">새 글</span>}
+        {l.bring.length > 0 && <span class="badge badge--bring">준비물</span>}
+      </span>
+      <h2 class="doc-title">{l.subject}</h2>
+      <p class="doc-when">{formatMonthDay(l.postedOn)} 게시{l.number && ` · ${l.number}`}</p>
+    </a>
+  </article>
+</li>

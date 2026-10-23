@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildToday, seoulToday, addDays, nextSchoolDay, formatDate, toISODate } from '../src/lib/dates.ts';
+import { buildToday, seoulToday, addDays, nextSchoolDay, formatDate, formatMonthDay, toISODate } from '../src/lib/dates.ts';
 
 test('seoulToday uses Korea time, not UTC', () => {
   // 2026-10-22 16:00 UTC is already 10-23 01:00 in Seoul
@@ -100,4 +100,9 @@ test('나이스 쉬는 날도 등교일 계산에 들어간다', async () => {
   const off = offRanges({ daysOff: [], schedule: [{ title: '재량휴업일', start: '2026-11-20', end: '2026-11-20', grades: [], kind: 'dayoff' }, { title: '학생예배', start: '2026-11-19', end: '2026-11-19', grades: [], kind: 'event' }] });
   assert.equal(nextSchoolDay('2026-11-19', off), '2026-11-23');
   assert.deepEqual(offRanges({ daysOff: [], schedule: null }), []);
+});
+
+test('formatMonthDay: 요일 없이 「10월 22일」', () => {
+  assert.equal(formatMonthDay('2026-10-22'), '10월 22일');
+  assert.equal(formatMonthDay('2026-01-05'), '1월 5일');
 });

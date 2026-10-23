@@ -22,11 +22,15 @@ export function upcomingRows(schedule: FeedScheduleItem[] | null, today: string)
   return perView(schedule.filter((s) => s.end >= today), (s) => s.grades, 2);
 }
 
+/** 「새 글」: 빌드일 기준 2주(14일) 안에 게시된 가정통신문. */
+export function isNewLetter(l: FeedLetter, today: string): boolean {
+  return l.publishedOn >= addDays(today, -14) && l.publishedOn <= today;
+}
+
 /** 2주 안에 게시된 가정통신문, 최근 것부터, 보기마다 3개. */
 export function newLetterRows(letters: FeedLetter[], today: string): Row<FeedLetter>[] {
-  const from = addDays(today, -14);
   const recent = letters
-    .filter((l) => l.publishedOn >= from && l.publishedOn <= today)
+    .filter((l) => isNewLetter(l, today))
     .sort((a, b) => b.publishedOn.localeCompare(a.publishedOn) || b.postedOn.localeCompare(a.postedOn));
   return perView(recent, (l) => l.grades, 3);
 }

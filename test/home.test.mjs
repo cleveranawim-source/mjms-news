@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { upcomingRows, newLetterRows, scheduleBadgeHTML } from '../src/lib/home.ts';
+import { upcomingRows, newLetterRows, scheduleBadgeHTML, isNewLetter } from '../src/lib/home.ts';
 import { gradeBadge, badgeHTML, gradeLabel } from '../src/lib/grades.ts';
 
 const ev = (title, start, end = start, grades = [], kind = 'event') => ({ title, start, end, grades, kind });
@@ -53,4 +53,11 @@ test('새 가정통신문: 2주 안, 최근 것부터, 보기마다 3개', () =>
   const rows = newLetterRows(letters, '2026-10-22');
   assert.deepEqual(rows.map((r) => r.item.id), ['d', 'c', 'b', 'a']);
   assert.deepEqual(shows(rows), { 라: 'all 1', 다: 'all 1 2 3', 나: 'all 2', 가: '1 2 3' });
+});
+
+test('isNewLetter: 빌드일 기준 14일 안에 게시된 글만 새 글', () => {
+  assert.equal(isNewLetter(letter({ publishedOn: '2026-10-22' }), '2026-10-22'), true);
+  assert.equal(isNewLetter(letter({ publishedOn: '2026-10-08' }), '2026-10-22'), true);
+  assert.equal(isNewLetter(letter({ publishedOn: '2026-10-07' }), '2026-10-22'), false);
+  assert.equal(isNewLetter(letter({ publishedOn: '2026-10-23' }), '2026-10-22'), false);
 });

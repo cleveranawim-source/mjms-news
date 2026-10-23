@@ -20,20 +20,95 @@ execFileSync('npx', ['astro', 'build'], {
 });
 const read = (p) => readFileSync(resolve(root, 'dist', p), 'utf8');
 
-test('알림 보기에 원문 링크와 요약이 있다', () => {
+test('가정통신문 한 건: 원문 링크·요약·첨부, 준비물은 정보 표에', () => {
   const l = feed.letters[0];
   const html = read(`notices/${l.id}/index.html`);
-  assert.match(html, /홈페이지에서 원문 보기/);
+  assert.match(html, /학교 홈페이지 원문 보기/);
   assert.ok(html.includes(l.sourceUrl));
   assert.match(html, /함께 온 파일/);
-  assert.match(html, /<h2>10월 23일 \(금\) 준비물<\/h2>/);
-  const link = html.match(/<a href="[^"]*example-school[^"]*"[^>]*>/)[0];
+  assert.match(html, /<dt>준비물<\/dt><dd>도시락, 물병, 체험학습 동의서<\/dd>/);
+  assert.match(html, /<dt>준비물 챙길 날<\/dt><dd>10월 23일 \(금\)<\/dd>/);
+  const link = html.match(/<a [^>]*href="[^"]*example-school[^"]*"[^>]*>/)[0];
   assert.match(link, /target="_blank"/);
   assert.match(link, /rel="[^"]*noopener/);
 });
 
 test('학급이 있는 알림은 목록에 학급을 보인다', () => {
   assert.match(read('notices/index.html'), /2학년 1~4반/);
+});
+
+test('가정통신문 목록: 문서 카드 = 배지 → 제목 → 게시일·호수', () => {
+  const html = read('notices/index.html');
+  const card = html.match(/<article class="doc"[\s\S]*?<\/article>/)[0];
+  assert.ok(card.indexOf('class="badge') < card.indexOf('<h2') && card.indexOf('<h2') < card.indexOf('게시'));
+  assert.match(card, /제2026-87호/);
+  assert.match(html, /data-letter-filter/);
+});
+
+test('가정통신문 목록: 카드 전체가 링크, 새 글·준비물 표시, 게시일 최신순', () => {
+  const html = read('notices/index.html');
+  const cards = [...html.matchAll(/<li data-grades="([^"]*)">\s*<article class="doc"[\s\S]*?<\/article>/g)];
+  assert.equal(cards.length, feed.letters.length + 1);
+  const by = (id) => cards.find((c) => c[0].includes(`/notices/${id}/`))[0];
+  const first = by('L-2026-1022-3');
+  assert.match(first, /<article class="doc"[^>]*>\s*<a class="doc-link" href="\/notices\/L-2026-1022-3\/">[\s\S]*<\/a>\s*<\/article>/);
+  assert.match(first, /badge badge--g1">1학년[\s\S]*>새 글<[\s\S]*>준비물</);
+  assert.match(first, /<h2 class="doc-title">2026학년도 2학기 현장체험학습 안내<\/h2>/);
+  assert.match(first, /10월 22일 게시 · 제2026-87호/);
+  // 2주 안(빌드일 10월 22일 기준)이 아니면 「새 글」이 없다. 준비물이 없으면 「준비물」도 없다.
+  assert.ok(!by('L-evil').includes('새 글'));
+  assert.ok(!by('L-2026-1020-2').includes('>준비물<'));
+  assert.match(by('L-2026-1020-2'), /badge badge--all">전 학년/);
+  // 호수가 없으면 게시일만.
+  assert.match(by('L-2026-1015-1'), /10월 15일 게시<\/p>/);
+  // 게시일 최신순
+  const order = cards.map((c) => c[0].match(/\/notices\/([^/]+)\//)[1]);
+  assert.deepEqual(order, ['L-2026-1022-3', 'L-2026-1020-2', 'L-2026-1015-1', 'L-evil']);
+  assert.equal(cards[0][1], '1');
+  assert.ok(!html.includes('class="row'));
+});
+
+test('가정통신문 목록: 학년 알약(자바스크립트 전엔 감춤), 숨긴 글 안내, 명패 보조 줄', () => {
+  const html = read('notices/index.html');
+  const filter = html.match(/<div[^>]*data-letter-filter[\s\S]*?<\/div>/)[0];
+  assert.match(filter, /^<div[^>]*\shidden/);
+  assert.match(filter, /role="group"/);
+  for (const v of ['mine', 'all', '1', '2', '3']) assert.match(filter, new RegExp(`<button type="button"[^>]*data-view="${v}"[^>]*aria-pressed="(true|false)"`), v);
+  assert.match(filter, /학년 \+ 전 학년/);
+  assert.match(filter, />모든 학년</);
+  assert.match(html, /<p class="docs-note" data-letters-note hidden><\/p>/);
+  assert.match(html, /볼 수 있어요/); // 문구는 브라우저가 센다(스크립트 안)
+  const plate = html.match(/<header[^>]*class="plate[\s\S]*?<\/header>/)[0];
+  assert.match(plate, /data-plate-class-sub=" 기준"/);
+  assert.match(plate, /학교 홈페이지 가정통신문/);
+  assert.ok(!plate.includes('data-open-class-sheet'));
+  // 알약 줄의 display:flex가 hidden을 덮지 않는다(자바스크립트가 없으면 감춘 채).
+  const css = readdirSync(resolve(root, 'dist/_astro')).filter((f) => f.endsWith('.css')).map((f) => read(`_astro/${f}`)).join('\n');
+  assert.match(css, /\.pills\[hidden\]\{display:none\}/);
+});
+
+test('가정통신문 한 건: 문서 머리, 정보 표, 원문 버튼', () => {
+  const html = read('notices/L-2026-1022-3/index.html');
+  assert.match(html, /class="letter-head"[\s\S]*명지중학교/);
+  assert.match(html, /class="letter-head"[\s\S]*class="letter-no">제2026-87호</);
+  assert.match(html, /<dl class="facts">[\s\S]*대상/);
+  assert.match(html, /<dt>대상<\/dt><dd><span class="badge badge--g1">1학년<\/span><\/dd>/);
+  assert.match(html, /<dt>일정<\/dt><dd>10월 30일 \(금\)<\/dd>/);
+  assert.match(html, /<dt>게시일<\/dt><dd>10월 22일 \(목\)<\/dd>/);
+  assert.match(html, /학교 홈페이지 원문 보기/);
+  assert.match(html, /<a class="back-link" href="\/notices\/"[\s\S]*?가정통신문<\/a>/);
+  assert.match(html, /<button[^>]*class="letter-print"[^>]*>/);
+  assert.ok(!html.includes('관련 날짜'));
+});
+
+test('가정통신문 한 건: 기간 일정, 준비물 없으면 그 줄도 없다, 학급 대상', () => {
+  const exam = read('notices/L-2026-1020-2/index.html');
+  assert.match(exam, /<dt>일정<\/dt><dd>11월 18일 \(수\) ~ 20일 \(금\)<\/dd>/);
+  assert.ok(!exam.includes('<dt>준비물') && !exam.includes('준비물 챙길 날'));
+  const flu = read('notices/L-2026-1015-1/index.html');
+  assert.ok(!flu.includes('<dt>일정'));
+  assert.match(flu, /<dt>대상<\/dt><dd>[\s\S]*2학년 1~4반/);
+  assert.ok(!flu.includes('class="letter-no"'));
 });
 
 test('학사일정에 쉬는 날이 섞여 있다', () => {

@@ -983,61 +983,6 @@ a.row:hover .row-title {
   max-width: var(--measure);
 }
 
-.back {
-  display: inline-block;
-  color: var(--muted);
-  font-size: var(--text-sm);
-  margin-bottom: 1rem;
-}
-
-.notice h1 {
-  font-size: var(--text-lg);
-}
-
-.facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem 1.5rem;
-  margin: 0.75rem 0 1.75rem;
-  color: var(--muted);
-  font-size: var(--text-sm);
-}
-
-.facts div {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.facts dd {
-  margin: 0;
-  color: var(--ink);
-}
-
-.bring {
-  background: var(--board);
-  color: var(--chalk);
-  border-radius: 4px;
-  padding: 1rem 1.25rem;
-  margin-bottom: 2rem;
-}
-
-.bring h2 {
-  font-size: var(--fs-15);
-  font-weight: 700;
-  color: var(--chalk-yellow);
-}
-
-.bring ul {
-  margin: 0.25rem 0 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 1.5rem;
-  font-size: var(--fs-17);
-  font-weight: 600;
-}
-
 .prose > :first-child {
   margin-top: 0;
 }
@@ -1050,16 +995,6 @@ a.row:hover .row-title {
   font-weight: 600;
 }
 
-.files {
-  margin-top: 2rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--rule);
-}
-
-.files h2 {
-  font-size: var(--text-base);
-}
-
 .print {
   margin-top: 2.5rem;
   font: inherit;
@@ -1069,6 +1004,336 @@ a.row:hover .row-title {
   border-radius: 4px;
   padding: 0.375rem 0.875rem;
   cursor: pointer;
+}
+
+/* 가정통신문 목록: 학년 알약 → 문서 카드. 알약은 보이는 판 36px, 누르는 곳 44px */
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 6px;
+  margin: -4px 0 6px;
+}
+
+.pills[hidden] {
+  display: none;
+}
+
+.pill {
+  min-height: 44px;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pill[hidden] {
+  display: none;
+}
+
+.pill span {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: #fff;
+  font-size: var(--fs-15);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.pill:hover span {
+  border-color: var(--navy);
+}
+
+.pill[aria-pressed='true'] span {
+  background: var(--navy);
+  border-color: var(--navy);
+  color: #fff;
+}
+
+.pill:focus-visible {
+  border-radius: 999px;
+}
+
+.docs {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* 알약이 고른 학년(목록의 data-view). 「모든 학년」은 반 학년 필터(<html data-grade>)보다 앞선다. */
+.docs[data-view='1'] > li:not([data-grades~='1']),
+.docs[data-view='2'] > li:not([data-grades~='2']),
+.docs[data-view='3'] > li:not([data-grades~='3']) {
+  display: none;
+}
+
+html[data-grade] .docs[data-view='all'] > li {
+  display: block;
+}
+
+.doc {
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+}
+
+.doc-link {
+  display: block;
+  padding: 12px 14px;
+  border-radius: 11px;
+  text-decoration: none;
+}
+
+.doc-link:hover .doc-title {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+}
+
+.doc-badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin-bottom: 4px;
+}
+
+.doc-classes {
+  font-size: var(--fs-13);
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.doc-title {
+  font-size: var(--fs-17);
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.doc-when {
+  margin: 6px 0 0;
+  font-size: var(--fs-13);
+  line-height: 1.4;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.badge--new {
+  background: var(--red);
+  color: #fff;
+}
+
+.badge--bring {
+  background: #fff4e5;
+  color: #8a4b00;
+}
+
+.docs-note {
+  margin: 10px 2px 0;
+  font-size: var(--fs-13);
+  color: var(--muted);
+}
+
+/* 가정통신문 한 건: 종이 가정통신문처럼 머리(교표 · 학교 이름 · 호수) → 제목 → 정보 표 → 본문 */
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  margin: -8px 0 2px -4px;
+  padding-right: 10px;
+  color: var(--navy);
+  font-size: var(--fs-15);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+.back-link svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.letter {
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+}
+
+/* 글자를 키워 한 줄에 안 들어가면 호수가 다음 줄 오른쪽으로 내려간다(학교 이름은 쪼개지 않는다) */
+.letter-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 12px 14px;
+  border-bottom: 2px solid var(--navy);
+}
+
+.letter-head img {
+  flex: none;
+  width: 28px;
+  height: auto;
+}
+
+.letter-org {
+  flex: 1 1 auto;
+  margin: 0;
+  line-height: 1.3;
+  overflow-wrap: normal;
+}
+
+.letter-org small {
+  display: block;
+  font-size: var(--fs-12);
+  color: var(--muted);
+}
+
+.letter-org b {
+  font-size: var(--fs-15);
+  font-weight: 800;
+  color: var(--navy);
+}
+
+.letter-no {
+  flex: none;
+  margin-left: auto;
+  font-size: var(--fs-13);
+  font-weight: 700;
+  color: var(--red);
+  font-variant-numeric: tabular-nums;
+}
+
+.letter-title {
+  padding: 14px 14px 4px;
+  font-size: var(--fs-22);
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+/* 정보 표: 항목 76px + 내용. 판이 좁거나 글자를 키우면(16rem 미만) 항목 위, 내용 아래 */
+.facts {
+  container-type: inline-size;
+  margin: 8px 14px 0;
+  border-top: 1px solid var(--ink);
+}
+
+.facts div {
+  display: grid;
+  grid-template-columns: 4.75rem 1fr;
+  border-bottom: 1px solid var(--rule);
+}
+
+.facts dt {
+  padding: 7px 10px;
+  background: #f5f8fb;
+  font-size: var(--fs-13);
+  font-weight: 700;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.facts dd {
+  margin: 0;
+  padding: 7px 10px;
+  font-size: var(--fs-15);
+  line-height: 1.5;
+}
+
+.facts .badge {
+  vertical-align: 1px;
+}
+
+.facts-classes {
+  margin-left: 8px;
+}
+
+@container (max-width: 16rem) {
+  .facts div {
+    grid-template-columns: 1fr;
+  }
+
+  .facts dt {
+    padding-block: 5px 3px;
+  }
+}
+
+.letter-body {
+  padding: 12px 14px 0;
+  font-size: 1rem;
+  line-height: 1.75;
+  color: #2b3540;
+}
+
+.letter-body p {
+  margin: 0 0 0.75em;
+}
+
+.letter-body:last-child {
+  padding-bottom: 4px;
+}
+
+.files {
+  margin: 4px 14px 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--rule);
+  font-size: var(--fs-15);
+  color: var(--muted);
+}
+
+.files:last-child {
+  padding-bottom: 14px;
+}
+
+.letter-src {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  margin: 14px;
+  padding: 6px 12px;
+  border: 1px solid var(--navy);
+  border-radius: 10px;
+  color: var(--navy);
+  font-size: var(--fs-15);
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+}
+
+.letter-src:hover {
+  background: #f1f6fc;
+}
+
+.letter-print {
+  display: block;
+  min-height: 44px;
+  margin: 2px auto 0;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: var(--fs-13);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+  cursor: pointer;
+}
+
+.letter-print:hover {
+  color: var(--ink);
 }
 
 /* 학년 색 점 */
@@ -1271,29 +1536,24 @@ a.row:hover .row-title {
 @media print {
   .tabbar,
   .site-footer,
+  .plate,
   .plate-btn,
+  .pills,
   .print,
-  .back {
+  .letter-print,
+  .letter-src,
+  .back-link {
     display: none;
   }
 
-  .bring {
-    background: none;
-    color: var(--ink);
-    border: 1px solid var(--ink);
+  body {
+    background: #fff;
+    padding-bottom: 0;
   }
 
-  .bring h2 {
-    color: var(--ink);
+  .letter {
+    border: 0;
   }
-}
-
-/* 가정통신문 호수 */
-.row-no {
-  margin-right: 0.5em;
-  font-size: 0.85em;
-  font-weight: 400;
-  color: var(--muted, inherit);
 }
 
 /* 급식 알레르기 목록 */

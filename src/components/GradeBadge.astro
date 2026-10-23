@@ -1,0 +1,12 @@
+---
+// 학년 배지 「1학년」 「1·2학년」 「전 학년」. 모양·색은 lib/grades.ts의 badgeHTML 하나로 맞춘다.
+import { badgeHTML } from '../lib/grades.ts';
+
+interface Props {
+  grades: number[];
+}
+
+const { grades } = Astro.props;
+---
+
+<Fragment set:html={badgeHTML(grades)} />

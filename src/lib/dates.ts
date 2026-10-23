@@ -48,6 +48,12 @@ export function formatDate(iso: string): string {
   return `${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일 (${weekday(iso)})`;
 }
 
+// 「10월 22일」(요일 없이). 가정통신문 카드의 게시일에 쓴다.
+export function formatMonthDay(iso: string): string {
+  const d = parse(iso);
+  return `${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일`;
+}
+
 export function formatMonth(iso: string): string {
   const d = parse(iso);
   return `${d.getUTCFullYear()}년 ${d.getUTCMonth() + 1}월`;
