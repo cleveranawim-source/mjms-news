@@ -1,6 +1,5 @@
 // 분실물함: AI 교무실(mjms-office)의 /api/news/lost가 주는 보관 중 물건.
 // 사진·종류·발견 장소·날짜·찾으러 갈 곳만 온다(주인 확인용 특징 칸과 선생님 이름은 AI 교무실이 싣지 않는다).
-import { escapeHTML } from './html.ts';
 import { formatDate } from './dates.ts';
 
 export type LostItem = {
@@ -28,7 +27,3 @@ export async function loadLost(api: string, fetcher: typeof fetch = fetch): Prom
 }
 
 export const foundOnLabel = (ymd: string) => formatDate(ymd);
-
-export function stripItemHTML(item: LostItem): string {
-  return `<li><img src="${escapeHTML(item.photo)}" alt="${escapeHTML(item.category)}" loading="lazy" /><span>${escapeHTML(item.storedAt)}</span></li>`;
-}

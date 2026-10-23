@@ -1,8 +1,9 @@
 ---
+// 첫 화면 칠판 = 오늘 칸. 날짜(손글씨)·요일, 쉬는 날 줄, 우리 반 「오늘 바뀐 수업」, 챙길 것, 오늘 일정.
 import { boardFromFeed, boardHTML } from '../lib/board.ts';
-import { buildToday, formatDate, weekday, addDays } from '../lib/dates.ts';
+import { buildToday, formatDate, weekday } from '../lib/dates.ts';
 import { getFeed } from '../lib/feed.ts';
-import { base, href } from '../lib/paths.ts';
+import { base } from '../lib/paths.ts';
 import { site } from '../site.config.ts';
 
 // 빌드한 날 기준으로 먼저 그려 두고, 브라우저가 실제 오늘 날짜로 다시 그린다.
@@ -10,99 +11,84 @@ const feed = await getFeed();
 const today = buildToday();
 const html = boardHTML(boardFromFeed(today, feed), base);
 const dayLabel = (iso: string) => formatDate(iso).replace(/ \(.\)$/, '');
-
-// 자석으로 붙여 둔 쪽지: 2주 안에 홈페이지에 올라온 가정통신문 최근 3건. 매일 아침 다시 빌드하므로 빌드한 날 기준이면 된다.
-const notes = [...feed.letters]
-  .filter((l) => l.publishedOn >= addDays(today, -14) && l.publishedOn <= today)
-  .sort((a, b) => b.publishedOn.localeCompare(a.publishedOn))
-  .slice(0, 3);
-const magnet = (grades: number[]) => (grades.length === 1 ? `g${grades[0]}` : '');
+// 브라우저가 다시 그릴 때 쓰는 칸만 싣는다: 준비물이 있는 알림, 학사일정·쉬는 날, 오늘부터의 급식.
+const letters = feed.letters
+  .filter((l) => l.bring.length > 0 && l.due && l.due >= today)
+  .map(({ id, grades, bring, due }) => ({ id, grades, bring, due }));
+const meals = feed.meals.filter((m) => m.ymd >= today);
 // <script> 안의 JSON이 </script>로 끊기지 않도록 <를 이스케이프한다.
-const boardJson = JSON.stringify({ base, letters: feed.letters, schedule: feed.schedule, daysOff: feed.daysOff, meals: feed.meals }).replace(/</g, '\\u003c');
+const boardJson = JSON.stringify({ base, letters, schedule: feed.schedule, daysOff: feed.daysOff, meals }).replace(/</g, '\\u003c');
 ---
 
-<script is:inline>
-  // 칠판에 날짜를 분필로 써 내려가는 장면은 창을 열고 첫 화면을 처음 볼 때 한 번만.
-  try {
-    if (!sessionStorage.getItem('mjms-drawn')) {
-      document.documentElement.dataset.draw = '';
-      sessionStorage.setItem('mjms-drawn', '1');
-    }
-  } catch {}
-</script>
-
-<div class="board-wrap">
-  <section class="board" aria-label="오늘의 알림" data-today={today} data-tt-api={site.timetableApi || undefined} data-tt-href={href('timetable/')}>
-    <img class="board-emblem" src={href('emblem-chalk.png')} alt="" width="80" height="82" />
-    <p class="board-date">
-      <span class="board-day" data-board-day>{dayLabel(today)}</span>
-      <small data-board-weekday>{weekday(today)}요일</small>
-    </p>
-    <div class="board-groups" data-board-groups set:html={html} />
-    {
-      notes.length > 0 && (
-        <ul class="notes" aria-label="새 가정통신문">
-          {notes.map((n) => (
-            <li data-grades={(n.grades.length > 0 ? n.grades : [1, 2, 3]).join(' ')}>
-              <a class="note" href={href(`notices/${n.id}/`)}>
-                <span class:list={['magnet', magnet(n.grades)]} aria-hidden="true" />
-                {n.number && <span class="note-meta">{n.number}</span>}
-                <span class="note-title">{n.subject}</span>
-              </a>
-            </li>
-          ))}
-        </ul>
-      )
-    }
-    <script type="application/json" data-board-json set:html={boardJson} />
-  </section>
-</div>
+<section class="board" aria-labelledby="board-date" data-today={today} data-tt-api={site.timetableApi || undefined}>
+  <p class="board-date" id="board-date">
+    <span class="board-day" data-board-day>{dayLabel(today)}</span>{' '}
+    <span class="board-weekday" data-board-weekday>{weekday(today)}요일</span>
+  </p>
+  <div class="board-groups" data-board-groups set:html={html} />
+  <script type="application/json" data-board-json set:html={boardJson} />
+</section>
 
 <script>
-  import { boardFromFeed, boardHTML } from '../lib/board.ts';
-  import { seoulToday, formatDate, weekday } from '../lib/dates.ts';
-  import { loadTimetable, changeLines } from '../lib/timetable.ts';
-  import { escapeHTML } from '../lib/html.ts';
+  import { boardFromFeed, boardHTML, changesFor, changesStateHTML } from '../lib/board.ts';
+  import { seoulToday, formatDate, weekday, isDayOff, offRanges } from '../lib/dates.ts';
+  import { readClass } from '../lib/klass.ts';
+  import { mealHTML } from '../lib/meal.ts';
+  import { loadTimetable } from '../lib/timetable.ts';
 
   const board = document.querySelector<HTMLElement>('.board');
-  const today = seoulToday();
-  if (board && board.dataset.today !== today) {
-    const { base, letters, schedule, daysOff, meals } = JSON.parse(board.querySelector('[data-board-json]')!.textContent!);
-    board.dataset.today = today;
-    board.querySelector('[data-board-day]')!.textContent = formatDate(today).replace(/ \(.\)$/, '');
-    board.querySelector('[data-board-weekday]')!.textContent = `${weekday(today)}요일`;
-    board.querySelector('[data-board-groups]')!.innerHTML = boardHTML(boardFromFeed(today, { letters, schedule, daysOff, meals }), base);
-  }
+  if (board) {
+    const data = JSON.parse(board.querySelector('[data-board-json]')!.textContent!);
+    const groups = board.querySelector<HTMLElement>('[data-board-groups]')!;
+    const today = seoulToday();
 
-  // 칠판 맨 위(쉬는 날 줄 다음)에 우리 반 「오늘 바뀐 수업」을 끼운다. 빌드 결과는 시간표와 무관하다.
-  // 반을 안 골랐으면 고르러 가는 줄을, 등교일인데 바뀐 수업이 없으면 '없어요'를 쓴다.
-  const groups = board?.querySelector<HTMLElement>('[data-board-groups]');
-  const putFirst = (html: string) => {
-    const dayOff = groups!.querySelector('.board-dayoff');
-    if (dayOff) dayOff.insertAdjacentHTML('afterend', html);
-    else groups!.insertAdjacentHTML('afterbegin', html);
-  };
-  let picked = '';
-  try {
-    picked = localStorage.getItem('mjms-class') ?? '';
-  } catch {}
-  if (board && groups && board.dataset.ttApi) {
-    if (!picked) {
-      putFirst(`<p class="board-pick"><a href="${board.dataset.ttHref}">우리 반을 고르면 바뀐 수업이 보여요</a></p>`);
-    } else {
-      const feed = await loadTimetable(board.dataset.ttApi);
-      const cls = feed?.classes.find((c) => c.id === picked);
-      if (feed && cls) {
-        const changes = changeLines(feed, cls.id, today);
-        const schoolDay = cls.days.some((d) => d.ymd === today);
-        const title = `<h2>${escapeHTML(cls.name)} 오늘 바뀐 수업</h2>`;
-        const body =
-          changes.length > 0
-            ? `<ul>${changes.map((line) => `<li>${escapeHTML(line)}</li>`).join('')}</ul>`
-            : '<span class="board-none">없어요</span>';
-        if (changes.length > 0 || schoolDay)
-          putFirst(`<section class="board-group board-group--changes" data-class-grade="${cls.grade}">${title}${body}</section>`);
+    // 빌드한 날과 오늘이 다르면 칠판과 급식 안내판을 오늘 것으로 다시 그린다.
+    if (board.dataset.today !== today) {
+      const view = boardFromFeed(today, data);
+      board.dataset.today = today;
+      board.querySelector('[data-board-day]')!.textContent = formatDate(today).replace(/ \(.\)$/, '');
+      board.querySelector('[data-board-weekday]')!.textContent = `${weekday(today)}요일`;
+      groups.innerHTML = boardHTML(view, data.base);
+      const meal = document.querySelector<HTMLElement>('[data-meal-sign]');
+      if (meal) {
+        meal.innerHTML = mealHTML(view.meal);
+        meal.hidden = !view.meal;
       }
     }
+
+    // 「오늘 바뀐 수업」: 반을 골랐고 오늘이 등교일일 때만. 주말·쉬는 날에는 소제목을 쓰지 않는다.
+    const api = board.dataset.ttApi;
+    const closed = ['토', '일'].includes(weekday(today)) || isDayOff(today, offRanges(data));
+    let ticket = 0;
+    const draw = async (retried = false) => {
+      const slot = groups.querySelector<HTMLElement>('[data-board-changes]');
+      const classId = readClass();
+      const mine = ++ticket;
+      if (!slot) return;
+      if (!api || !classId || closed) {
+        slot.innerHTML = '';
+        return;
+      }
+      slot.innerHTML = changesStateHTML({ kind: 'loading' });
+      const feed = await loadTimetable(api);
+      if (mine !== ticket) return; // 그새 반을 바꿨으면 늦게 온 답은 버린다
+      const state = changesFor(feed, classId, today);
+      slot.innerHTML = state ? changesStateHTML(state) : '';
+      // 「다시 불러오기」를 눌렀으면 초점을 결과로 옮긴다(단추가 사라지므로).
+      if (retried) {
+        const again = slot.querySelector<HTMLElement>('[data-retry-changes]');
+        if (again) again.focus();
+        else {
+          slot.tabIndex = -1;
+          slot.focus();
+        }
+      }
+    };
+    groups.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).closest('[data-retry-changes]')) draw(true);
+    });
+    // 반 고르기 창에서 반을 바꾸면 새로 고침 없이 다시 그린다(학년 거르기는 <html data-grade>로 CSS가 한다).
+    document.addEventListener('mjms:class', () => draw());
+    draw();
   }
 </script>

@@ -53,6 +53,23 @@ test('changeLines writes 수업 없음 for a cleared cell', () => {
   assert.deepEqual(changeLines(f, 'c', 'd'), ['2교시 수업 없음 (원래 수학)']);
 });
 
+import { changeItems } from '../src/lib/timetable.ts';
+
+test('changeItems: 칸 데이터로 「N교시 과목」 + 원래 과목/학사일정 이름, N교시까지는 한 줄', () => {
+  const cut = (p) => cell(p, '', { changed: { from: '국어', note: null } });
+  const f = { ...feed, classes: [{ id: 'c', name: '1-1', grade: 1, days: [{ ymd: 'd', off: null, until: 4, cells: [
+    cell(5, '', { changed: { from: '국어', note: null } }), cell(3, '과학', { changed: { from: '체육', note: '행사' } }), cell(1, '창체', { special: true, changed: { from: null, note: '동아리활동' } }), cut(6), cell(2, '수학'),
+  ] }] }] };
+  assert.deepEqual(changeItems(f, 'c', 'd'), [
+    { text: '1교시 창체', from: null, note: '동아리활동' },
+    { text: '3교시 과학', from: '체육', note: null },
+    '오늘은 4교시까지',
+  ]);
+  const cleared = { ...feed, classes: [{ id: 'c', name: '1-1', grade: 1, days: [{ ymd: 'd', off: null, until: null, cells: [cell(2, '', { changed: { from: '수학', note: null } })] }] }] };
+  assert.deepEqual(changeItems(cleared, 'c', 'd'), [{ text: '2교시 수업 없음', from: '수학', note: null }]);
+  assert.deepEqual(changeItems(feed, 'nope', '2026-10-22'), []);
+});
+
 test('changeLines collapses periods cut by until into one line', () => {
   const cut = (p) => cell(p, '', { changed: { from: '국어', note: null } });
   const f = { ...feed, classes: [{ id: 'c', name: '1-1', grade: 1, days: [{ ymd: 'd', off: null, until: 4, cells: [cell(3, '과학', { changed: { from: '체육', note: null } }), cut(5), cut(6)] }] }] };

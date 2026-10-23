@@ -64,6 +64,22 @@ export function changeLines(feed: TimetableFeed, classId: string, ymd: string): 
   return lines;
 }
 
+/** 칠판 한 줄의 재료: 「1교시 영어」 + 원래 과목(줄긋기) 또는 학사일정 이름. 「오늘은 N교시까지」는 글자 그대로. */
+export type ChangeItem = { text: string; from: string | null; note: string | null };
+
+export function changeItems(feed: TimetableFeed, classId: string, ymd: string): (ChangeItem | string)[] {
+  const until = feed.classes.find((c) => c.id === classId)?.days.find((d) => d.ymd === ymd)?.until ?? null;
+  const cells = todayChanges(feed, classId, ymd);
+  const cut = (c: TtCell) => until !== null && c.subject === '' && c.period > until;
+  const items: (ChangeItem | string)[] = cells.filter((c) => !cut(c)).map((c) => ({
+    text: `${c.period}교시 ${c.subject || '수업 없음'}`,
+    from: c.changed?.from ?? null,
+    note: c.changed?.from ? null : (c.changed?.note ?? null),
+  }));
+  if (until !== null && cells.some(cut)) items.push(`오늘은 ${until}교시까지`);
+  return items;
+}
+
 /** 날짜를 주(월요일) 단위로 묶고 '이번 주'·'다음 주' 이름을 붙인다. */
 export function weekGroups(days: string[], today: string): { label: string; days: string[] }[] {
   const monday = (ymd: string) => addDays(ymd, -((['일', '월', '화', '수', '목', '금', '토'].indexOf(weekday(ymd)) + 6) % 7));

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 
@@ -10,7 +10,7 @@ const root = resolve(import.meta.dirname, '..');
 const fixture = resolve(root, 'test/fixtures/feed.json');
 const feed = JSON.parse(readFileSync(fixture, 'utf8'));
 // 공유 fixture는 건드리지 않고, 태그를 끊으려는 제목이 든 알림을 더한 사본으로 빌드한다.
-const evil = { ...feed.letters[2], id: 'L-evil', subject: '끊기 시험 </script><b>x', number: '제2026-80호', postedOn: '2026-09-01', publishedOn: '2026-09-01' };
+const evil = { ...feed.letters[2], id: 'L-evil', subject: '끊기 시험 </script><b>x', number: '제2026-80호', postedOn: '2026-09-01', publishedOn: '2026-09-01', bring: ['끊기 </script><b>물건'], due: '2026-10-23' };
 const tmp = resolve(mkdtempSync(resolve(tmpdir(), 'feed-')), 'feed.json');
 writeFileSync(tmp, JSON.stringify({ ...feed, letters: [...feed.letters, evil] }));
 execFileSync('npx', ['astro', 'build'], {
@@ -56,40 +56,72 @@ test('피드 글자가 칠판 JSON을 끊지 못하고, JSON은 그대로 읽힌
   assert.ok(!html.includes('</script><b>'));
   const json = html.match(/<script type="application\/json" data-board-json>(.*?)<\/script>/s)[1];
   const data = JSON.parse(json);
-  assert.ok(data.letters.some((l) => l.subject === evil.subject));
+  assert.ok(data.letters.some((l) => l.bring.includes(evil.bring[0])));
+  // 칠판이 쓰는 칸만 싣는다(요약·첨부는 싣지 않는다).
+  assert.ok(data.letters.every((l) => !('summary' in l) && !('attachments' in l)));
 });
 
-test('칠판에 2주 안에 올라온 알림이 쪽지로 붙고 오래된 것은 빠진다', () => {
+test('첫 화면 순서: 명패 → 칠판 → 급식 → 일정 → 가정통신문 → 분실물, 손글씨는 날짜만', () => {
   const html = read('index.html');
-  assert.match(html, /class="note" href="[^"]*notices\/L-2026-1022-3\//);
-  assert.match(html, /magnet g1/);
-  assert.match(html, /제2026-87호/);
-  // 14일 창(10월 8일부터) 밖인 옛 알림은 쪽지에 없다. 목록 줄에는 있으므로 쪽지 상자만 본다.
-  const notes = html.match(/<ul class="notes".*?<\/ul>/s)[0];
-  assert.ok(!notes.includes('L-evil'));
-  assert.ok(!notes.includes('제2026-80호'));
-  assert.ok(html.includes('href="/notices/L-evil/"'));
+  const at = (s) => html.indexOf(s);
+  assert.ok(at('class="plate') < at('class="board') && at('class="board') < at('id="meal-title"'));
+  assert.ok(at('id="meal-title"') < at('id="upcoming"') && at('id="upcoming"') < at('id="new-letters"') && at('id="new-letters"') < at('data-lost-sign'));
+  assert.ok(!html.includes('class="notes"') && !html.includes('lost-strip') && !html.includes('class="tray'));
+  assert.match(html, /<details>[\s\S]*알레르기/);
+  // 처음 그리기(분필로 쓰기) 장면은 없다.
+  assert.ok(!html.includes('data-draw') && !html.includes('mjms-drawn'));
 });
 
-test('첫 화면 칠판에 오늘 급식이 있고 알레르기 정보는 접혀 있다', () => {
+test('손글씨(Gaegu)를 쓰는 선택자는 칠판 날짜 하나뿐', () => {
+  const css = readdirSync(resolve(root, 'dist/_astro')).filter((f) => f.endsWith('.css')).map((f) => read(`_astro/${f}`)).join('\n');
   const html = read('index.html');
-  const board = html.match(/<section class="board".*?data-board-json/s)[0];
-  const meal = board.match(/<section class="board-group board-meal">.*?<\/section>/s)[0];
-  assert.match(meal, /오늘 급식/);
-  assert.ok(meal.includes('흑미밥, 순두부찌개, 떡갈비, 시금치나물'));
-  assert.match(meal, /<details>/);
-  assert.match(meal, /알레르기 정보/);
-  assert.match(meal, /1 난류/);
-  // 따로 있던 급식 칸은 없다. 칠판 다음은 다가오는 일정이다.
-  assert.ok(!html.includes('data-meal'));
-  assert.ok(html.indexOf('id="upcoming"') < html.indexOf('id="recent"'));
+  const all = css + [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map((m) => m[1]).join('\n');
+  const selectors = [...all.matchAll(/(?:^|})\s*([^{}@]+)\{[^{}]*font-family:[^;}]*Gaegu/gi)].map((m) => m[1].trim());
+  assert.deepEqual(selectors, ['.board-day']);
 });
-test('첫 화면 다가오는 일정은 두 개까지, 한 줄짜리로', () => {
+
+test('칠판: 날짜·요일, 바뀐 수업 자리, 챙길 것; 급식은 칠판 밖 안내판', () => {
   const html = read('index.html');
-  const list = html.match(/id="upcoming".*?<ul class="lined lined--compact">(.*?)<\/ul>/s)[1];
-  const all = list.match(/<li [^>]*data-show="[^"]*\ball\b/g) ?? [];
-  assert.ok(all.length >= 1 && all.length <= 2);
-  for (const g of ['1', '2', '3']) assert.ok((list.match(new RegExp(`<li [^>]*data-show="[^"]*\\b${g}\\b`, 'g')) ?? []).length <= 2);
+  const board = html.match(/<section class="board"[\s\S]*?<\/section>\s*(?=(?:<script[^>]*><\/script>\s*)*<section class="sign)/)[0];
+  assert.match(board, /class="board-day"[^>]*>10월 22일</);
+  assert.match(board, /목요일/);
+  assert.match(board, /<div data-board-changes><\/div>/);
+  assert.match(board, /10월 23일 \(금\) 준비물/);
+  assert.match(board, /오늘 일정[\s\S]*학생예배/);
+  // 칠판 글자(브라우저용 JSON 빼고)에는 급식도, 시간표로 가는 줄도 없다.
+  const shown = board.replace(/<script[\s\S]*?<\/script>/g, '');
+  assert.ok(!shown.includes('흑미밥') && !shown.includes('timetable/') && !shown.includes('board-pick'));
+  const meal = html.match(/<section class="sign[^"]*"[^>]*data-meal-sign[\s\S]*?<\/section>/)[0];
+  assert.match(meal, /<h2 id="meal-title">오늘 급식<\/h2>/);
+  assert.ok(meal.includes('흑미밥 · 순두부찌개 · 떡갈비 · 시금치나물'));
+  assert.match(meal, /<details>[\s\S]*1 난류/);
+});
+
+test('다가오는 일정 안내판: 보기마다 두 개, 날짜 · 이름 · 배지', () => {
+  const html = read('index.html');
+  const sign = html.match(/<section class="sign[^"]*"[^>]*aria-labelledby="upcoming"[\s\S]*?<\/section>/)[0];
+  assert.match(sign, /<h2 id="upcoming"[^>]*>다가오는 일정<\/h2>[\s\S]*href="\/schedule\/"[^>]*>달력</);
+  for (const v of ['all', '1', '2', '3']) assert.ok((sign.match(new RegExp(`data-show="[^"]*\\b${v}\\b`, 'g')) ?? []).length <= 2, v);
+  assert.match(sign, /10월 26일 \(월\) ~ 28일 \(수\)[\s\S]*기말고사[\s\S]*badge badge--g3">3학년/);
+  assert.match(sign, /재량휴업일[\s\S]*class="badge-off">쉬는 날/);
+  assert.ok(!sign.includes('개교기념 체육대회')); // 옛 events는 첫 화면에 쓰지 않는다
+});
+
+test('새 가정통신문 안내판: 2주 안 것만, 제목 + 대상 배지, 전체 링크', () => {
+  const html = read('index.html');
+  const sign = html.match(/<section class="sign[^"]*"[^>]*aria-labelledby="new-letters"[\s\S]*?<\/section>/)[0];
+  assert.match(sign, /href="\/notices\/"[^>]*>전체</);
+  assert.match(sign, /href="\/notices\/L-2026-1022-3\/"[\s\S]*현장체험학습 안내[\s\S]*badge badge--g1">1학년/);
+  assert.ok(!sign.includes('L-evil'));
+  assert.match(sign, /2주 안에 새 가정통신문이 없어요/);
+});
+
+test('분실물 안내판: 처음엔 감춰 두고 분실물함으로 간다', () => {
+  const html = read('index.html');
+  const sign = html.match(/<section class="sign[^"]*"[^>]*data-lost-sign[\s\S]*?<\/section>/)[0];
+  assert.match(sign, /\shidden/);
+  assert.match(sign, /href="\/lost\/"/);
+  assert.match(sign, /주인을 기다리는 물건이 있어요/);
 });
 
 test('모든 화면: 아래 탭 라벨, 명패, IBM Plex 없음', () => {

@@ -33,7 +33,7 @@ import { gradeLabel } from '../src/lib/grades.ts';
 test('gradeLabel reads naturally', () => {
   assert.equal(gradeLabel([1, 2, 3]), '전 학년');
   assert.equal(gradeLabel([2]), '2학년');
-  assert.equal(gradeLabel([3, 1]), '1, 3학년');
+  assert.equal(gradeLabel([3, 1]), '1·3학년'); // 배지 글자(스펙: 「1·2학년」)
 });
 
 import { formatRange } from '../src/lib/dates.ts';

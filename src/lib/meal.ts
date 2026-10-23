@@ -1,4 +1,4 @@
-// 첫 화면 「오늘 급식」 칸. 빌드할 때와 브라우저에서 같은 함수로 그려, 날짜가 바뀌어도 맞게 보이게 한다.
+// 첫 화면 「오늘 급식」 안내판. 빌드할 때와 브라우저에서 같은 함수로 그려, 날짜가 바뀌어도 맞게 보이게 한다.
 import { formatDate, nextSchoolDay } from './dates.ts';
 import type { FeedMeal } from './feed.ts';
 import { escapeHTML as escape } from './html.ts';
@@ -24,7 +24,7 @@ export function pickMeal(today: string, meals: FeedMeal[], daysOff: Range[]): Me
 
 export function mealHTML(view: MealView | null): string {
   if (!view) return '';
-  const dishes = view.dishes.map((d) => escape(d.name)).join(', ');
+  const dishes = view.dishes.map((d) => escape(d.name)).join(' · ');
   const rows = view.dishes
     .filter((d) => d.allergens.length > 0)
     .map(
@@ -36,7 +36,7 @@ export function mealHTML(view: MealView | null): string {
     )
     .join('');
   const allergy = rows
-    ? `<details><summary>알레르기 정보</summary><ul class="meal-allergy">${rows}</ul></details>`
+    ? `<details><summary>알레르기</summary><ul class="meal-allergy">${rows}</ul></details>`
     : '';
   const date = view.title === '오늘 급식' ? '' : ` <small>${escape(formatDate(view.ymd))}</small>`;
   return `<h2 id="meal-title">${view.title}${date}</h2><p class="meal-dishes">${dishes}</p>${allergy}`;
