@@ -236,6 +236,9 @@ test('명패: 화면 이름이 h1, 첫 화면·시간표는 반 명패와 반 �
     assert.equal((html.match(/<h1[\s>]/g) ?? []).length, 1, f);
   }
   assert.match(read('timetable/index.html'), /data-plate-suffix=" 시간표"/);
+  // 시간표 명패의 보조 줄은 「우리 반」(첫 화면은 「명지중학교 알림장 · 우리 반」 그대로).
+  assert.match(read('timetable/index.html'), /data-plate-picked-sub="우리 반"/);
+  assert.match(read('index.html'), /data-plate-picked-sub="명지중학교 알림장 · 우리 반"/);
   // 옛 머리글·분필받침·반 줄은 없다.
   for (const f of ['index.html', 'notices/index.html', 'schedule/index.html', 'timetable/index.html']) {
     const html = read(f);
@@ -256,4 +259,12 @@ test('반 고르기 창: dialog, 학년 세 칸, 확인 단추, 저장 안내, �
   assert.ok(!/<dialog[^>]*\sopen/.test(sheet));
   assert.equal((html.match(/data-class-sheet/g) ?? []).length, 1);
   assert.match(html, /<meta name="theme-color" content="#033e7b"/);
+});
+
+test('시간표 화면: 범례 한 줄, 실패 문구 + 다시 불러오기, 옛 reveal 줄·안내 줄 없음', () => {
+  const html = read('timetable/index.html');
+  assert.match(html, /<p class="tt-legend"><b>굵은 남색<\/b> = 바뀐 수업\(줄 그은 과목이 원래 수업\)<\/p>/);
+  assert.match(html, /시간표를 불러오지 못했어요[\s\S]*<button[^>]*data-tt-retry[^>]*>다시 불러오기<\/button>/);
+  assert.match(html, /<button[^>]*data-open-class-sheet[^>]*>반 고르기<\/button>/);
+  assert.ok(!html.includes('tt-reveal') && !html.includes('data-reveal') && !html.includes('strip-note'));
 });

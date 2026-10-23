@@ -5,7 +5,7 @@ import type { Feed } from './feed.ts';
 import { badgeHTML } from './grades.ts';
 import { escapeHTML as escape } from './html.ts';
 import { pickMeal, type MealView } from './meal.ts';
-import { changeItems, type ChangeItem, type TimetableFeed } from './timetable.ts';
+import { changeItems, changeWhyHTML, type ChangeItem, type TimetableFeed } from './timetable.ts';
 
 export type BoardEvent = { title: string; start: string; end: string; grades: number[] };
 
@@ -88,10 +88,7 @@ export type ChangesState =
 
 function changeLi(line: ChangeItem | string): string {
   if (typeof line === 'string') return `<li>${escape(line)}</li>`;
-  // 줄긋기는 화면 읽기에서 들리지 않으므로 「원래」를 숨은 글자로 함께 둔다.
-  const from = line.from ? ` <s><span class="sr-only">원래 </span>${escape(line.from)}</s>` : '';
-  const note = line.note ? ` <small>${escape(line.note)}</small>` : '';
-  return `<li>${escape(line.text)}${from}${note}</li>`;
+  return `<li>${escape(line.text)}${changeWhyHTML(line)}</li>`;
 }
 
 /** 칠판 「오늘 바뀐 수업」: 줄, 또는 상태 문구(없어요 · 아직 없어요 · 못 불러옴 + 다시 불러오기). */

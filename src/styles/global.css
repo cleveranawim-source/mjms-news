@@ -8,6 +8,7 @@
   --navy: #033e7b; /* 교표 남색: 명패 판 */
   --navy-2: #0a4f97; /* 명패 안쪽 밝은 테두리 */
   --sky: #037dc4; /* 교표 하늘색 */
+  --sky-ink: #036fae; /* 작은 하늘색 글자(밝은 바탕에서 대비 4.5 이상) */
   --ink: #1b1f24;
   --muted: #5b6b78;
   --rule: #d5e0ea; /* 괘선 1px */
@@ -194,11 +195,13 @@ main {
 }
 
 .plate--empty .plate-title,
-.plate--page .plate-title {
+.plate--page .plate-title,
+.plate--compact .plate-title {
   font-size: var(--fs-20);
 }
 
-.plate--page {
+.plate--page,
+.plate--compact {
   padding-block: 10px;
 }
 
@@ -1444,13 +1447,6 @@ html[data-grade] .docs[data-view='all'] > li {
   color: var(--ink);
 }
 
-/* 시간표 화면 안내 한 줄 */
-.strip-note {
-  color: var(--muted);
-  font-size: var(--text-sm);
-  margin: 0.5rem 0 0;
-}
-
 /* 분실물함 페이지: 물 위에 뜬 사진 */
 .lost-box {
   --size: calc(7.5rem * var(--scale, 1));
@@ -1651,180 +1647,237 @@ html[data-grade] .docs[data-view='all'] > li {
 }
 
 /* 시간표 화면 */
-.tt-pick {
+.tt-view {
+  display: grid;
+  gap: 10px;
+}
+
+.tt-view[hidden],
+.tt-pick[hidden],
+.tt-error[hidden] {
+  display: none;
+}
+
+.tt-btn {
   min-height: 44px;
-  padding: 0 18px;
-  border: 0;
+  padding: 0 16px;
+  border: 1px solid var(--navy);
   border-radius: 10px;
-  background: var(--navy);
-  color: #fff;
+  background: #fff;
+  color: var(--navy);
   font-size: var(--fs-15);
   font-weight: 700;
   cursor: pointer;
 }
 
-.tt-weeks > div {
+.tt-btn--fill {
+  background: var(--navy);
+  color: #fff;
+}
+
+.tt-pick .lede {
+  margin-bottom: 12px;
+}
+
+.tt-error p {
+  margin: 0.5rem 0 8px;
+}
+
+/* 이번 주 · 다음 주: 흰 판 안 2칸. 보이는 칸 38px, 누르는 곳 44px. */
+.tt-weeks {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.5rem;
-  margin: 0.75rem 0;
+  grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr));
+  border: 1px solid var(--rule);
+  border-radius: 10px;
+  background: #fff;
 }
 
 .tt-weeks button {
-  min-height: 2.75rem;
-  border: 1px solid var(--rule);
-  border-radius: 6px;
-  background: transparent;
-  color: inherit;
+  min-height: 44px;
+  padding: 3px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--muted);
   font: inherit;
   cursor: pointer;
 }
 
-.tt-weeks button[aria-pressed='true'] {
-  background: var(--school);
-  border-color: var(--school);
+.tt-weeks button span {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  column-gap: 4px;
+  height: 100%;
+  min-height: 38px;
+  border-radius: 8px;
+  font-size: var(--fs-15);
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.tt-weeks button small {
+  font-size: inherit;
+}
+
+.tt-weeks button:hover span {
+  background: var(--wall);
+}
+
+.tt-weeks button[aria-pressed='true'] span {
+  background: var(--navy);
   color: #fff;
 }
 
-.tt-changes {
-  margin: 0 0 0.75rem;
-  padding: 0.625rem 0.875rem;
-  border-left: 4px solid var(--chalk-1);
-  background: #fffbe0;
+/* 「오늘 바뀐 수업」 안내판: 교시 · 굵은 과목 + 줄 그은 원래 과목 */
+.tt-change-rows > li {
+  display: grid;
+  grid-template-columns: minmax(3.25rem, max-content) minmax(0, 1fr);
+  gap: 6px;
+  padding: 5px 0;
 }
 
-.tt-changes h3 {
-  margin: 0 0 0.25rem;
-  font-size: 1rem;
+.tt-change-rows > li:first-child {
+  border-top: 0;
 }
 
-.tt-changes ul {
-  margin: 0;
-  padding-left: 1.125rem;
-}
-
-.tt-changes p {
-  margin: 0;
+.tt-change-rows > li > span:first-child {
   color: var(--muted);
+}
+
+.tt-change-rows s,
+.tt-change-rows small {
+  font-size: var(--fs-13);
+  color: var(--muted);
+}
+
+/* 주간표 판: 좁거나 글자를 키우면 판 안에서 가로로 밀고, 교시 열은 붙어 있다. */
+.tt-panel {
+  /* 숨은 글자(.sr-only, absolute)가 판 밖으로 새어 화면을 넓히지 않게 판을 기준 상자로 */
+  position: relative;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: #fff;
 }
 
 .tt-grid {
   width: 100%;
+  min-width: calc(1.875rem + 5 * 3.25rem);
   table-layout: fixed;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 0.875rem;
-  line-height: 1.25;
-}
-
-.tt-grid > thead td:first-child,
-.tt-grid > tbody th {
-  width: 1.75rem;
+  line-height: 1.2;
+  text-align: center;
 }
 
 .tt-grid th,
 .tt-grid td {
-  height: 2.75rem;
-  padding: 0.125rem;
-  border: 1px solid var(--rule);
-  text-align: center;
+  padding: 4px 2px;
   vertical-align: middle;
   overflow-wrap: anywhere;
   word-break: keep-all;
 }
 
-.tt-grid thead td {
-  border: 0;
-}
-
-.tt-grid thead th {
-  height: auto;
-  padding: 0.375rem 0.125rem;
-  background: #f1f5f9;
+.tt-grid thead th,
+.tt-grid .tt-corner {
+  padding: 6px 2px;
+  border-bottom: 1px solid var(--rule);
+  background: #f5f8fb;
+  color: var(--muted);
+  font-size: var(--fs-12);
+  font-weight: 700;
 }
 
 .tt-grid thead small {
   display: block;
-  color: var(--muted);
   font-size: 0.6875rem;
-  font-weight: 400;
+  font-weight: 500;
 }
 
-.tt-grid tbody th {
-  color: var(--muted);
-  font-weight: 600;
-  background: #f1f5f9;
-}
-
-.tt-grid .tt-today {
-  box-shadow: inset 0 0 0 2px var(--school);
-}
-
-.tt-grid thead .tt-today {
-  background: var(--school);
+.tt-grid thead th.tt-today {
+  background: var(--navy);
   color: #fff;
 }
 
-.tt-grid thead .tt-today small {
-  color: #dbe7f3;
+/* 교시 열: 좁게, 가로로 밀어도 왼쪽에 붙어 있다 */
+.tt-grid .tt-corner,
+.tt-grid tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: 1.875rem;
 }
 
-.tt-grid tbody .tt-today {
-  background: #e8f1fa;
+.tt-grid tbody th {
+  border-top: 1px solid var(--rule);
+  background: #f5f8fb;
+  color: var(--muted);
+  font-size: var(--fs-12);
+  font-weight: 700;
 }
 
-.tt-grid td.tt-changed {
-  background: var(--chalk-1);
-  color: #3a3000;
+.tt-grid tbody td {
+  height: 2.875rem;
+  border-top: 1px solid var(--rule);
+  border-left: 1px solid var(--rule);
   font-weight: 600;
-  padding: 0;
 }
 
-.tt-grid td.tt-changed button {
-  width: 100%;
-  min-height: 2.75rem;
-  padding: 0.125rem;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-  text-decoration: underline dotted;
+.tt-grid tbody tr:first-child > * {
+  border-top: 0;
 }
 
-.tt-grid td.tt-changed button[aria-expanded='true'] {
-  outline: 2px solid #3a3000;
-  outline-offset: -2px;
+.tt-grid td.tt-today {
+  background: #f1f6fc;
+}
+
+.tt-grid td.tt-changed b {
+  display: block;
+  font-weight: 800;
+  color: var(--navy);
+}
+
+.tt-grid td.tt-changed s,
+.tt-grid .tt-note,
+.tt-grid .tt-special {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--muted);
 }
 
 .tt-grid .tt-special {
-  outline: 2px dashed var(--school-sky);
-  outline-offset: -4px;
-}
-
-.tt-mark {
-  display: block;
-  color: var(--school);
-  font-size: 0.6875rem;
-  font-style: normal;
   font-weight: 600;
+  color: var(--sky-ink);
 }
 
-.tt-grid .tt-cut {
-  background: repeating-linear-gradient(135deg, #f3f5f6, #f3f5f6 4px, #eaedef 4px, #eaedef 8px);
+/* 「N교시까지」 뒤 칸, 쉬는 날 열: 회색 */
+.tt-grid td.tt-cut,
+.tt-grid td.tt-off-col {
+  background: #f5f8fb;
 }
 
-.tt-grid .tt-off-col {
+.tt-grid td.tt-off-col {
   color: var(--muted);
-  font-weight: 600;
-  background: #f3f5f6;
 }
 
-.tt-reveal {
-  margin: 0 0 0.75rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 4px;
-  background: var(--chalk-1);
-  color: #3a3000;
-  font-weight: 600;
-  scroll-margin-top: 4rem;
+.tt-grid .tt-off-col span {
+  display: inline-block;
+  writing-mode: vertical-rl;
+  letter-spacing: 0.15em;
+}
+
+.tt-legend {
+  margin: 0;
+  font-size: var(--fs-12);
+  color: var(--muted);
+}
+
+.tt-legend b {
+  font-weight: 800;
+  color: var(--navy);
 }

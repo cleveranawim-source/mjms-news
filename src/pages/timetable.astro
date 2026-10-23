@@ -5,22 +5,25 @@ import { site } from '../site.config.ts';
 ---
 
 <Base title="시간표" description="우리 반 이번 주·다음 주 시간표와 오늘 바뀐 수업을 한눈에 볼 수 있습니다.">
-  <Plate kind="class" title=" 시간표" />
+  <Plate kind="class" title=" 시간표" sub="우리 반" compact />
   {
     site.timetableApi && (
-      <div data-timetable data-api={site.timetableApi}>
+      <div class="tt" data-timetable data-api={site.timetableApi}>
         <p class="lede" data-tt-message role="status">시간표를 불러오는 중이에요.</p>
         <noscript><p class="lede">시간표는 자바스크립트를 켜야 보여요.</p></noscript>
-        <div data-tt-pick hidden>
+        <div class="tt-pick" data-tt-pick hidden>
           <p class="lede">우리 반을 한 번 골라 두면 다음부터 바로 보여요. 고른 반은 이 기기에만 저장돼요.</p>
-          <button type="button" class="tt-pick" data-open-class-sheet aria-haspopup="dialog">반 고르기</button>
+          <button type="button" class="tt-btn tt-btn--fill" data-open-class-sheet aria-haspopup="dialog">반 고르기</button>
         </div>
-        <div data-tt-view hidden>
-          <div class="tt-weeks" data-tt-weeks />
-          <div class="tt-changes" data-tt-changes />
-          <p class="tt-reveal" id="tt-reveal" data-tt-reveal role="status" hidden />
-          <div class="tt-gridwrap" data-tt-grid />
-          <p class="strip-note">수업은 선생님 사정으로 바뀔 수 있어요. 바뀐 줄은 표시해 두었어요.</p>
+        <div class="tt-error" data-tt-error hidden>
+          <p role="alert">시간표를 불러오지 못했어요</p>
+          <button type="button" class="tt-btn" data-tt-retry>다시 불러오기</button>
+        </div>
+        <div class="tt-view" data-tt-view hidden>
+          <div class="tt-weeks" role="group" aria-label="주 고르기" data-tt-weeks />
+          <div data-tt-changes />
+          <div class="tt-panel" data-tt-grid role="region" aria-label="주간 시간표" tabindex="0" />
+          <p class="tt-legend"><b>굵은 남색</b> = 바뀐 수업(줄 그은 과목이 원래 수업)</p>
         </div>
       </div>
     )
@@ -28,8 +31,8 @@ import { site } from '../site.config.ts';
 </Base>
 
 <script>
-  import { loadTimetable, weekTableHTML, changesTarget, changesBoxHTML, weekGroups, type TimetableFeed } from '../lib/timetable.ts';
-  import { readClass } from '../lib/klass.ts';
+  import { loadTimetable, weekTableHTML, changesTarget, changesBoxHTML, weekGroups, weekRange, mondayOf, type TimetableFeed } from '../lib/timetable.ts';
+  import { readClass, knownClass } from '../lib/klass.ts';
   import { seoulToday, addDays, weekday } from '../lib/dates.ts';
   import { escapeHTML } from '../lib/html.ts';
 
@@ -38,75 +41,102 @@ import { site } from '../site.config.ts';
     const $ = <T extends HTMLElement>(s: string) => root.querySelector<T>(s)!;
     const message = $('[data-tt-message]');
     const pick = $('[data-tt-pick]');
+    const error = $('[data-tt-error]');
     const view = $('[data-tt-view]');
+    const weeksEl = $('[data-tt-weeks]');
     const today = seoulToday();
 
-    const feed: TimetableFeed | null = await loadTimetable(root.dataset.api!);
-    if (!feed || feed.classes.length === 0 || feed.days.length === 0) {
-      message.textContent = '시간표를 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.';
-    } else {
-      message.hidden = true;
-      // 반은 명패의 반 고르기 창(ClassSheet)에서 고른다. 피드에 없는 반이면 고르기 안내를 보인다.
-      const known = (id: string) => (feed.classes.some((c) => c.id === id) ? id : '');
-      let classId = known(readClass());
+    // undefined = 불러오는 중, null = 못 불러옴
+    let feed: TimetableFeed | null | undefined;
+    let groups: ReturnType<typeof weekGroups> = [];
+    let week = 0;
+    let classId = readClass();
+    let ticket = 0;
 
-      const dow = (ymd: string) => ['일', '월', '화', '수', '목', '금', '토'].indexOf(weekday(ymd));
-      const groups = weekGroups(feed.days, today);
-      // 처음 보일 주: 오늘이 든 주, 주말이면 다음 주(그 주가 없으면 첫 주).
-      const startDay = dow(today) === 0 || dow(today) === 6 ? addDays(today, dow(today) === 0 ? 1 : 2) : today;
-      let week = Math.max(0, groups.findIndex((w) => w.days.some((d) => d >= startDay && addDays(startDay, 6) >= d)));
-      const mondayOf = (ymd: string) => addDays(ymd, -((dow(ymd) + 6) % 7));
+    // 처음 보일 주: 오늘이 든 주, 주말이면 다음 주(그 주가 없으면 첫 주).
+    const firstWeek = () => {
+      const wd = weekday(today);
+      const start = wd === '토' ? addDays(today, 2) : wd === '일' ? addDays(today, 1) : today;
+      return Math.max(0, groups.findIndex((w) => mondayOf(w.days[0]) === mondayOf(start)));
+    };
+    const weekDays = () => {
+      const m = mondayOf(groups[week].days[0]);
+      return [0, 1, 2, 3, 4].map((i) => addDays(m, i));
+    };
+    // 고른 주 단추에만 날짜 범위를 붙인다(「이번 주 10/19~23」). 이름이 날짜인 주(「11/2 주」)는 그대로.
+    const weekText = (i: number) => {
+      const w = groups[i];
+      return i === week && !/\d/.test(w.label) ? `${escapeHTML(w.label)} <small>${weekRange(mondayOf(w.days[0]))}</small>` : escapeHTML(w.label);
+    };
 
-      const renderView = () => {
-        const cls = feed.classes.find((c) => c.id === classId)!;
-        $('[data-tt-weeks]').innerHTML = `<div role="group" aria-label="주 고르기">${groups
-          .map((w, i) => `<button type="button" data-week="${i}" aria-pressed="${i === week}">${escapeHTML(w.label)}</button>`)
-          .join('')}</div>`;
-        const t = changesTarget(cls, today);
-        $('[data-tt-changes]').innerHTML = changesBoxHTML(cls, t.ymd, t.label, t.empty);
-        renderGrid();
-      };
-
-      // 주 단추는 그대로 두고 눌림 표시와 표만 바꾼다(포커스가 단추에 남도록).
-      const renderGrid = () => {
-        const cls = feed.classes.find((c) => c.id === classId)!;
-        const m = mondayOf(groups[week].days[0]);
-        const weekDays = [0, 1, 2, 3, 4].map((i) => addDays(m, i));
-        root.querySelectorAll<HTMLElement>('[data-week]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.week) === week)));
-        $('[data-tt-grid]').innerHTML = weekTableHTML(cls, weekDays, today);
-        const r = $('[data-tt-reveal]');
-        r.textContent = '';
-        r.hidden = true;
-      };
-
-      const show = () => {
-        pick.hidden = !!classId;
-        view.hidden = !classId;
-        if (classId) renderView();
-      };
-
-      document.addEventListener('mjms:class', (e) => {
-        classId = known((e as CustomEvent<string>).detail);
-        show();
+    // 주 단추는 그대로 두고 눌림·글자와 표만 바꾼다(포커스가 단추에 남도록).
+    const renderGrid = (cls: TimetableFeed['classes'][number]) => {
+      weeksEl.querySelectorAll<HTMLElement>('[data-week]').forEach((b) => {
+        const i = Number(b.dataset.week);
+        b.setAttribute('aria-pressed', String(i === week));
+        b.firstElementChild!.innerHTML = weekText(i);
       });
+      $('[data-tt-grid]').innerHTML = weekTableHTML(cls, weekDays(), today);
+    };
 
-      root.addEventListener('click', (e) => {
-        const t = (e.target as HTMLElement).closest<HTMLElement>('[data-week], [data-reveal]');
-        if (!t) return;
-        if (t.dataset.week) {
-          week = Number(t.dataset.week);
-          renderGrid();
-        } else if (t.dataset.reveal !== undefined) {
-          const open = t.getAttribute('aria-expanded') !== 'true';
-          root.querySelectorAll('[data-reveal]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
-          t.setAttribute('aria-expanded', String(open));
-          const r = $('[data-tt-reveal]');
-          r.textContent = open ? t.dataset.reveal! : '';
-          r.hidden = !open;
-          if (open) r.scrollIntoView({ block: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
-        }
-      });
-      show();
-    }
+    const mine = () => (feed ? feed.classes.find((c) => c.id === knownClass(feed!.classes, classId)) : undefined);
+
+    const render = () => {
+      // 반이 없거나 피드에 없는 반 → 고르기 안내. 반이 있으면 불러오는 중 / 못 불러옴 / 표.
+      const has = feed ? !!mine() : !!classId;
+      pick.hidden = has;
+      message.hidden = !has || feed !== undefined;
+      error.hidden = !has || feed !== null;
+      view.hidden = !has || !feed;
+      const cls = mine();
+      if (!cls) return;
+      const t = changesTarget(cls, today);
+      $('[data-tt-changes]').innerHTML = changesBoxHTML(cls, t.ymd, t.label, t.empty, t.date);
+      if (weeksEl.childElementCount !== groups.length) {
+        weeksEl.style.setProperty('--n', String(groups.length));
+        weeksEl.innerHTML = groups.map((_, i) => `<button type="button" data-week="${i}" aria-pressed="false"><span></span></button>`).join('');
+      }
+      renderGrid(cls);
+    };
+
+    const load = async () => {
+      const my = ++ticket;
+      feed = undefined;
+      render();
+      const got = await loadTimetable(root.dataset.api!);
+      if (my !== ticket) return; // 그새 다시 불렀으면 늦게 온 답은 버린다
+      feed = got && got.classes.length && got.days.length ? got : null;
+      if (feed) {
+        groups = weekGroups(feed.days, today);
+        week = firstWeek();
+        weeksEl.innerHTML = '';
+      }
+      render();
+    };
+
+    document.addEventListener('mjms:class', (e) => {
+      classId = (e as CustomEvent<string>).detail;
+      // 반 고르기 창이 닫히기 전에 바로 그린다(본문 「반 고르기」가 숨어 포커스가 명패 단추로 간다).
+      if (feed === null) load();
+      else render();
+    });
+
+    root.addEventListener('click', async (e) => {
+      const t = (e.target as HTMLElement).closest<HTMLElement>('[data-week], [data-tt-retry]');
+      if (!t) return;
+      if (t.dataset.week) {
+        week = Number(t.dataset.week);
+        const cls = mine();
+        if (cls) renderGrid(cls);
+        return;
+      }
+      // 다시 불러오기: 단추가 잠깐 사라지므로 결과(바뀐 수업 안내판 제목, 또 실패면 그 단추)로 포커스를 옮긴다.
+      await load();
+      const next = feed ? root.querySelector<HTMLElement>('#tt-changes-title') : $('[data-tt-retry]');
+      if (next && feed) next.tabIndex = -1;
+      next?.focus();
+    });
+
+    load();
   }
 </script>
