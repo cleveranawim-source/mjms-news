@@ -1,41 +1,58 @@
 ---
 // 명패: 모든 화면 맨 위의 남색 판. 제목이 그 화면의 h1이다.
-// kind='class'는 저장된 반으로 제목을 채운다(「1학년 5반」 + title 접미사). 반이 없으면 「우리 반을 골라 주세요」.
-// classButton: 반 고르기 창을 여는 단추를 둘지(반이 있으면 「반 바꾸기」, 없으면 「반 고르기」). class 명패는 기본으로 켠다.
-// classSub: page 명패에서 반을 골랐으면 보조 줄을 「1학년 5반 」 + classSub로 바꾼다(classSub 「기준」 → 「1학년 5반 기준」). 안 골랐으면 sub 그대로.
-// 반 고르기 단추는 hidden으로 내보내고 아래 스크립트가 켠다(자바스크립트가 없으면 누를 수 없는 단추를 보이지 않는다).
-// class 명패의 sub: 반을 골랐을 때의 보조 줄(기본 「명지중학교 알림장 · 우리 반」, 시간표는 「우리 반」). 안 골랐으면 「명지중학교 알림장」.
+// kind='brand'(첫 화면): 「명지중학교 알림장」이 제목이고, 우리 반은 오른쪽 흰 단추 안에 있다(「1학년 5반」, 반이 없으면 「우리 반 고르기」).
+//   단추를 누르면 반 고르기 창이 열린다(2026-10-23 이승열 P, 시안 A).
+// kind='class'(시간표): 저장된 반으로 제목을 채운다(「1학년 5반」 + title 접미사). 반이 없으면 「우리 반을 골라 주세요」.
+// kind='page': 제목만 쓴다 — 바로 아래 내용과 같은 말을 되풀이하는 보조 줄을 두지 않는다.
+// classButton: class 명패에 반 고르기 단추를 둘지(반이 있으면 「반 바꾸기」, 없으면 「반 고르기」). class 명패는 기본으로 켠다.
+// 반 단추는 hidden으로 내보내고 아래 스크립트가 켠다(자바스크립트가 없으면 누를 수 없는 단추를 보이지 않는다).
 // compact: 교표 없이 한 단 낮게(시간표처럼 제목이 긴 class 명패).
 import { href } from '../lib/paths.ts';
 
 interface Props {
-  kind: 'class' | 'page';
+  kind: 'brand' | 'class' | 'page';
   title?: string;
-  sub?: string;
   classButton?: boolean;
-  classSub?: string;
   compact?: boolean;
 }
 
-const { kind, title = '', sub, classButton = kind === 'class', classSub, compact = false } = Astro.props;
+const { kind, title = '', classButton = kind === 'class', compact = false } = Astro.props;
 const isClass = kind === 'class';
-const subText = isClass ? '명지중학교 알림장' : sub;
+const isBrand = kind === 'brand';
 ---
 
 <header
   class:list={['plate', `plate--${kind}`, { 'plate--empty': isClass, 'plate--compact': compact }]}
   data-plate-class={isClass ? '' : undefined}
-  data-plate-picked-sub={isClass ? (sub ?? '명지중학교 알림장 · 우리 반') : undefined}
+  data-plate-brand={isBrand ? '' : undefined}
   data-plate-suffix={isClass && title ? title : undefined}
-  data-plate-class-sub={!isClass && classSub && sub ? classSub : undefined}
 >
-  {isClass && !compact && <img class="plate-emblem" src={href('emblem.png')} alt="" width="32" height="33" />}
+  {(isBrand || (isClass && !compact)) && <img class="plate-emblem" src={href('emblem.png')} alt="" width="32" height="33" />}
   <div class="plate-text">
-    {subText && <p class="plate-sub" data-plate-sub>{subText}</p>}
-    <h1 class="plate-title" data-plate-title>{isClass ? '우리 반을 골라 주세요' : title}</h1>
+    {
+      isBrand ? (
+        <h1 class="plate-title plate-brand">
+          <small>명지중학교</small> 알림장
+        </h1>
+      ) : (
+        <h1 class="plate-title" data-plate-title>
+          {isClass ? '우리 반을 골라 주세요' : title}
+        </h1>
+      )
+    }
   </div>
   {
-    classButton && (
+    isBrand && (
+      <button type="button" class="plate-chip is-empty" data-open-class-sheet aria-haspopup="dialog" aria-label="우리 반 고르기" hidden>
+        <span data-plate-chip>우리 반 고르기</span>
+        <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true">
+          <path d="M3 4.5l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </button>
+    )
+  }
+  {
+    isClass && classButton && (
       <button type="button" class="plate-btn" data-open-class-sheet aria-haspopup="dialog" hidden>
         <span data-plate-btn>반 고르기</span>
       </button>
@@ -43,57 +60,56 @@ const subText = isClass ? '명지중학교 알림장' : sub;
   }
 </header>
 <script is:inline>
-  // 그리기 전에 바로 채워서 「우리 반을 골라 주세요」가 깜빡이지 않게 한다. 반 id 꼴은 lib/klass.ts와 같다.
+  // 그리기 전에 바로 채워서 깜빡이지 않게 한다. 반 id 꼴은 lib/klass.ts와 같다.
   (() => {
     const plate = document.currentScript.previousElementSibling;
-    const sub = plate.querySelector('[data-plate-sub]');
-    const baseSub = sub?.textContent ?? '';
-    // 반이 바뀌면 옛 이름을 겹쳐 두고 서로 엇갈려 흐려지게(240ms 지수 감속). 움직임 줄이기를 켰으면 바로 바꾼다.
-    const title = plate.querySelector('[data-plate-title]');
+    const brand = plate.hasAttribute('data-plate-brand');
+    // 반이 바뀌면 바뀌는 글자(첫 화면은 단추 속 반 이름, 시간표는 제목) 위에 옛 글자를 겹쳐 두고 엇갈려 흐려지게(240ms 지수 감속).
+    // 움직임 줄이기를 켰으면 바로 바꾼다.
+    const target = plate.querySelector(brand ? '[data-plate-chip]' : '[data-plate-title]');
     const crossFade = (change) => {
-      const before = title.textContent;
-      if (!title.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return change();
-      const ghost = document.createElement('p');
-      ghost.className = 'plate-title plate-ghost';
+      const before = target.textContent;
+      if (!target.animate || matchMedia('(prefers-reduced-motion: reduce)').matches) return change();
+      change();
+      if (target.textContent === before) return;
+      const ghost = document.createElement('span');
+      ghost.className = `${target.className} plate-ghost`;
       ghost.setAttribute('aria-hidden', 'true');
       ghost.textContent = before;
-      Object.assign(ghost.style, {
-        top: `${title.offsetTop}px`,
-        left: `${title.offsetLeft}px`,
-        width: `${title.offsetWidth}px`,
-        fontSize: getComputedStyle(title).fontSize,
-      });
-      change();
-      if (title.textContent === before) return;
-      title.before(ghost);
+      Object.assign(ghost.style, { top: `${target.offsetTop}px`, left: `${target.offsetLeft}px`, width: `${target.offsetWidth}px`, fontSize: getComputedStyle(target).fontSize });
+      target.offsetParent.append(ghost);
       const opts = { duration: 240, easing: 'cubic-bezier(0.16, 1, 0.3, 1)' };
-      ghost.animate([{ opacity: 1 }, { opacity: 0 }], opts).finished.finally(() => ghost.remove());
-      title.animate([{ opacity: 0 }, { opacity: 1 }], opts);
+      ghost.animate([{ opacity: 1 }, { opacity: 0 }], opts).finished.then(() => ghost.remove(), () => ghost.remove());
+      target.animate([{ opacity: 0 }, { opacity: 1 }], opts);
     };
     const fill = (id) => {
       // 1~3학년이 아니면 반을 안 고른 것으로 본다(Base·가정통신문과 같은 규칙)
       const hit = /^class-(\d+)_(\d+)$/.exec(id || '');
       const m = hit && Number(hit[1]) >= 1 && Number(hit[1]) <= 3 ? hit : null;
+      const name = m ? `${Number(m[1])}학년 ${Number(m[2])}반` : '';
+      if (brand) {
+        const chip = plate.querySelector('.plate-chip');
+        target.textContent = name || '우리 반 고르기';
+        chip.classList.toggle('is-empty', !m);
+        chip.setAttribute('aria-label', m ? `우리 반 ${name}, 바꾸기` : '우리 반 고르기');
+        chip.hidden = false;
+        return;
+      }
       const btn = plate.querySelector('[data-plate-btn]');
       if (btn) {
         btn.textContent = m ? '반 바꾸기' : '반 고르기';
         btn.parentElement.hidden = false;
       }
-      const classSub = plate.dataset.plateClassSub;
-      if (classSub !== undefined) sub.textContent = m ? `${Number(m[1])}학년 ${Number(m[2])}반 ${classSub}` : baseSub;
       if (!plate.hasAttribute('data-plate-class')) return;
       plate.classList.toggle('plate--empty', !m);
-      sub.textContent = m ? plate.dataset.platePickedSub : '명지중학교 알림장';
-      title.textContent = m
-        ? `${Number(m[1])}학년 ${Number(m[2])}반${plate.dataset.plateSuffix || ''}`
-        : '우리 반을 골라 주세요';
+      target.textContent = m ? `${name}${plate.dataset.plateSuffix || ''}` : '우리 반을 골라 주세요';
     };
     let id = '';
     try {
       id = localStorage.getItem('mjms-class') || '';
     } catch {}
     fill(id);
-    // 처음 채울 때는 움직이지 않고, 반을 바꿨을 때만 반 이름이 엇갈려 바뀐다.
+    // 처음 채울 때는 움직이지 않고, 반을 바꿨을 때만 엇갈려 바뀐다.
     document.addEventListener('mjms:class', (e) => crossFade(() => fill(e.detail)));
   })();
 </script>

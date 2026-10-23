@@ -81,7 +81,7 @@ test('가정통신문 목록: 카드 전체가 링크, 새 글·준비물 표시
   assert.ok(!html.includes('class="row'));
 });
 
-test('가정통신문 목록: 학년 알약(자바스크립트 전엔 감춤), 숨긴 글 안내, 명패 보조 줄', () => {
+test('가정통신문 목록: 학년 알약(자바스크립트 전엔 감춤), 숨긴 글 안내, 보조 줄 없는 명패', () => {
   const html = read('notices/index.html');
   const filter = html.match(/<div[^>]*data-letter-filter[\s\S]*?<\/div>/)[0];
   assert.match(filter, /^<div[^>]*\shidden/);
@@ -93,8 +93,8 @@ test('가정통신문 목록: 학년 알약(자바스크립트 전엔 감춤), �
   assert.match(html, /<p class="docs-note" data-letters-note role="status"><\/p>/);
   assert.match(html, /볼 수 있어요/); // 문구는 브라우저가 센다(스크립트 안)
   const plate = html.match(/<header[^>]*class="plate[\s\S]*?<\/header>/)[0];
-  assert.match(plate, /data-plate-class-sub="기준"/);
-  assert.match(plate, /학교 홈페이지 가정통신문/);
+  // page 명패는 제목만 — 아래 알약과 같은 말을 되풀이하지 않는다.
+  assert.ok(!plate.includes('plate-sub'));
   assert.ok(!plate.includes('data-open-class-sheet'));
   // 알약 줄의 display:flex가 hidden을 덮지 않는다(자바스크립트가 없으면 감춘 채).
   const css = readdirSync(resolve(root, 'dist/_astro')).filter((f) => f.endsWith('.css')).map((f) => read(`_astro/${f}`)).join('\n');
@@ -135,7 +135,9 @@ test('학사일정: 달력 판, 출처 줄, 자바스크립트 없을 때 목록
 test('학사일정: 나이스 일정만, 빌드한 달을 먼저 그려 둔다, JSON은 그대로 읽힌다', () => {
   const html = read('schedule/index.html');
   assert.match(html, /<h1 class="plate-title"[^>]*>학사일정<\/h1>/);
-  assert.match(html, /나이스 공개 학사일정/);
+  // 출처는 명패가 아니라 맨 아래 한 줄에만
+  assert.ok(!html.match(/<header[^>]*class="plate[\s\S]*?<\/header>/)[0].includes('plate-sub'));
+  assert.match(html, /나이스 교육정보 개방 포털/);
   // 옛 공개 행사·피드 쉬는 날은 섞지 않는다
   assert.ok(!html.includes('개교기념 체육대회'));
   assert.ok(!html.includes('겨울방학') && !html.includes('(3학년) 기말고사'));
@@ -240,21 +242,24 @@ test('모든 화면: 아래 탭 라벨, 명패, IBM Plex 없음', () => {
   }
 });
 
-test('명패: 화면 이름이 h1, 첫 화면·시간표는 반 명패와 반 고르기 단추', () => {
+test('명패: 화면 이름이 h1, 첫 화면은 「알림장」 제목 + 반 단추, 시간표는 반 명패', () => {
   assert.match(read('notices/index.html'), /<h1 class="plate-title"[^>]*>가정통신문<\/h1>/);
   assert.match(read('lost/index.html'), /<h1 class="plate-title"[^>]*>분실물함<\/h1>/);
-  for (const f of ['index.html', 'timetable/index.html']) {
-    const html = read(f);
-    assert.match(html, /data-plate-class/, f);
-    assert.match(html, /우리 반을 골라 주세요/, f);
-    // 반 고르기 단추는 자바스크립트가 켠다(없으면 누를 수 없는 단추를 보이지 않는다).
-    assert.match(html, /<button[^>]*class="plate-btn"[^>]*data-open-class-sheet[^>]*hidden/, f);
-    assert.equal((html.match(/<h1[\s>]/g) ?? []).length, 1, f);
-  }
-  assert.match(read('timetable/index.html'), /data-plate-suffix=" 시간표"/);
-  // 시간표 명패의 보조 줄은 「우리 반」(첫 화면은 「명지중학교 알림장 · 우리 반」 그대로).
-  assert.match(read('timetable/index.html'), /data-plate-picked-sub="우리 반"/);
-  assert.match(read('index.html'), /data-plate-picked-sub="명지중학교 알림장 · 우리 반"/);
+  for (const f of ['index.html', 'timetable/index.html']) assert.equal((read(f).match(/<h1[\s>]/g) ?? []).length, 1, f);
+  // 첫 화면: 「명지중학교 알림장」이 제목(h1), 우리 반은 흰 단추 안(자바스크립트가 켜고 채운다).
+  const home = read('index.html').match(/<header[^>]*class="plate[\s\S]*?<\/header>/)[0];
+  assert.match(home, /<h1 class="plate-title plate-brand"[^>]*><small>명지중학교<\/small>\s*알림장<\/h1>/);
+  assert.match(home, /<button[^>]*class="plate-chip[^"]*"[^>]*data-open-class-sheet[^>]*hidden/);
+  assert.match(home, /우리 반 고르기/);
+  assert.ok(!home.includes('plate-sub') && !home.includes('data-plate-picked-sub'));
+  // 시간표: 「1학년 5반 시간표」 반 명패 + 「반 바꾸기」, 보조 줄 없음.
+  const tt = read('timetable/index.html').match(/<header[^>]*class="plate[\s\S]*?<\/header>/)[0];
+  assert.match(tt, /data-plate-class/);
+  assert.match(tt, /data-plate-suffix=" 시간표"/);
+  assert.match(tt, /우리 반을 골라 주세요/);
+  assert.match(tt, /<button[^>]*class="plate-btn"[^>]*data-open-class-sheet[^>]*hidden/);
+  assert.ok(!tt.includes('plate-sub'));
+  for (const f of ['lost/index.html', 'about/index.html']) assert.ok(!read(f).match(/<header[^>]*class="plate[\s\S]*?<\/header>/)[0].includes('plate-sub'), f);
   // 옛 머리글·분필받침·반 줄은 없다.
   for (const f of ['index.html', 'notices/index.html', 'schedule/index.html', 'timetable/index.html']) {
     const html = read(f);
