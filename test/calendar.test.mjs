@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   monthCells, itemsOn, monthItems, monthsOf, initialDay, dayLabel, rangeLabel, dayTitle, monthTitle,
-  gridHTML, dayRowsHTML, monthRowsHTML,
+  gridHTML, dayRowsHTML, monthRowsHTML, swipeStep,
 } from '../src/lib/calendar.ts';
 
 const items = [
@@ -135,4 +135,12 @@ test('고른 날 목록과 달 목록: 이름 · 배지, 없으면 안내 문구
   assert.equal(monthRowsHTML('2026-10', items, null, '2026-11-05'), month);
   const cross = [{ title: '<b>여행', start: '2026-09-30', end: '2026-10-02', grades: [2], kind: 'event' }];
   assert.match(monthRowsHTML('2026-10', cross, 2), /9월&nbsp;30일~<wbr>10월&nbsp;2일<\/span><span class="sign-title">&lt;b&gt;여행/);
+});
+
+test('swipeStep: 가로로 50px 넘게, 세로보다 확실히, 0.8초 안에 밀면 달을 넘긴다', () => {
+  assert.equal(swipeStep(-80, 5, 200), 1); // 왼쪽으로 밀면 다음 달
+  assert.equal(swipeStep(80, -5, 200), -1); // 오른쪽으로 밀면 이전 달
+  assert.equal(swipeStep(-40, 0, 200), 0); // 너무 짧음
+  assert.equal(swipeStep(-80, 70, 200), 0); // 비스듬함(세로 스크롤)
+  assert.equal(swipeStep(-80, 5, 1200), 0); // 너무 느림(끌다가 멈춤)
 });

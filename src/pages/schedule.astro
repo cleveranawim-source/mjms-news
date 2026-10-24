@@ -82,7 +82,7 @@ const chevron = (d: string) => `<svg viewBox="0 0 24 24" aria-hidden="true"><pat
 </Base>
 
 <script>
-  import { dayRowsHTML, dayTitle, gridHTML, initialDay, monthItems, monthRowsHTML, monthTitle, monthsOf } from '../lib/calendar.ts';
+  import { dayRowsHTML, dayTitle, gridHTML, initialDay, monthItems, monthRowsHTML, monthTitle, monthsOf, swipeStep } from '../lib/calendar.ts';
   import { formatMonth, seoulToday } from '../lib/dates.ts';
   import type { FeedScheduleItem } from '../lib/feed.ts';
   import { gradeOf, readClass } from '../lib/klass.ts';
@@ -127,16 +127,31 @@ const chevron = (d: string) => `<svg viewBox="0 0 24 24" aria-hidden="true"><pat
       allBtn.setAttribute('aria-pressed', String(all));
       drawDay();
     };
-    const go = (step: number, from: HTMLButtonElement) => {
+    // from: 누른 단추(끝 달에 닿아 꺼지면 반대쪽 단추로 초점을 옮긴다). 밀어서 넘길 때는 초점을 건드리지 않는다.
+    const go = (step: number, from?: HTMLButtonElement) => {
       const i = months.indexOf(ym) + step;
       if (i < 0 || i >= months.length) return;
       ym = months[i];
       selected = firstDay();
       draw();
       // 끝 달에 닿아 누른 단추가 꺼지면 반대쪽 단추로 초점을 옮긴다
-      if (from.disabled) (from === prev ? next : prev).focus();
+      if (from?.disabled) (from === prev ? next : prev).focus();
     };
 
+    // 달력 판을 가로로 밀면 달을 넘긴다(세로 스크롤은 브라우저 그대로). 움직임 효과 없이 단추와 똑같이 바로 바뀐다.
+    const cal = root.querySelector<HTMLElement>('.cal')!;
+    let touch: { x: number; y: number; t: number } | null = null;
+    cal.addEventListener('touchstart', (e) => {
+      const p = e.touches[0];
+      touch = e.touches.length === 1 ? { x: p.clientX, y: p.clientY, t: e.timeStamp } : null;
+    }, { passive: true });
+    cal.addEventListener('touchend', (e) => {
+      if (!touch) return;
+      const p = e.changedTouches[0];
+      const step = swipeStep(p.clientX - touch.x, p.clientY - touch.y, e.timeStamp - touch.t);
+      touch = null;
+      if (step) go(step);
+    }, { passive: true });
     prev.addEventListener('click', () => go(-1, prev));
     next.addEventListener('click', () => go(1, next));
     toToday.addEventListener('click', () => {

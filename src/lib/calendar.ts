@@ -136,3 +136,9 @@ export function monthRowsHTML(ym: string, items: Item[], grade: number | null, t
   };
   return `<ul class="sign-rows sign-rows--cal">${list.map((i) => `<li><span class="sign-date">${date(i)}</span>${row(i)}</li>`).join('')}</ul>`;
 }
+
+/** 달력 판을 가로로 밀었을 때 넘길 달: 왼쪽으로 밀면 1(다음 달), 오른쪽은 -1, 짧거나 비스듬하거나 느리면 0. */
+export function swipeStep(dx: number, dy: number, ms: number): -1 | 0 | 1 {
+  if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5 || ms > 800) return 0;
+  return dx < 0 ? 1 : -1;
+}
