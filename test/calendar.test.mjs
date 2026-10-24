@@ -93,6 +93,9 @@ test('날짜 이름: 하루는 「3일 토」, 같은 달 기간은 「7~8일」
   assert.equal(rangeLabel({ start: '2026-09-30', end: '2026-10-02' }), '9월 30일~10월 2일');
   assert.equal(dayTitle('2026-10-23'), '10월 23일 금요일');
   assert.equal(monthTitle('2026-10'), '10월 일정 전체');
+  // 오늘이 든 달은 남은 일정만 싣는다
+  assert.equal(monthTitle('2026-10', '2026-10-24'), '10월 남은 일정');
+  assert.equal(monthTitle('2026-09', '2026-10-24'), '9월 일정 전체');
 });
 
 test('달력 칸: 날짜 단추, 읽기 이름, 고른 날, 오늘, 점, 앞뒤 달은 단추가 아님', () => {
@@ -124,11 +127,12 @@ test('고른 날 목록과 달 목록: 이름 · 배지, 없으면 안내 문구
   assert.match(month, /<span class="sign-date">7~8일<\/span><span class="sign-title">중간고사<\/span>/);
   assert.match(month, /<span class="sign-date">9일 금<\/span><span class="sign-title">한글날<\/span><span class="badge-off">공휴일<\/span>/);
   assert.match(monthRowsHTML('2026-11', items, null), /이달에는 학사일정이 없어요/);
-  // 오늘을 주면 끝난 일정 줄은 흐리게(is-past)
-  const past = monthRowsHTML('2026-10', items, null, '2026-10-24');
-  assert.match(past, /<li class="is-past"><span class="sign-date">7~8일/);
-  assert.match(past, /<li><span class="sign-date">26~28일/);
-  assert.ok(!month.includes('is-past'));
+  // 오늘이 든 달은 끝난 일정을 빼고(걸쳐 있는 것은 남긴다), 다 끝났으면 「이달에 남은 학사일정이 없어요」. 다른 달은 그대로.
+  const left = monthRowsHTML('2026-10', items, null, '2026-10-27');
+  assert.ok(!left.includes('중간고사') && !left.includes('한글날'));
+  assert.match(left, /<li><span class="sign-date">26~28일<\/span><span class="sign-title">기말고사/);
+  assert.equal(monthRowsHTML('2026-10', items, null, '2026-10-29'), '<p class="sign-note">이달에 남은 학사일정이 없어요</p>');
+  assert.equal(monthRowsHTML('2026-10', items, null, '2026-11-05'), month);
   const cross = [{ title: '<b>여행', start: '2026-09-30', end: '2026-10-02', grades: [2], kind: 'event' }];
   assert.match(monthRowsHTML('2026-10', cross, 2), /9월&nbsp;30일~<wbr>10월&nbsp;2일<\/span><span class="sign-title">&lt;b&gt;여행/);
 });
