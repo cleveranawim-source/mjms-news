@@ -1,7 +1,15 @@
 ---
 import Base from '../layouts/Base.astro';
 import Plate from '../components/Plate.astro';
+import { buildToday } from '../lib/dates.ts';
+import { getFeed } from '../lib/feed.ts';
 import { site } from '../site.config.ts';
+
+// 「학교 행사」로만 적힌 바뀐 칸에 붙일 학사일정 이름: 빌드한 날부터의 행사만 싣는다.
+const today = buildToday();
+const events = ((await getFeed()).schedule ?? []).filter((e) => e.kind === 'event' && e.end >= today);
+// <script> 안의 JSON이 </script>로 끊기지 않도록 <를 이스케이프한다.
+const eventsJson = JSON.stringify(events).replace(/</g, '\\u003c');
 ---
 
 <Base title="시간표" description="우리 반 이번 주·다음 주 시간표와 오늘 바뀐 수업을 한눈에 볼 수 있습니다.">
@@ -25,13 +33,14 @@ import { site } from '../site.config.ts';
           <div class="tt-panel" data-tt-grid role="region" aria-label="주간 시간표" tabindex="0" />
           <p class="tt-legend"><b>굵은 남색</b> = 바뀐 수업(줄 그은 과목이 원래 수업)</p>
         </div>
+        <script type="application/json" data-tt-events set:html={eventsJson} />
       </div>
     )
   }
 </Base>
 
 <script>
-  import { loadTimetable, weekTableHTML, changesTarget, changesBoxHTML, weekGroups, weekRange, mondayOf, type TimetableFeed } from '../lib/timetable.ts';
+  import { loadTimetable, nameSchoolEvents, weekTableHTML, changesTarget, changesBoxHTML, weekGroups, weekRange, mondayOf, type TimetableFeed } from '../lib/timetable.ts';
   import { readClass, knownClass, forgetStaleClass } from '../lib/klass.ts';
   import { seoulToday, addDays, weekday } from '../lib/dates.ts';
   import { escapeHTML } from '../lib/html.ts';
@@ -104,7 +113,7 @@ import { site } from '../site.config.ts';
       const my = ++ticket;
       feed = undefined;
       render();
-      const got = await loadTimetable(root.dataset.api!);
+      const got = nameSchoolEvents(await loadTimetable(root.dataset.api!), JSON.parse($('[data-tt-events]').textContent!));
       if (my !== ticket) return false; // 그새 다시 불렀으면 늦게 온 답은 버린다
       feed = got && got.classes.length && got.days.length ? got : null;
       if (feed) {

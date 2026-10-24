@@ -42,6 +42,36 @@ export async function loadTimetable(api: string, fetcher: typeof fetch = fetch):
   }
 }
 
+// 선생님이 시간표 교체를 과목 「학교 행사」로만 적은 칸(시험·체험학습 날)에는 그날 학사일정 이름을 붙인다.
+const SCHOOL_EVENT = '학교 행사';
+type ScheduleEvent = { title: string; start: string; end: string; grades: number[]; kind: string };
+
+/**
+ * 「학교 행사」로 바뀐 칸의 과목을 그날 그 학년 학사일정 이름으로(「기말고사」). 원래 과목은 그대로 둔다.
+ * 그 학년만의 행사가 딱 하나면 그것, 없으면 전 학년 행사가 딱 하나일 때만. 후보가 여럿이면 알 수 없으니 그대로 둔다.
+ */
+export function nameSchoolEvents(feed: TimetableFeed | null, schedule: ScheduleEvent[] | null | undefined): TimetableFeed | null {
+  if (!feed || !schedule) return feed;
+  const nameFor = (grade: number, ymd: string): string | null => {
+    const on = schedule.filter((e) => e.kind === 'event' && e.start <= ymd && ymd <= e.end);
+    const mine = on.filter((e) => e.grades.includes(grade));
+    const all = on.filter((e) => e.grades.length === 0);
+    const pick = mine.length ? mine : all;
+    return pick.length === 1 ? pick[0].title : null;
+  };
+  return {
+    ...feed,
+    classes: feed.classes.map((c) => ({
+      ...c,
+      days: c.days.map((d) => {
+        if (!d.cells.some((x) => x.changed && x.subject === SCHOOL_EVENT)) return d;
+        const name = nameFor(c.grade, d.ymd);
+        return name ? { ...d, cells: d.cells.map((x) => (x.changed && x.subject === SCHOOL_EVENT ? { ...x, subject: name } : x)) } : d;
+      }),
+    })),
+  };
+}
+
 /** 바뀐 칸 한 줄의 재료: 「1교시 영어」 + 원래 과목(줄긋기) 또는 학사일정 이름. 「오늘은 N교시까지」는 글자 그대로. */
 export type ChangeItem = { text: string; from: string | null; note: string | null };
 

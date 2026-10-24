@@ -322,3 +322,11 @@ test('학사일정을 못 받은 날: 첫 화면 일정 안내판과 학사일�
   assert.ok(!cal.includes('data-calendar'));
   assert.ok(!cal.includes('data-cal-grid'));
 });
+
+test('시간표 화면: 「학교 행사」 칸 이름을 붙일 학사일정(빌드한 날부터의 행사)을 JSON으로 싣는다', () => {
+  const html = read('timetable/index.html');
+  const json = html.match(/<script type="application\/json" data-tt-events>(.*?)<\/script>/s)[1];
+  const events = JSON.parse(json);
+  assert.ok(events.length > 0);
+  assert.ok(events.every((e) => e.kind === 'event' && e.end >= '2026-10-22'));
+});

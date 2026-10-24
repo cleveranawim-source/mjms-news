@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadTimetable, weekTableHTML, changesBoxHTML, changesTarget, changeItems, lastPeriod, weekGroups, weekRange } from '../src/lib/timetable.ts';
+import { loadTimetable, weekTableHTML, changesBoxHTML, changesTarget, changeItems, lastPeriod, nameSchoolEvents, weekGroups, weekRange } from '../src/lib/timetable.ts';
 
 const cell = (period, subject, extra = {}) => ({ period, subject, special: false, changed: null, ...extra });
 const feed = {
@@ -225,4 +225,41 @@ test('changeItems: 이어진 교시가 같은 과목으로 바뀌면 칠판에�
     { text: '1~3교시 학교 행사', from: null, note: null },
     { text: '5~6교시 영어', from: '체육', note: null },
   ]);
+});
+
+test('nameSchoolEvents: 「학교 행사」로만 적힌 바뀐 칸은 그날 그 학년 학사일정 이름으로', () => {
+  const ev = (title, start, end, grades, kind = 'event') => ({ title, start, end, grades, kind });
+  const schedule = [
+    ev('기말고사', '2026-10-26', '2026-10-28', [3]),
+    ev('학급자치회의', '2026-10-26', '2026-10-26', []),
+    ev('북적북적나들이', '2026-10-30', '2026-10-30', []),
+    ev('학교폭력예방교육', '2026-11-02', '2026-11-02', []),
+    ev('학급자치회의', '2026-11-02', '2026-11-02', []),
+    ev('재량휴업일', '2026-11-20', '2026-11-20', [], 'dayoff'),
+  ];
+  const ch = (p, subject, from) => cell(p, subject, { changed: { from, note: null } });
+  const tt = { ...feed, classes: [
+    { id: 'c3', name: '3-2', grade: 3, days: [
+      { ymd: '2026-10-26', off: null, until: null, cells: [ch(1, '학교 행사', '역사'), ch(2, '영어', '체육'), cell(3, '학교 행사')] },
+      { ymd: '2026-10-30', off: null, until: null, cells: [ch(1, '학교 행사', '국어')] },
+      { ymd: '2026-11-02', off: null, until: null, cells: [ch(1, '학교 행사', '국어')] },
+    ] },
+    { id: 'c1', name: '1-5', grade: 1, days: [
+      { ymd: '2026-10-26', off: null, until: null, cells: [ch(1, '학교 행사', '수학')] },
+    ] },
+  ] };
+  const out = nameSchoolEvents(tt, schedule);
+  const at = (id, ymd) => out.classes.find((c) => c.id === id).days.find((d) => d.ymd === ymd).cells;
+  // 3학년 10/26: 그 학년만의 행사(기말고사)가 하나 → 그 이름, 원래 과목은 그대로. 바뀌지 않은 칸·다른 과목은 그대로.
+  assert.deepEqual(at('c3', '2026-10-26'), [ch(1, '기말고사', '역사'), ch(2, '영어', '체육'), cell(3, '학교 행사')]);
+  // 학년 행사가 없고 전 학년 행사가 하나 → 그 이름
+  assert.equal(at('c3', '2026-10-30')[0].subject, '북적북적나들이');
+  // 전 학년 행사가 둘이면 알 수 없으니 그대로
+  assert.equal(at('c3', '2026-11-02')[0].subject, '학교 행사');
+  // 1학년 10/26: 학년 행사 없음, 전 학년 행사 하나(학급자치회의) → 그 이름
+  assert.equal(at('c1', '2026-10-26')[0].subject, '학급자치회의');
+  // 원본은 건드리지 않는다, 일정이 없거나 못 받았으면 그대로
+  assert.equal(tt.classes[0].days[0].cells[0].subject, '학교 행사');
+  assert.equal(nameSchoolEvents(tt, null), tt);
+  assert.equal(nameSchoolEvents(null, schedule), null);
 });
