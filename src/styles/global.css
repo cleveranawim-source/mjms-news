@@ -1205,6 +1205,8 @@ p.sheet-status {
 }
 
 .cal {
+  /* 세로 스크롤은 브라우저가, 가로로 밀기는 달 넘기기가 맡는다 */
+  touch-action: pan-y;
   padding: 6px;
   border: 1px solid var(--rule);
   border-radius: 12px;
