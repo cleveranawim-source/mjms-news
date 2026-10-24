@@ -30,7 +30,7 @@ const boardJson = JSON.stringify({ base, letters, schedule: feed.schedule, daysO
   import { seoulToday } from '../lib/dates.ts';
   import { forgetStaleClass, isStaleClass, readClass } from '../lib/klass.ts';
   import { mealHTML } from '../lib/meal.ts';
-  import { lastPeriod, loadTimetable } from '../lib/timetable.ts';
+  import { lastPeriod, loadTimetable, nameSchoolEvents } from '../lib/timetable.ts';
 
   const board = document.querySelector<HTMLElement>('.board');
   if (board) {
@@ -66,7 +66,8 @@ const boardJson = JSON.stringify({ base, letters, schedule: feed.schedule, daysO
         return;
       }
       slot.innerHTML = changesStateHTML({ kind: 'loading' }, view.closed);
-      const feed = await loadTimetable(api);
+      // 「학교 행사」로만 적힌 칸은 그날 학사일정 이름으로(「1~6교시 기말고사」)
+      const feed = nameSchoolEvents(await loadTimetable(api), data.schedule);
       if (mine !== ticket) return; // 그새 반을 바꿨으면 늦게 온 답은 버린다
       // 저장된 반이 피드에 없으면 지운다 — 'mjms:class'로 다시 그려지므로 여기서 끝낸다.
       if (isStaleClass(feed?.classes, classId)) return forgetStaleClass(feed!.classes);
