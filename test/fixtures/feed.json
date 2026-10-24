@@ -92,7 +92,7 @@
     ] }
   ],
   "schedule": [
-    { "title": "학생예배", "start": "2026-10-22", "end": "2026-10-22", "grades": [], "kind": "event" },
+    { "title": "학급자치회의", "start": "2026-10-22", "end": "2026-10-22", "grades": [], "kind": "event" },
     { "title": "기말고사", "start": "2026-10-26", "end": "2026-10-28", "grades": [3], "kind": "event" },
     { "title": "재량휴업일", "start": "2026-11-20", "end": "2026-11-20", "grades": [], "kind": "dayoff" }
   ]

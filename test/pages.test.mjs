@@ -155,13 +155,13 @@ test('학사일정: 나이스 일정만, 빌드한 달을 먼저 그려 둔다, 
   // 옛 공개 행사·피드 쉬는 날은 섞지 않는다
   assert.ok(!html.includes('개교기념 체육대회'));
   assert.ok(!html.includes('겨울방학') && !html.includes('(3학년) 기말고사'));
-  // 빌드한 날(10월 22일): 10월 달력, 고른 날 = 오늘, 학생예배 점
+  // 빌드한 날(10월 22일): 10월 달력, 고른 날 = 오늘, 학급자치회의 점
   assert.match(html, /<h2[^>]*data-cal-month[^>]*>2026년 10월<\/h2>/);
   assert.match(html, /class="cal-day is-today"[^>]*data-ymd="2026-10-22"[^>]*aria-label="10월 22일, 일정 1개" aria-pressed="true"/);
   assert.match(html, /10월 22일 목요일/);
-  // 빌드한 달은 남은 일정만(오늘 걸친 학생예배는 남는다)
+  // 빌드한 달은 남은 일정만(오늘 걸친 학급자치회의는 남는다)
   assert.match(html, /10월 남은 일정/);
-  assert.match(html, /data-cal-list-rows[\s\S]*학생예배[\s\S]*기말고사/);
+  assert.match(html, /data-cal-list-rows[\s\S]*학급자치회의[\s\S]*기말고사/);
   const json = html.match(/<script type="application\/json" data-cal-json>(.*?)<\/script>/s)[1];
   assert.deepEqual(JSON.parse(json).map((s) => s.title), feed.schedule.map((s) => s.title));
 });
@@ -215,7 +215,7 @@ test('칠판: 날짜·요일, 바뀐 수업 자리, 챙길 것; 급식은 칠판
   assert.match(board, /목요일/);
   assert.match(board, /<div data-board-changes><\/div>/);
   assert.match(board, /10월 23일 \(금\) 준비물/);
-  assert.match(board, /오늘 일정[\s\S]*학생예배/);
+  assert.match(board, /오늘 일정[\s\S]*학급자치회의/);
   // 칠판 글자(브라우저용 JSON 빼고)에는 급식도, 시간표로 가는 줄도 없다.
   const shown = board.replace(/<script[\s\S]*?<\/script>/g, '');
   assert.ok(!shown.includes('흑미밥') && !shown.includes('timetable/') && !shown.includes('board-pick'));
@@ -233,7 +233,7 @@ test('다가오는 일정 안내판: 보기마다 두 개, 날짜 · 이름 · �
   assert.match(sign, /data-start="2026-10-26">\s*<span class="sign-date">10월 26~28일<\/span>[\s\S]*기말고사[\s\S]*badge badge--g3">3학년/);
   assert.match(sign, /재량휴업일[\s\S]*class="badge-off">쉬는 날/);
   assert.ok(!sign.includes('개교기념 체육대회')); // 옛 events는 첫 화면에 쓰지 않는다
-  assert.ok(!sign.includes('학생예배')); // 오늘(10/22) 일정은 칠판 「오늘 일정」에만
+  assert.ok(!sign.includes('학급자치회의')); // 오늘(10/22) 일정은 칠판 「오늘 일정」에만
 });
 
 test('새 가정통신문 안내판: 2주 안 것만, 제목 + 대상 배지, 전체 링크', () => {
