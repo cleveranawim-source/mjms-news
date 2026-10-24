@@ -41,6 +41,8 @@ const chevron = (d: string) => `<svg viewBox="0 0 24 24" aria-hidden="true"><pat
           <div class="cal">
             <div class="cal-head" aria-hidden="true">{WEEK.map((w) => <span>{w}</span>)}</div>
             <div class="cal-grid" role="group" aria-labelledby="cal-month" data-cal-grid set:html={gridHTML(ym, today, selected, items, null)} />
+            {/* 점과 빨간 날의 뜻. 날짜 단추가 「일정 1개」로 읽어 주므로 읽기 프로그램에는 감춘다. */}
+            <p class="cal-legend" aria-hidden="true"><span><i class="cal-key"></i>일정 있는 날</span><span><i class="cal-key is-off"></i>쉬는 날</span></p>
           </div>
           <div class="cal-filter" data-cal-filter hidden>
             <p class="cal-filter-note" data-cal-filter-note></p>

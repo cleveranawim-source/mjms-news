@@ -8,7 +8,7 @@ import { pickMeal, type MealView } from './meal.ts';
 import { changeItems, changeWhyHTML, type ChangeItem, type TimetableFeed } from './timetable.ts';
 
 export type BoardEvent = { title: string; start: string; end: string; grades: number[] };
-export type BoardDday = { title: string; start: string; days: number; grades: number[] };
+export type BoardDday = { title: string; start: string; days: number; label: string; grades: number[] };
 
 type Item = { item: string; grades: number[]; slug: string };
 
@@ -29,17 +29,45 @@ const DDAY_EVENT = /고사|평가|수련회|체육|축제|festival|졸업식|수
 const DDAY_OFF = /방학/;
 const DDAY_DAYS = 60;
 
+const dayDiff = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
+
+// 기간 중인 것(「기말고사 1일째」)이 먼저, 그다음 다가오는 것(「D-2」). 시험 날 아침에 귀퉁이가 다음 행사로 넘어가지 않게.
 function ddays(today: string, schedule: Feed['schedule'] | undefined): BoardDday[] {
   const last = addDays(today, DDAY_DAYS);
+  const label = (s: { start: string; end: string }) => {
+    if (s.start > today) return `D-${dayDiff(today, s.start)}`;
+    if (s.start === s.end) return 'D-day';
+    return today === s.end ? '마지막 날' : `${dayDiff(s.start, today) + 1}일째`;
+  };
   return (schedule ?? [])
-    .filter((s) => s.start > today && s.start <= last && (s.kind === 'event' ? DDAY_EVENT : s.kind === 'dayoff' ? DDAY_OFF : null)?.test(s.title))
-    .sort((a, b) => a.start.localeCompare(b.start))
+    .filter((s) => s.end >= today && s.start <= last && (s.kind === 'event' ? DDAY_EVENT : s.kind === 'dayoff' ? DDAY_OFF : null)?.test(s.title))
+    .sort((a, b) => Number(a.start > today) - Number(b.start > today) || a.start.localeCompare(b.start))
     .map((s) => ({
       title: s.title,
       start: s.start,
-      days: Math.round((Date.parse(s.start) - Date.parse(today)) / 86400000),
+      days: dayDiff(today, s.start),
+      label: label(s),
       grades: s.grades.length ? s.grades : [1, 2, 3],
     }));
+}
+
+// 준비물을 챙길 날. 행사 일정이 있으면 그 기간 매일(시험 사흘이면 사흘 다)에 더해, 행사 전의 「챙길 날」(동의서 마감 등).
+// AI가 뽑은 「챙길 날」이 행사 뒤면(기말고사 안내의 11월 4일 = 이의신청 마감) 준비물 날이 아니므로 버린다.
+type BringDates = Pick<Feed['letters'][number], 'eventDate' | 'eventEnd' | 'due'>;
+const eventEnd = (l: BringDates) => (l.eventDate && l.eventEnd && l.eventEnd > l.eventDate ? l.eventEnd : l.eventDate);
+
+/** 쓸 수 있는 AI 「챙길 날」: 행사가 없거나 행사 시작일 이전·당일이면 그 날, 행사 뒤면 null. */
+export function usableDue(l: BringDates): string | null {
+  return l.due && (!l.eventDate || l.due <= l.eventDate) ? l.due : null;
+}
+
+export function bringsOn(l: BringDates, day: string): boolean {
+  return usableDue(l) === day || (!!l.eventDate && l.eventDate <= day && day <= eventEnd(l)!);
+}
+
+/** 챙길 날 중 마지막 날(지나면 칠판에 실을 필요가 없다). 없으면 null. */
+export function bringLast(l: BringDates): string | null {
+  return [usableDue(l), eventEnd(l)].filter((d): d is string => !!d).sort().at(-1) ?? null;
 }
 
 export function boardFromFeed(today: string, feed: Pick<Feed, 'letters' | 'daysOff' | 'meals'> & { schedule?: Feed['schedule'] }): Board {
@@ -53,14 +81,16 @@ export function boardFromFeed(today: string, feed: Pick<Feed, 'letters' | 'daysO
   const dayOff = daysOff.find((d) => d.start <= today && today <= d.end)?.title ?? null;
   const bringOn = (day: string) =>
     letters
-      .filter((l) => l.due === day)
+      .filter((l) => bringsOn(l, day))
       .flatMap((l) => l.bring.map((item) => ({ item, grades: l.grades, slug: l.id })));
+  const bringToday = bringOn(today);
   return {
     today,
     next,
     events: events.filter((e) => e.start <= today && today <= e.end),
-    bringToday: bringOn(today),
-    bringNext: bringOn(next),
+    bringToday,
+    // 시험처럼 며칠 이어지는 준비물은 오늘 줄에 있으면 다음 등교일 줄에 되풀이하지 않는다
+    bringNext: bringOn(next).filter((b) => !bringToday.some((t) => t.slug === b.slug)),
     meal: pickMeal(today, feed.meals, daysOff),
     dayOff,
     closed: ['토', '일'].includes(weekday(today)) || dayOff !== null,
@@ -69,10 +99,12 @@ export function boardFromFeed(today: string, feed: Pick<Feed, 'letters' | 'daysO
 }
 
 // 학년이 정해진 것에는 학년 배지(글자)를 붙인다. 반을 골랐으면 그 학년 것만 보이므로 CSS가 배지를 감춘다.
-function li(text: string, grades: number[], href?: string): string {
+function li(text: string, grades: number[], href?: string, event = false): string {
   const body = href ? `<a href="${escape(href)}">${escape(text)}</a>` : escape(text);
   const badge = grades.length < 3 ? ` ${badgeHTML(grades, 'board-badge')}` : '';
-  return `<li data-grades="${grades.join(' ')}">${body}${badge}</li>`;
+  // 오늘 일정 줄은 이름을 data-event로: 바뀐 수업(「1~6교시 기말고사」)과 겹치면 브라우저가 감춘다.
+  const name = event ? ` data-event="${escape(text)}"` : '';
+  return `<li data-grades="${grades.join(' ')}"${name}>${body}${badge}</li>`;
 }
 
 // 빈 칸은 아예 그리지 않는다. 학년을 고르면 그 학년 것이 없는 칸은 CSS가 숨긴다(board-group--opt).
@@ -92,7 +124,7 @@ export function boardHTML(board: Board, base: string): string {
     ? `<ul class="board-dday">${board.dday
         .map((d) => {
           const badge = d.grades.length < 3 ? ` ${badgeHTML(d.grades, 'board-badge')}` : '';
-          return `<li data-grades="${d.grades.join(' ')}"><span class="board-dday-name">${escape(d.title)}</span>${badge} <b>D-${d.days}</b></li>`;
+          return `<li data-grades="${d.grades.join(' ')}"><span class="board-dday-name">${escape(d.title)}</span>${badge} <b>${d.label}</b></li>`;
         })
         .join('')}</ul>`
     : '';
@@ -114,7 +146,7 @@ export function boardHTML(board: Board, base: string): string {
     : '';
   const bring = `<section class="board-group board-bring"><h2 class="board-sub board-sub--bring">챙길 것</h2>${today}${nextBring}<p class="board-none board-bring-none">챙길 것 없어요</p></section>`;
   const events = board.events.length
-    ? `<section class="board-group board-group--opt"><h2 class="board-sub">오늘 일정</h2>${items(board.events.map((e) => li(e.title, e.grades)))}</section>`
+    ? `<section class="board-group board-group--opt board-events"><h2 class="board-sub">오늘 일정</h2>${items(board.events.map((e) => li(e.title, e.grades, undefined, true)))}</section>`
     : '';
   return head + dayOff + next + changes + bring + events;
 }

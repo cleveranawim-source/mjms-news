@@ -1,8 +1,9 @@
 ---
 // 첫 화면 칠판 = 오늘 칸. 날짜(손글씨)·요일과 귀퉁이 D-day, 쉬는 날 줄, 다음 등교(쉬는 날), 우리 반 바뀐 수업, 챙길 것, 오늘 일정.
 // 주말·쉬는 날에는 바뀐 수업·몇 교시까지를 다음 등교일 것으로 보여 준다(급식 안내판과 같은 기준).
-import { boardFromFeed, boardHTML } from '../lib/board.ts';
+import { bringLast, boardFromFeed, boardHTML } from '../lib/board.ts';
 import { buildToday } from '../lib/dates.ts';
+import { noLunchRanges } from '../lib/meal.ts';
 import { getFeed } from '../lib/feed.ts';
 import { base } from '../lib/paths.ts';
 import { site } from '../site.config.ts';
@@ -11,13 +12,14 @@ import { site } from '../site.config.ts';
 const feed = await getFeed();
 const today = buildToday();
 const html = boardHTML(boardFromFeed(today, feed), base);
-// 브라우저가 다시 그릴 때 쓰는 칸만 싣는다: 준비물이 있는 알림, 학사일정·쉬는 날, 오늘부터의 급식.
+// 브라우저가 다시 그릴 때 쓰는 칸만 싣는다: 준비물이 있는 알림(챙길 날이 오늘 이후), 학사일정·쉬는 날, 오늘부터의 급식과 급식 없는 날.
 const letters = feed.letters
-  .filter((l) => l.bring.length > 0 && l.due && l.due >= today)
-  .map(({ id, grades, bring, due }) => ({ id, grades, bring, due }));
+  .filter((l) => l.bring.length > 0 && (bringLast(l) ?? '') >= today)
+  .map(({ id, grades, bring, due, eventDate, eventEnd }) => ({ id, grades, bring, due, eventDate, eventEnd }));
 const meals = feed.meals.filter((m) => m.ymd >= today);
+const noLunch = noLunchRanges(feed.letters).filter((r) => r.end >= today);
 // <script> 안의 JSON이 </script>로 끊기지 않도록 <를 이스케이프한다.
-const boardJson = JSON.stringify({ base, letters, schedule: feed.schedule, daysOff: feed.daysOff, meals }).replace(/</g, '\\u003c');
+const boardJson = JSON.stringify({ base, letters, schedule: feed.schedule, daysOff: feed.daysOff, meals, noLunch }).replace(/</g, '\\u003c');
 ---
 
 <section class="board" aria-labelledby="board-date" data-today={today} data-tt-api={site.timetableApi || undefined}>
@@ -45,7 +47,7 @@ const boardJson = JSON.stringify({ base, letters, schedule: feed.schedule, daysO
       groups.innerHTML = boardHTML(view, data.base);
       const meal = document.querySelector<HTMLElement>('[data-meal-sign]');
       if (meal) {
-        meal.innerHTML = mealHTML(view.meal);
+        meal.innerHTML = mealHTML(view.meal, data.noLunch, data.base);
         meal.hidden = !view.meal;
       }
     }
@@ -73,6 +75,13 @@ const boardJson = JSON.stringify({ base, letters, schedule: feed.schedule, daysO
       if (isStaleClass(feed?.classes, classId)) return forgetStaleClass(feed!.classes);
       const state = changesFor(feed, classId, day, view.closed);
       slot.innerHTML = state ? changesStateHTML(state, view.closed) : '';
+      // 오늘 일정 줄이 바뀐 수업과 같은 행사면(「1~6교시 기말고사」와 「기말고사」) 한 번만 보이게 감춘다.
+      if (!view.closed && state?.kind === 'lines') {
+        const named = new Set(state.lines.flatMap((x) => (typeof x === 'string' ? [] : [x.text.replace(/^[\d~]+교시 /, '')])));
+        const events = groups.querySelector<HTMLElement>('.board-events');
+        for (const li of events?.querySelectorAll<HTMLElement>('[data-event]') ?? []) li.hidden = named.has(li.dataset.event!);
+        if (events) events.hidden = [...events.querySelectorAll('li')].every((li) => li.hidden);
+      }
       const last = lastPeriod(feed, classId, day);
       if (untilEl && last !== null) untilEl.textContent = `${last}교시까지`;
       // 「다시 불러오기」를 눌렀으면 초점을 결과로 옮긴다(단추가 사라지므로). 칸이 비면(시간표가 쉬는 날로 적음) 칠판 날짜로.

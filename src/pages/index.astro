@@ -8,8 +8,8 @@ import { buildToday, formatShortRange, offRanges } from '../lib/dates.ts';
 import { getFeed } from '../lib/feed.ts';
 import { badgeHTML, scheduleBadgeHTML } from '../lib/grades.ts';
 import { LETTERS_N, UPCOMING_N, newLetterRows, upcomingRows } from '../lib/home.ts';
-import { mealHTML, pickMeal } from '../lib/meal.ts';
-import { href } from '../lib/paths.ts';
+import { mealHTML, noLunchRanges, pickMeal } from '../lib/meal.ts';
+import { base, href } from '../lib/paths.ts';
 import { site } from '../site.config.ts';
 
 // 칠판·급식은 브라우저가 서울 날짜로 다시 그린다. 일정·가정통신문 판은 매일 아침 빌드 기준이면 된다.
@@ -24,7 +24,7 @@ const letters = newLetterRows(feed.letters, today);
   <Plate kind="brand" />
   <div class="home">
     <Chalkboard />
-    <section class="sign sign--meal" aria-labelledby="meal-title" data-meal-sign hidden={!meal} set:html={mealHTML(meal)} />
+    <section class="sign sign--meal" aria-labelledby="meal-title" data-meal-sign hidden={!meal} set:html={mealHTML(meal, noLunchRanges(feed.letters), base)} />
 
     <Sign title="다가오는 일정" id="upcoming" link={{ href: href('schedule/'), label: '달력' }} class="sign--views">
       {

@@ -1,6 +1,7 @@
 // 첫 화면 「오늘 급식」 안내판. 빌드할 때와 브라우저에서 같은 함수로 그려, 날짜가 바뀌어도 맞게 보이게 한다.
 import { formatDate, nextSchoolDay } from './dates.ts';
-import type { FeedMeal } from './feed.ts';
+import type { FeedLetter, FeedMeal } from './feed.ts';
+import { gradeLabel } from './grades.ts';
 import { escapeHTML as escape } from './html.ts';
 
 type Range = { start: string; end: string };
@@ -22,7 +23,18 @@ export function pickMeal(today: string, meals: FeedMeal[], daysOff: Range[]): Me
   return null;
 }
 
-export function mealHTML(view: MealView | null): string {
+// 가정통신문 요약에 「급식이 없」다고 적힌 행사(시험 기간 등): 그 기간·대상 학년에는 급식 판에 안내 줄을 단다.
+// 나이스 식단은 학년을 나누지 않아 시험 보는 학년도 메뉴가 그대로 나오기 때문이다.
+const NO_LUNCH = /급식(?:이|은|을)?\s*(?:없|하지 않|실시하지 않|미실시)/;
+export type NoLunch = { id: string; grades: number[]; start: string; end: string };
+
+export function noLunchRanges(letters: Pick<FeedLetter, 'id' | 'grades' | 'eventDate' | 'eventEnd' | 'summary'>[]): NoLunch[] {
+  return letters
+    .filter((l) => l.eventDate && NO_LUNCH.test(l.summary))
+    .map((l) => ({ id: l.id, grades: l.grades.length ? l.grades : [1, 2, 3], start: l.eventDate!, end: l.eventEnd && l.eventEnd > l.eventDate! ? l.eventEnd : l.eventDate! }));
+}
+
+export function mealHTML(view: MealView | null, noLunch: NoLunch[] = [], base = '/'): string {
   if (!view) return '';
   const dishes = view.dishes.map((d) => escape(d.name)).join(' · ');
   const rows = view.dishes
@@ -39,5 +51,13 @@ export function mealHTML(view: MealView | null): string {
     ? `<details><summary>알레르기</summary><ul class="meal-allergy">${rows}</ul></details>`
     : '';
   const date = view.title === '오늘 급식' ? '' : ` <small>${escape(formatDate(view.ymd))}</small>`;
-  return `<h2 id="meal-title">${view.title}${date}</h2><p class="meal-dishes">${dishes}</p>${allergy}`;
+  // 반을 골랐으면 다른 학년 줄은 CSS가 감춘다(data-grades).
+  const none = noLunch
+    .filter((r) => r.start <= view.ymd && view.ymd <= r.end)
+    .map((r) => {
+      const who = r.grades.length >= 3 ? '이날은' : `${gradeLabel(r.grades)}은 이날`;
+      return `<p class="meal-none" data-grades="${r.grades.join(' ')}">${who} 점심 급식이 없어요 <a href="${escape(`${base}notices/${r.id}/`)}">가정통신문</a></p>`;
+    })
+    .join('');
+  return `<h2 id="meal-title">${view.title}${date}</h2>${none}<p class="meal-dishes">${dishes}</p>${allergy}`;
 }

@@ -46,3 +46,22 @@ test('mealHTML: 이스케이프, 「 · 」로 잇기, 날짜, 알레르기 이�
   assert.ok(!next.includes('<details>'));
   assert.equal(mealHTML(null), '');
 });
+
+test('급식 없는 날: 가정통신문 요약에 「급식이 없」으면 행사 기간·대상 학년에 안내 줄', async () => {
+  const { noLunchRanges } = await import('../src/lib/meal.ts');
+  const L = (o) => ({ id: 'x', grades: [3], eventDate: '2026-10-26', eventEnd: '2026-10-28', summary: '', ...o });
+  const ranges = noLunchRanges([
+    L({ id: 'e', summary: '시험 기간에는 점심 급식이 없으며, 전자기기는 가져갈 수 없습니다.' }),
+    L({ id: 'f', summary: '급식은 평소대로 있습니다.' }),
+    L({ id: 'g', summary: '급식이 없습니다.', eventDate: null }),
+    L({ id: 'h', summary: '이날은 급식을 실시하지 않습니다.', grades: [], eventDate: '2026-11-02', eventEnd: null }),
+  ]);
+  assert.deepEqual(ranges, [
+    { id: 'e', grades: [3], start: '2026-10-26', end: '2026-10-28' },
+    { id: 'h', grades: [1, 2, 3], start: '2026-11-02', end: '2026-11-02' },
+  ]);
+  const html = mealHTML({ title: '오늘 급식', ymd: '2026-10-27', dishes: [d('잡곡밥')] }, ranges, '/');
+  assert.match(html, /<p class="meal-none" data-grades="3">3학년은 이날 점심 급식이 없어요 <a href="\/notices\/e\/">가정통신문<\/a><\/p>/);
+  assert.ok(!mealHTML({ title: '오늘 급식', ymd: '2026-10-29', dishes: [d('잡곡밥')] }, ranges, '/').includes('meal-none'));
+  assert.match(mealHTML({ title: '다음 등교일 급식', ymd: '2026-11-02', dishes: [d('밥')] }, ranges, '/'), /<p class="meal-none" data-grades="1 2 3">이날은 점심 급식이 없어요 /);
+});

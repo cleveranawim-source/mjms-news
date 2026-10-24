@@ -206,7 +206,7 @@ test('다음 등교일 바뀐 수업: 제목과 「그날 시간표가 아직 �
   assert.ok(!changesStateHTML({ kind: 'nofeed' }, true).includes('오늘'));
 });
 
-test('D-day: 오늘 뒤 60일 안의 시험·방학·행사 이름만, 가까운 순, 학년 배지', () => {
+test('D-day: 60일 안의 시험·방학·행사 이름만, 오늘 것이 먼저, 가까운 순, 학년 배지', () => {
   const s = [
     { title: '기말고사', start: '2026-10-26', end: '2026-10-28', grades: [3], kind: 'event' },
     { title: '학급자치회의', start: '2026-10-26', end: '2026-10-26', grades: [], kind: 'event' },
@@ -217,7 +217,9 @@ test('D-day: 오늘 뒤 60일 안의 시험·방학·행사 이름만, 가까운
     { title: '체육대회', start: '2026-10-24', end: '2026-10-24', grades: [], kind: 'event' },
   ];
   const b = boardFromFeed('2026-10-24', feed({ schedule: s }));
+  // 오늘 열리는 체육대회는 「D-day」로 맨 앞에
   assert.deepEqual(b.dday.map((d) => [d.title, d.days, d.grades]), [
+    ['체육대회', 0, [1, 2, 3]],
     ['기말고사', 2, [3]],
     ['북적북적나들이', 6, [1, 2, 3]],
     ['기말고사', 44, [1, 2]],
@@ -228,4 +230,49 @@ test('D-day: 오늘 뒤 60일 안의 시험·방학·행사 이름만, 가까운
   // 방학은 방학 이름으로, 60일 넘게 남았으면 쓰지 않는다
   assert.equal(boardFromFeed('2026-12-20', feed({ schedule: s })).dday[0].title, '겨울방학');
   assert.ok(!boardHTML(boardFromFeed('2026-10-22', feed({ schedule: [] })), '/').includes('board-dday'));
+});
+
+test('준비물 챙길 날: 행사 기간 매일 + 행사 전의 챙길 날, 행사 뒤로 잡힌 챙길 날은 버린다', async () => {
+  const { bringsOn, bringLast, usableDue } = await import('../src/lib/board.ts');
+  const exam = letter({ eventDate: '2026-10-26', eventEnd: '2026-10-28', due: '2026-11-04' });
+  assert.deepEqual(['2026-10-25', '2026-10-26', '2026-10-28', '2026-11-04'].map((d) => bringsOn(exam, d)), [false, true, true, false]);
+  assert.equal(bringLast(exam), '2026-10-28');
+  assert.equal(usableDue(exam), null);
+  // 체험학습(10/30)인데 동의서는 10/23까지: 두 날 모두
+  const trip = letter({ eventDate: '2026-10-30', eventEnd: null, due: '2026-10-23' });
+  assert.deepEqual(['2026-10-23', '2026-10-30', '2026-10-27'].map((d) => bringsOn(trip, d)), [true, true, false]);
+  assert.equal(usableDue(trip), '2026-10-23');
+  assert.equal(bringsOn(letter({ eventDate: null, due: '2026-10-23' }), '2026-10-23'), true);
+  assert.equal(bringLast(letter({ eventDate: null, due: null })), null);
+  // 기말고사(10/26~28, AI 챙길 날 11/4): 전날(금)은 다음 등교일 준비물로, 시험 날마다 오늘 준비물로
+  const examLetters = [letter({ id: 'e', grades: [3], bring: ['컴퓨터용 사인펜'], eventDate: '2026-10-26', eventEnd: '2026-10-28', due: '2026-11-04' })];
+  assert.deepEqual(boardFromFeed('2026-10-23', feed({ letters: examLetters })).bringNext.map((b) => b.item), ['컴퓨터용 사인펜']);
+  assert.deepEqual(boardFromFeed('2026-10-27', feed({ letters: examLetters })).bringToday.map((b) => b.item), ['컴퓨터용 사인펜']);
+  assert.deepEqual(boardFromFeed('2026-11-04', feed({ letters: examLetters })).bringToday, []);
+});
+
+test('시험·행사 기간의 D-day 귀퉁이: 「1일째」, 마지막 날은 「마지막 날」, 하루짜리는 「D-day」', () => {
+  const s = [
+    { title: '기말고사', start: '2026-10-26', end: '2026-10-28', grades: [3], kind: 'event' },
+    { title: '북적북적나들이', start: '2026-10-30', end: '2026-10-30', grades: [], kind: 'event' },
+  ];
+  const label = (day) => boardFromFeed(day, feed({ schedule: s })).dday.map((d) => [d.title, d.label]);
+  assert.deepEqual(label('2026-10-24'), [['기말고사', 'D-2'], ['북적북적나들이', 'D-6']]);
+  assert.deepEqual(label('2026-10-26'), [['기말고사', '1일째'], ['북적북적나들이', 'D-4']]);
+  assert.deepEqual(label('2026-10-28'), [['기말고사', '마지막 날'], ['북적북적나들이', 'D-2']]);
+  assert.deepEqual(label('2026-10-30'), [['북적북적나들이', 'D-day']]);
+  assert.match(boardHTML(boardFromFeed('2026-10-26', feed({ schedule: s })), '/'), /기말고사<\/span> <span class="badge badge--g3 board-badge">3학년<\/span> <b>1일째<\/b>/);
+});
+
+test('오늘 일정 줄에는 행사 이름을 data-event로 적어 둔다(바뀐 수업과 겹치면 브라우저가 감춘다)', () => {
+  const html = boardHTML(boardFromFeed('2026-10-22', feed()), '/');
+  assert.match(html, /<li data-grades="1 2 3" data-event="2학기 중간고사">2학기 중간고사<\/li>/);
+});
+
+test('여러 날 준비물: 오늘 줄에 이미 있는 가정통신문은 다음 등교일 줄에 되풀이하지 않는다', () => {
+  const exam = [letter({ id: 'e', grades: [3], bring: ['사인펜'], eventDate: '2026-10-26', eventEnd: '2026-10-28', due: null })];
+  const b = boardFromFeed('2026-10-26', feed({ letters: exam }));
+  assert.deepEqual(b.bringToday.map((x) => x.item), ['사인펜']);
+  assert.deepEqual(b.bringNext, []);
+  assert.ok(!boardHTML(b, '/').includes('10월 27일 (화) 준비물'));
 });
