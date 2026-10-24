@@ -49,7 +49,7 @@ const chevron = (d: string) => `<svg viewBox="0 0 24 24" aria-hidden="true"><pat
           <Sign title={dayTitle(selected)} id="cal-day-title" data-cal-day>
             <div data-cal-day-rows set:html={dayRowsHTML(selected, items, null)} />
           </Sign>
-          <Sign title={monthTitle(ym)} id="cal-list-title" data-cal-list>
+          <Sign title={monthTitle(ym, today)} id="cal-list-title" data-cal-list>
             <div data-cal-list-rows set:html={monthRowsHTML(ym, items, null, today)} />
           </Sign>
           <script type="application/json" data-cal-json set:html={json} />
@@ -63,7 +63,7 @@ const chevron = (d: string) => `<svg viewBox="0 0 24 24" aria-hidden="true"><pat
           <div class="cal-noscript">
             {listMonths.map((m) => (
               <Sign title={formatMonth(`${m}-01`)}>
-                <Fragment set:html={monthRowsHTML(m, items, null, today)} />
+                <Fragment set:html={monthRowsHTML(m, items, null)} />
               </Sign>
             ))}
             {listMonths.length === 0 && (
@@ -118,7 +118,7 @@ const chevron = (d: string) => `<svg viewBox="0 0 24 24" aria-hidden="true"><pat
       next.disabled = i < 0 || i >= months.length - 1;
       toToday.hidden = ym === today.slice(0, 7);
       grid.innerHTML = gridHTML(ym, today, selected, items, g());
-      q('#cal-list-title').textContent = monthTitle(ym);
+      q('#cal-list-title').textContent = monthTitle(ym, today);
       q('[data-cal-list-rows]').innerHTML = monthRowsHTML(ym, items, g(), today);
       filter.hidden = !grade;
       q('[data-cal-filter-note]').textContent = all ? '모든 학년 일정' : `${grade}학년 + 전 학년 일정`;

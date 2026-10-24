@@ -159,7 +159,9 @@ test('학사일정: 나이스 일정만, 빌드한 달을 먼저 그려 둔다, 
   assert.match(html, /<h2[^>]*data-cal-month[^>]*>2026년 10월<\/h2>/);
   assert.match(html, /class="cal-day is-today"[^>]*data-ymd="2026-10-22"[^>]*aria-label="10월 22일, 일정 1개" aria-pressed="true"/);
   assert.match(html, /10월 22일 목요일/);
-  assert.match(html, /10월 일정 전체/);
+  // 빌드한 달은 남은 일정만(오늘 걸친 학생예배는 남는다)
+  assert.match(html, /10월 남은 일정/);
+  assert.match(html, /data-cal-list-rows[\s\S]*학생예배[\s\S]*기말고사/);
   const json = html.match(/<script type="application\/json" data-cal-json>(.*?)<\/script>/s)[1];
   assert.deepEqual(JSON.parse(json).map((s) => s.title), feed.schedule.map((s) => s.title));
 });

@@ -1323,15 +1323,6 @@ p.sheet-status {
   white-space: normal;
 }
 
-/* 달 목록: 끝난 일정은 흐리게(배지 색은 그대로 두지 않고 함께 낮춘다) */
-.sign-rows--cal > li.is-past {
-  color: var(--muted);
-}
-
-.sign-rows--cal > li.is-past .badge {
-  opacity: 0.6;
-}
-
 .cal-src {
   margin: 10px 0 0;
   font-size: var(--fs-12);

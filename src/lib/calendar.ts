@@ -91,9 +91,9 @@ export function dayTitle(ymd: string): string {
   return `${m}월 ${d}일 ${weekday(ymd)}요일`;
 }
 
-/** 달 목록 안내판 제목: 「10월 일정 전체」. */
-export function monthTitle(ym: string): string {
-  return `${Number(ym.slice(5, 7))}월 일정 전체`;
+/** 달 목록 안내판 제목: 「10월 일정 전체」, 오늘이 든 달이면 「10월 남은 일정」. */
+export function monthTitle(ym: string, today?: string): string {
+  return `${Number(ym.slice(5, 7))}월 ${today?.startsWith(ym) ? '남은 일정' : '일정 전체'}`;
 }
 
 /** 달력 칸. 그 달 날짜는 단추(읽기 이름·고른 날 aria-pressed), 앞뒤 달은 빈 칸. 점은 장식. */
@@ -122,14 +122,17 @@ export function dayRowsHTML(ymd: string, items: Item[], grade: number | null): s
   return `<ul class="sign-rows sign-rows--day">${on.map((i) => `<li>${row(i)}</li>`).join('')}</ul>`;
 }
 
-/** 달 목록 안내판 내용: 날짜 · 이름 · 배지. 긴 날짜는 「~」 뒤에서 줄을 바꿀 수 있게. today를 주면 끝난 일정 줄은 흐리게. */
+/**
+ * 달 목록 안내판 내용: 날짜 · 이름 · 배지. 긴 날짜는 「~」 뒤에서 줄을 바꿀 수 있게.
+ * today를 주고 그날이 이 달이면 끝난 일정은 뺀다(지난 일정은 달력 점과 고른 날 안내판에 남는다). 다른 달은 모두.
+ */
 export function monthRowsHTML(ym: string, items: Item[], grade: number | null, today?: string): string {
-  const list = monthItems(ym, items, grade);
-  if (list.length === 0) return '<p class="sign-note">이달에는 학사일정이 없어요</p>';
+  const current = !!today?.startsWith(ym);
+  const list = monthItems(ym, items, grade).filter((i) => !current || i.end >= today!);
+  if (list.length === 0) return `<p class="sign-note">${current ? '이달에 남은 학사일정이 없어요' : '이달에는 학사일정이 없어요'}</p>`;
   const date = (i: Item) => {
     const text = escapeHTML(rangeLabel(i));
     return i.start.slice(0, 7) === i.end.slice(0, 7) ? text : text.replace(/ /g, '&nbsp;').replace('~', '~<wbr>');
   };
-  const li = (i: Item) => (today && i.end < today ? '<li class="is-past">' : '<li>');
-  return `<ul class="sign-rows sign-rows--cal">${list.map((i) => `${li(i)}<span class="sign-date">${date(i)}</span>${row(i)}</li>`).join('')}</ul>`;
+  return `<ul class="sign-rows sign-rows--cal">${list.map((i) => `<li><span class="sign-date">${date(i)}</span>${row(i)}</li>`).join('')}</ul>`;
 }
