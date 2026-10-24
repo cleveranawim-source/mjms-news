@@ -179,11 +179,15 @@ main {
   box-shadow: inset 0 0 0 3px var(--navy-2);
 }
 
+/* 교표는 원래 색 그대로. 남색 잎이 남색 판에 묻히지 않게 흰 바탕 위에 올린다. */
 .plate-emblem {
   flex: none;
-  width: 32px;
+  box-sizing: content-box;
+  width: 30px;
   height: auto;
-  filter: brightness(0) invert(1);
+  padding: 4px;
+  border-radius: 10px;
+  background: #fff;
 }
 
 .plate-text {
