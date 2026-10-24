@@ -49,3 +49,4 @@ NEWS_FEED_FILE=test/fixtures/feed.json npm run build
 | `src/lib/board.ts` | 칠판에 올릴 내용 고르기 |
 | `src/lib/lost.ts`, `src/pages/lost.astro` | 분실물함 |
 | `src/lib/read.ts` | 이 기기에서 연 가정통신문(「새 글」·「안 읽은 글 N」) |
+| `src/lib/worship.ts` | 나이스 예배 일정(「학생예배」「성탄절예배」)을 학생·학부모용 학사일정표의 그날 제목으로 바꾸는 표. 학교는 공식 알림에 「예배」를 쓰지 않으므로 제목이 없는 날은 싣지 않는다. 학년도마다 새로 옮겨 적기 |

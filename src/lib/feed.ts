@@ -1,5 +1,6 @@
 // AI 교무실이 내주는 피드를 빌드할 때 한 번 받는다. 꼴은 서버(lib/news/feed.ts)와 같다.
 import { readFile } from 'node:fs/promises';
+import { withWorshipTitles } from './worship.ts';
 
 export type FeedLetter = {
   id: string; number: string | null; subject: string; grades: number[]; classes: string | null;
@@ -119,7 +120,7 @@ function parseFeed(raw: unknown): Feed {
     events: pick('events', events, toEvent),
     daysOff: pick('daysOff', daysOff, toDayOff),
     meals: pick('meals', meals, toMeal),
-    schedule: parseSchedule(raw.schedule),
+    schedule: withWorshipTitles(parseSchedule(raw.schedule)),
   };
 }
 

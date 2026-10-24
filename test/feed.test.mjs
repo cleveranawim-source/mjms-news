@@ -101,3 +101,9 @@ test('schedule: 나이스 머리말 「(적응)」「(자치)」는 떼고 이�
   const feed = await loadFeed({ fetcher: respond({ ...base, schedule: [item('(적응)학교폭력예방교육'), item('(자치) 총학생회 선거'), item('기말고사(3학년)'), item('(적응)')] }), url: 'x' });
   assert.deepEqual(feed.schedule.map((s) => s.title), ['학교폭력예방교육', '총학생회 선거', '기말고사(3학년)', '(적응)']);
 });
+
+test('schedule: 학생예배는 예배 제목표의 그날 제목으로', async () => {
+  const item = (title, start) => ({ title, start, end: start, grades: [], kind: 'event' });
+  const feed = await loadFeed({ fetcher: respond({ ...base, schedule: [item('학생예배', '2026-10-21'), item('학생예배', '2026-10-28'), item('성탄절예배', '2026-12-23')] }), url: 'x' });
+  assert.deepEqual(feed.schedule.map((s) => s.title), ['회복 탄력성', '사랑하는 삶']);
+});
