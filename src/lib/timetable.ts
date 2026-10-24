@@ -207,7 +207,13 @@ export function changesTarget(cls: ClassTimetable, today: string): { ymd: string
 /** 안내판: 줄 = 「1교시」 · 굵은 과목 + 줄 그은 원래 과목. 없으면 「바뀐 수업 없어요」, 그날이 피드에 없으면 「그날 시간표가 아직 없어요」. */
 export function changesBoxHTML(cls: ClassTimetable, ymd: string, label: string, empty = '바뀐 수업 없어요', date = ''): string {
   const { cells, until } = changesOf(cls, ymd);
-  const rows = cells.map((c) => `<li><span>${c.period}교시</span><span><b>${escapeHTML(c.subject || '수업 없음')}</b>${changeWhyHTML(itemOf(c))}</span></li>`);
+  // 칠판과 같은 묶기: 이어진 교시가 같은 과목이면 한 줄(「1~6교시 · 기말고사」), 원래 과목은 모두 같을 때만.
+  const rows = runs(cells).map((run) => {
+    const all = run.map(itemOf);
+    const same = (k: 'from' | 'note') => (all.every((i) => i[k] === all[0][k]) ? all[0][k] : null);
+    const periods = run.length > 1 ? `${run[0].period}~${run.at(-1)!.period}교시` : `${run[0].period}교시`;
+    return `<li><span>${periods}</span><span><b>${escapeHTML(run[0].subject || '수업 없음')}</b>${changeWhyHTML({ from: same('from'), note: same('note') })}</span></li>`;
+  });
   if (until !== null) rows.push(`<li><span>${until + 1}교시부터</span><span>수업 없음</span></li>`);
   // 피드에 그 날짜가 없으면 「바뀐 수업 없음」이라고 단정하지 않는다.
   const none = cls.days.some((d) => d.ymd === ymd) ? empty : '그날 시간표가 아직 없어요';

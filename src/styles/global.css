@@ -211,6 +211,8 @@ main {
   font-weight: 800;
   letter-spacing: -0.01em;
   line-height: 1.25;
+  /* 글자를 키워도 「알림 / 장」처럼 낱말 가운데서 끊지 않는다 */
+  overflow-wrap: normal;
 }
 
 .plate--empty .plate-title,
@@ -949,7 +951,7 @@ p.sheet-status {
 .sign-count {
   display: inline-flex;
   align-items: center;
-  height: 20px;
+  min-height: 1.25rem;
   margin-left: 6px;
   padding: 0 6px;
   border-radius: 4px;
@@ -998,6 +1000,27 @@ p.sheet-status {
   font-size: var(--fs-13);
   font-weight: 500;
   color: var(--muted);
+}
+
+/* 급식 없는 날(시험 기간 등): 메뉴 위 한 줄, 근거 가정통신문 링크 */
+.meal-none {
+  margin: 0 0 4px;
+  font-size: var(--fs-15);
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.meal-none a {
+  position: relative;
+  margin-left: 2px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.meal-none a::after {
+  content: '';
+  position: absolute;
+  inset: -12px -8px;
 }
 
 .meal-dishes {
@@ -1060,12 +1083,12 @@ p.sheet-status {
   text-decoration: underline;
 }
 
-/* 배지: 학년 색은 여기에만, 늘 글자와 함께 */
+/* 배지: 학년 색은 여기에만, 늘 글자와 함께. 높이는 rem이라 글자를 키우면 같이 커진다(고정 px면 글자가 잘렸다). */
 .badge {
   display: inline-flex;
   align-items: center;
   flex: none;
-  height: 20px;
+  min-height: 1.25rem;
   padding: 0 6px;
   border-radius: 4px;
   font-size: var(--fs-12);
@@ -1273,6 +1296,34 @@ p.sheet-status {
   background: var(--navy);
 }
 
+/* 달력 아래 범례: 점 = 일정 있는 날, 빨강 = 쉬는 날 */
+.cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2px 12px;
+  margin: 2px 6px 2px;
+  font-size: var(--fs-12);
+  color: var(--muted);
+}
+
+.cal-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cal-key {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--navy);
+}
+
+.cal-key.is-off {
+  background: var(--red);
+}
+
 .cal-day.is-off .cal-dot {
   background: var(--red);
 }
@@ -1351,7 +1402,7 @@ p.sheet-status {
 
 .prose h2 {
   margin: 1.75rem 0 0.5rem;
-  font-size: var(--fs-20);
+  font-size: var(--fs-22);
 }
 
 .prose ul {
@@ -1656,9 +1707,17 @@ html[data-grade] .docs[data-view='all'] > li {
 }
 
 .facts-note a {
+  position: relative;
   margin-left: 2px;
   font-weight: 700;
   color: var(--navy);
+}
+
+/* 문장 속 작은 링크도 누르는 곳은 44px */
+.facts-note a::after {
+  content: '';
+  position: absolute;
+  inset: -12px -8px;
 }
 
 .facts .badge {

@@ -2,6 +2,7 @@
 import Base from '../../layouts/Base.astro';
 import GradeBadge from '../../components/GradeBadge.astro';
 import { getLetters } from '../../lib/content.ts';
+import { usableDue } from '../../lib/board.ts';
 import { formatDate, formatRange } from '../../lib/dates.ts';
 import { href } from '../../lib/paths.ts';
 
@@ -30,7 +31,8 @@ const paragraphs = l.summary.split(/\n+/).map((p) => p.trim()).filter(Boolean);
       <div><dt>대상</dt><dd><GradeBadge grades={l.grades} />{l.classes && <span class="facts-classes">{l.classes}</span>}</dd></div>
       {l.eventDate && <div><dt>일정</dt><dd>{formatRange(l.eventDate, l.eventEnd ?? undefined)}</dd></div>}
       {l.bring.length > 0 && <div><dt>준비물</dt><dd>{l.bring.join(', ')}</dd></div>}
-      {l.due && <div><dt>준비물 챙길 날</dt><dd>{formatDate(l.due)}</dd></div>}
+      {/* 행사 뒤로 잡힌 「챙길 날」(이의신청 마감 등)은 준비물 날이 아니라 쓰지 않는다. 행사 기간은 「일정」 줄에 있다. */}
+      {usableDue(l) && <div><dt>준비물 챙길 날</dt><dd>{formatDate(usableDue(l)!)}</dd></div>}
       <div><dt>게시일</dt><dd>{formatDate(l.postedOn)}</dd></div>
     </dl>
     <p class="facts-note">

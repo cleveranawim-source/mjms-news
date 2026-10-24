@@ -263,3 +263,12 @@ test('nameSchoolEvents: 「학교 행사」로만 적힌 바뀐 칸은 그날 �
   assert.equal(nameSchoolEvents(tt, null), tt);
   assert.equal(nameSchoolEvents(null, schedule), null);
 });
+
+test('changesBoxHTML: 이어진 교시가 같은 과목이면 한 줄(「1~3교시」 · 기말고사)', () => {
+  const ch = (p, subject, from) => cell(p, subject, { changed: { from, note: null } });
+  const cls = { id: 'c', name: '3-2', grade: 3, days: [{ ymd: '2026-10-26', off: null, until: null, cells: [ch(1, '기말고사', '역사'), ch(2, '기말고사', '과학'), ch(3, '기말고사', '음악'), ch(5, '영어', '체육')] }] };
+  const box = changesBoxHTML(cls, '2026-10-26', '오늘 바뀐 수업');
+  assert.equal((box.match(/<li>/g) ?? []).length, 2);
+  assert.match(box, /<li><span>1~3교시<\/span><span><b>기말고사<\/b><\/span><\/li>/);
+  assert.match(box, /<li><span>5교시<\/span><span><b>영어<\/b> <s><span class="sr-only">원래 <\/span>체육<\/s><\/span><\/li>/);
+});
