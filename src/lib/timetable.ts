@@ -60,12 +60,39 @@ function changesOf(cls: ClassTimetable | undefined, ymd: string): { cells: TtCel
   return { cells: all.filter((c) => !cut(c)), until: all.some(cut) ? until : null };
 }
 
-/** 칠판 「오늘 바뀐 수업」 줄의 재료. 잘린 교시는 「오늘은 N교시까지」 한 줄. */
-export function changeItems(feed: TimetableFeed, classId: string, ymd: string): (ChangeItem | string)[] {
+// 칠판은 짧아야 하므로 이어진 교시가 같은 과목으로 바뀌었으면 한 묶음으로(시험·행사 날 「1~6교시 학교 행사」).
+function runs(cells: TtCell[]): TtCell[][] {
+  const out: TtCell[][] = [];
+  for (const c of cells) {
+    const last = out.at(-1)?.at(-1);
+    if (last && last.period + 1 === c.period && last.subject === c.subject) out.at(-1)!.push(c);
+    else out.push([c]);
+  }
+  return out;
+}
+
+/** 칠판 「오늘 바뀐 수업」 줄의 재료. 잘린 교시는 「오늘은 N교시까지」 한 줄(다음 등교일이면 「그날은」). */
+export function changeItems(feed: TimetableFeed, classId: string, ymd: string, day = '오늘은'): (ChangeItem | string)[] {
   const { cells, until } = changesOf(feed.classes.find((c) => c.id === classId), ymd);
-  const items: (ChangeItem | string)[] = cells.map(itemOf);
-  if (until !== null) items.push(`오늘은 ${until}교시까지`);
+  const items: (ChangeItem | string)[] = runs(cells).map((run) => {
+    const one = itemOf(run[0]);
+    if (run.length === 1) return one;
+    // 원래 과목·학사일정 이름이 모두 같을 때만 남긴다(「5~6교시 영어 ~~체육~~」). 다르면 시간표 화면에서 본다.
+    const all = run.map(itemOf);
+    const same = (k: 'from' | 'note') => (all.every((i) => i[k] === one[k]) ? one[k] : null);
+    return { text: `${run[0].period}~${run.at(-1)!.period}교시 ${run[0].subject || '수업 없음'}`, from: same('from'), note: same('note') };
+  });
+  if (until !== null) items.push(`${day} ${until}교시까지`);
   return items;
+}
+
+/** 칠판 「6교시까지」: 그날 마지막 교시(「N교시까지」가 있으면 그것). 쉬는 날이거나 그날·반이 피드에 없으면 null. */
+export function lastPeriod(feed: TimetableFeed | null, classId: string, ymd: string): number | null {
+  const day = feed?.classes.find((c) => c.id === classId)?.days.find((d) => d.ymd === ymd);
+  if (!day || day.off) return null;
+  if (day.until !== null) return day.until;
+  const periods = day.cells.filter((c) => c.subject !== '').map((c) => c.period);
+  return periods.length ? Math.max(...periods) : null;
 }
 
 /** 원래 과목(줄긋기) 또는 학사일정 이름(작게). 줄긋기는 들리지 않으므로 「원래」를 숨은 글자로 둔다. 칠판과 시간표 안내판이 같이 쓴다. */
@@ -74,15 +101,18 @@ export function changeWhyHTML(i: { from: string | null; note: string | null }): 
   return i.note ? ` <small>${escapeHTML(i.note)}</small>` : '';
 }
 
-/** 날짜를 주(월요일) 단위로 묶고 '이번 주'·'다음 주' 이름을 붙인다. */
+// 이번 주부터 몇 주 뒤인지로 이름을 붙인다. 지난주는 피드에 없지만 오면 날짜로.
+const WEEK_NAMES = ['이번 주', '다음 주', '다다음 주'];
+
+/** 날짜를 주(월요일) 단위로 묶고 「이번 주」·「다음 주」·「다다음 주」·「3주 뒤」 이름을 붙인다(날짜 범위는 단추 아래 줄에 따로). */
 export function weekGroups(days: string[], today: string): { label: string; days: string[] }[] {
   const thisMonday = mondayOf(today);
   const groups = new Map<string, string[]>();
   for (const d of days) groups.set(mondayOf(d), [...(groups.get(mondayOf(d)) ?? []), d]);
-  return [...groups].map(([m, ds]) => ({
-    label: m === thisMonday ? '이번 주' : m === addDays(thisMonday, 7) ? '다음 주' : `${md(m)} 주`,
-    days: ds,
-  }));
+  return [...groups].map(([m, ds]) => {
+    const n = Math.round((Date.parse(m) - Date.parse(thisMonday)) / (7 * 86400000));
+    return { label: n < 0 ? `${md(m)} 주` : (WEEK_NAMES[n] ?? `${n}주 뒤`), days: ds };
+  });
 }
 
 const DAYS = ['일', '월', '화', '수', '목', '금', '토'];

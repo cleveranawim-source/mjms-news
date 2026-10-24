@@ -71,8 +71,11 @@ test('학년만 쉬는 날은 전체 보기에서 빨간 날이 아니고, 그 �
   assert.doesNotMatch(cell(1), /is-off/);
 });
 
-test('처음 고른 날, 읽기 이름', () => {
-  assert.equal(initialDay('2026-10', '2026-10-23', items), '2026-10-23');
+test('처음 고른 날: 오늘 일정이 있으면 오늘, 없으면 그 달 오늘 뒤 첫 일정 날, 그것도 없으면 오늘', () => {
+  assert.equal(initialDay('2026-10', '2026-10-23', items), '2026-10-26');
+  assert.equal(initialDay('2026-10', '2026-10-27', items), '2026-10-27');
+  assert.equal(initialDay('2026-10', '2026-10-29', items), '2026-10-29');
+  assert.equal(initialDay('2026-10', '2026-10-08', items), '2026-10-08');
   assert.equal(initialDay('2026-11', '2026-10-23', items), '2026-11-01');
   assert.equal(dayLabel('2026-10-07', 1), '10월 7일, 일정 1개');
 });
@@ -101,7 +104,9 @@ test('달력 칸: 날짜 단추, 읽기 이름, 고른 날, 오늘, 점, 앞뒤 
   assert.match(html, /class="cal-day is-today"[^>]*data-ymd="2026-10-23"/);
   // 공휴일은 빨간 글자·빨간 점, 점은 장식
   assert.match(html, /class="cal-day is-off"[^>]*data-ymd="2026-10-09"[^>]*>9<i class="cal-dot" aria-hidden="true"><\/i>/);
-  assert.match(html, /<span class="cal-out" aria-hidden="true">27<\/span>/);
+  // 앞뒤 달 칸은 비워 둔다(흐린 숫자는 읽히지도 않고 대비도 낮다)
+  assert.match(html, /<span class="cal-out" aria-hidden="true"><\/span>/);
+  assert.ok(!html.includes('>27</span>'));
   assert.match(html, /class="cal-day is-sun"[^>]*data-ymd="2026-10-04"/);
   assert.match(html, /class="cal-day is-sat"[^>]*data-ymd="2026-10-10"/);
 });
@@ -119,6 +124,11 @@ test('고른 날 목록과 달 목록: 이름 · 배지, 없으면 안내 문구
   assert.match(month, /<span class="sign-date">7~8일<\/span><span class="sign-title">중간고사<\/span>/);
   assert.match(month, /<span class="sign-date">9일 금<\/span><span class="sign-title">한글날<\/span><span class="badge-off">공휴일<\/span>/);
   assert.match(monthRowsHTML('2026-11', items, null), /이달에는 학사일정이 없어요/);
+  // 오늘을 주면 끝난 일정 줄은 흐리게(is-past)
+  const past = monthRowsHTML('2026-10', items, null, '2026-10-24');
+  assert.match(past, /<li class="is-past"><span class="sign-date">7~8일/);
+  assert.match(past, /<li><span class="sign-date">26~28일/);
+  assert.ok(!month.includes('is-past'));
   const cross = [{ title: '<b>여행', start: '2026-09-30', end: '2026-10-02', grades: [2], kind: 'event' }];
   assert.match(monthRowsHTML('2026-10', cross, 2), /9월&nbsp;30일~<wbr>10월&nbsp;2일<\/span><span class="sign-title">&lt;b&gt;여행/);
 });

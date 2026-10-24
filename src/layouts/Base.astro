@@ -12,10 +12,10 @@ interface Props {
 const { title, description = site.description } = Astro.props;
 const fullTitle = title ? `${title} | ${site.title}` : site.title;
 const path = Astro.url.pathname;
-// 아래 탭(휴대폰·넓은 화면 모두). icon은 24×24 선 그림.
+// 아래 탭(휴대폰·넓은 화면 모두). icon은 24×24 선 그림. 「가정<wbr>통신문」: 글자를 키워 칸이 좁아지면 낱말 사이에서만 줄을 바꾼다.
 const nav = [
-  { label: '오늘', to: href(), icon: '<rect x="3" y="4" width="18" height="12" rx="1.5"/><path d="M8 20h8M12 16v4"/>' },
-  { label: '가정통신문', to: href('notices/'), icon: '<path d="M6 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6z"/><path d="M9 8h6M9 12h6M9 16h4"/>' },
+  { label: '오늘', to: href(), icon: '<path d="M3 11l9-7 9 7"/><path d="M5 9.5V20h14V9.5"/><path d="M10 20v-5h4v5"/>' },
+  { label: '가정<wbr>통신문', to: href('notices/'), icon: '<path d="M6 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6z"/><path d="M9 8h6M9 12h6M9 16h4"/>' },
   { label: '일정', to: href('schedule/'), icon: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>' },
   ...(site.lostFoundApi
     ? [{ label: '분실물', to: href('lost/'), icon: '<path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/>' }]
@@ -25,6 +25,8 @@ const nav = [
     : []),
 ];
 const isCurrent = (to: string) => (to === href() ? path === to : path.startsWith(to));
+// 이용 안내 화면에서는 바닥글이 자기 자신을 가리키지 않게 한다.
+const onAbout = path.startsWith(href('about/'));
 ---
 
 <!doctype html>
@@ -57,7 +59,7 @@ const isCurrent = (to: string) => (to === href() ? path === to : path.startsWith
     </main>
     <footer class="site-footer">
       <div class="wrap">
-        <p><a class="footer-link" href={href('about/')}>이용 안내</a></p>
+        {!onAbout && <p><a class="footer-link" href={href('about/')}>이용 안내</a></p>}
         <p>이 사이트는 로그인이 없고, 방문자의 개인정보나 쿠키를 수집하지 않습니다.</p>
         <p>
           개별 상담과 서류 제출은 학교 공식 창구를 이용해 주세요.
@@ -71,7 +73,7 @@ const isCurrent = (to: string) => (to === href() ? path === to : path.startsWith
         nav.map((n) => (
           <a href={n.to} aria-current={isCurrent(n.to) ? 'page' : undefined}>
             <svg viewBox="0 0 24 24" aria-hidden="true" set:html={n.icon} />
-            <span>{n.label}</span>
+            <span set:html={n.label} />
           </a>
         ))
       }

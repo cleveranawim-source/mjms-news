@@ -1,5 +1,6 @@
 ---
 // 가정통신문 문서 카드: 배지 줄(대상 · 새 글 · 준비물) → 제목 → 게시일 · 호수. 카드 전체가 링크다.
+// 「새 글」은 2주 안의 글에 붙여 내보내고, 이 기기에서 이미 연 글이면 목록 스크립트가 뗀다(data-id).
 import type { FeedLetter } from '../lib/feed.ts';
 import { gradesOrAll } from '../lib/content.ts';
 import { formatMonthDay } from '../lib/dates.ts';
@@ -14,7 +15,7 @@ interface Props {
 const { letter: l, isNew } = Astro.props;
 ---
 
-<li data-grades={gradesOrAll(l.grades).join(' ')}>
+<li data-grades={gradesOrAll(l.grades).join(' ')} data-id={l.id}>
   <article class="doc">
     <a class="doc-link" href={href(`notices/${l.id}/`)}>
       <span class="doc-badges">

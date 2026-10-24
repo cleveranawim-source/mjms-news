@@ -33,6 +33,20 @@ execFileSync('npx', ['astro', 'build', '--outDir', noScheduleOut], {
 });
 const readNoSchedule = (p) => readFileSync(resolve(noScheduleOut, p), 'utf8');
 
+test('가정통신문 한 건: AI 요약 안내는 정보 표 바로 아래, 연 글은 이 기기에 「읽음」으로', () => {
+  const l = feed.letters[0];
+  const html = read(`notices/${l.id}/index.html`);
+  assert.match(html, /<\/dl>\s*<p class="facts-note">요약은 AI가 만들고 선생님이 확인했어요\. 원문과 다르면 원문이 맞아요\./);
+  assert.match(html, /mjms-read/);
+});
+
+test('가정통신문 목록·첫 화면: 카드와 줄에 글 id를 달아 이 기기에서 읽은 글을 가린다', () => {
+  const l = feed.letters[0];
+  assert.match(read('notices/index.html'), new RegExp(`<li[^>]*data-id="${l.id}"`));
+  assert.match(read('notices/index.html'), /mjms-read/);
+  assert.match(read('index.html'), /data-letter-id=/);
+});
+
 test('가정통신문 한 건: 원문 링크·요약·첨부, 준비물은 정보 표에', () => {
   const l = feed.letters[0];
   const html = read(`notices/${l.id}/index.html`);
@@ -60,7 +74,7 @@ test('가정통신문 목록: 문서 카드 = 배지 → 제목 → 게시일·�
 
 test('가정통신문 목록: 카드 전체가 링크, 새 글·준비물 표시, 게시일 최신순', () => {
   const html = read('notices/index.html');
-  const cards = [...html.matchAll(/<li data-grades="([^"]*)">\s*<article class="doc"[\s\S]*?<\/article>/g)];
+  const cards = [...html.matchAll(/<li data-grades="([^"]*)" data-id="[^"]*">\s*<article class="doc"[\s\S]*?<\/article>/g)];
   assert.equal(cards.length, feed.letters.length + 1);
   const by = (id) => cards.find((c) => c[0].includes(`/notices/${id}/`))[0];
   const first = by('L-2026-1022-3');
@@ -156,6 +170,11 @@ test('첫 화면에 예전 예시 알림이 없다', () => {
 
 test('이용 안내에 원문 확인 안내가 있다', () => {
   assert.match(read('about/index.html'), /정확한 내용은 원문을 봐 주세요/);
+  // 이용 안내 화면 바닥글은 자기 자신으로 가는 링크를 두지 않는다
+  assert.ok(!read('about/index.html').includes('class="footer-link"'));
+  assert.match(read('index.html'), /class="footer-link"/);
+  // 개인정보 자세한 설명은 펼쳐 보기
+  assert.match(read('about/index.html'), /<details[\s\S]*<summary>[^<]*자세히/);
 });
 
 test('피드 글자가 칠판 JSON을 끊지 못하고, JSON은 그대로 읽힌다', () => {
@@ -235,7 +254,7 @@ test('분실물 안내판: 처음엔 감춰 두고 분실물함으로 간다', (
 test('모든 화면: 아래 탭 라벨, 명패, IBM Plex 없음', () => {
   for (const f of ['index.html', 'notices/index.html', 'schedule/index.html', 'timetable/index.html', 'lost/index.html', 'about/index.html']) {
     const html = read(f);
-    assert.match(html, /class="tabbar"[\s\S]*오늘[\s\S]*가정통신문[\s\S]*일정[\s\S]*분실물[\s\S]*시간표/, f);
+    assert.match(html, /class="tabbar"[\s\S]*오늘[\s\S]*가정<wbr>통신문[\s\S]*일정[\s\S]*분실물[\s\S]*시간표/, f);
     assert.match(html, /class="plate/, f);
     assert.ok(!/ibm-plex|IBM Plex/i.test(html), f);
     assert.match(html, /data-class-sheet/, f);

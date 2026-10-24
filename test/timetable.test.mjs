@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadTimetable, weekTableHTML, changesBoxHTML, changesTarget, changeItems, weekGroups, weekRange } from '../src/lib/timetable.ts';
+import { loadTimetable, weekTableHTML, changesBoxHTML, changesTarget, changeItems, lastPeriod, weekGroups, weekRange } from '../src/lib/timetable.ts';
 
 const cell = (period, subject, extra = {}) => ({ period, subject, special: false, changed: null, ...extra });
 const feed = {
@@ -189,4 +189,40 @@ test('changeItems와 changesBoxHTML은 같은 줄 규칙을 쓴다', () => {
   assert.ok(box.indexOf('1교시') < box.indexOf('3교시'));
   assert.match(box, /<b>영어<\/b> <s><span class="sr-only">원래 <\/span>체육<\/s>/);
   assert.match(box, /<b>창체<\/b> <small>동아리활동<\/small>/);
+});
+
+test('changeItems: 다음 등교일 줄은 「그날은 N교시까지」', () => {
+  const f = { ...feed, classes: [{ id: 'c', name: '1-1', grade: 1, days: [{ ymd: 'd', off: null, until: 4, cells: [cell(5, '', { changed: { from: '국어', note: null } })] }] }] };
+  assert.deepEqual(changeItems(f, 'c', 'd', '그날은'), ['그날은 4교시까지']);
+});
+
+test('lastPeriod: 그날 마지막 교시(N교시까지가 있으면 그것), 쉬는 날·없는 날은 null', () => {
+  const f = { ...feed, classes: [{ id: 'c', name: '1-1', grade: 1, days: [
+    { ymd: 'a', off: null, until: null, cells: [cell(1, '국어'), cell(6, '수학'), cell(7, '')] },
+    { ymd: 'b', off: null, until: 4, cells: [cell(1, '국어'), cell(6, '수학')] },
+    { ymd: 'c', off: '재량휴업일', until: null, cells: [] },
+    { ymd: 'e', off: null, until: null, cells: [] },
+  ] }] };
+  assert.equal(lastPeriod(f, 'c', 'a'), 6);
+  assert.equal(lastPeriod(f, 'c', 'b'), 4);
+  assert.equal(lastPeriod(f, 'c', 'c'), null);
+  assert.equal(lastPeriod(f, 'c', 'e'), null);
+  assert.equal(lastPeriod(f, 'c', 'z'), null);
+  assert.equal(lastPeriod(null, 'c', 'a'), null);
+});
+
+test('weekGroups: 셋째 주부터 「다다음 주」, 「3주 뒤」(날짜는 단추 아래 줄에 따로)', () => {
+  const days = ['2026-10-22', '2026-10-26', '2026-11-02', '2026-11-09'];
+  assert.deepEqual(weekGroups(days, '2026-10-22').map((g) => g.label), ['이번 주', '다음 주', '다다음 주', '3주 뒤']);
+});
+
+test('changeItems: 이어진 교시가 같은 과목으로 바뀌면 칠판에는 한 줄(「1~3교시 학교 행사」)', () => {
+  const ch = (p, subject, from, note = null) => cell(p, subject, { changed: { from, note } });
+  const f = { ...feed, classes: [{ id: 'c', name: '1-1', grade: 1, days: [{ ymd: 'd', off: null, until: null, cells: [
+    ch(1, '학교 행사', '역사'), ch(2, '학교 행사', '과학'), ch(3, '학교 행사', '음악'), ch(5, '영어', '체육'), ch(6, '영어', '체육'),
+  ] }] }] };
+  assert.deepEqual(changeItems(f, 'c', 'd'), [
+    { text: '1~3교시 학교 행사', from: null, note: null },
+    { text: '5~6교시 영어', from: '체육', note: null },
+  ]);
 });

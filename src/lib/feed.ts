@@ -55,13 +55,17 @@ function toEvent(x: unknown): FeedEvent | null {
 }
 
 const KINDS = ['holiday', 'dayoff', 'event'];
+// 나이스가 행사 앞에 붙이는 분류 머리말(「(적응)학교폭력예방교육」, 「(자치)학급임원선거」)은 학부모에게 뜻이 없어 뗀다.
+const PREFIX = /^\([가-힣]{1,4}\)\s*/;
+const cleanTitle = (t: string) => t.replace(PREFIX, '') || t;
+
 function toScheduleItem(x: unknown): FeedScheduleItem | null {
   if (!isObj(x)) return null;
   const ok =
     isStr(x.title) && x.title.length >= 1 && x.title.length <= 100 && isYmd(x.start) && isYmd(x.end) && x.start <= x.end &&
     isGrades(x.grades) && isStr(x.kind) && KINDS.includes(x.kind);
   return ok
-    ? { title: x.title as string, start: x.start as string, end: x.end as string, grades: [...(x.grades as number[])], kind: x.kind as FeedScheduleItem['kind'] }
+    ? { title: cleanTitle(x.title as string), start: x.start as string, end: x.end as string, grades: [...(x.grades as number[])], kind: x.kind as FeedScheduleItem['kind'] }
     : null;
 }
 

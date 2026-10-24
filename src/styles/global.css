@@ -369,7 +369,8 @@ main {
   .tabbar span {
     max-width: 100%;
     white-space: normal;
-    word-break: break-all;
+    word-break: keep-all;
+    overflow-wrap: normal;
     text-align: center;
   }
 }
@@ -621,6 +622,78 @@ p.sheet-status {
   color: var(--chalk-dim);
 }
 
+/* 날짜 줄 왼쪽, 칠판 귀퉁이 D-day 오른쪽(좁으면 아래 줄로) */
+.board-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px 12px;
+}
+
+/* 「· 6교시까지」: 우리 반 시간표를 받으면 채운다 */
+.board-until {
+  font-size: var(--fs-15);
+  color: var(--chalk-dim);
+}
+
+.board-until:not(:empty)::before {
+  content: '· ';
+}
+
+/* 귀퉁이 D-day: 이름은 흐린 분필, 남은 날은 노란 분필. 학년마다 가장 가까운 한 줄만. */
+.board-dday {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--fs-15);
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--chalk-dim);
+}
+
+.board-dday b {
+  margin-left: 4px;
+  font-size: var(--fs-17);
+  font-weight: 800;
+  color: var(--chalk-yellow);
+  font-variant-numeric: tabular-nums;
+}
+
+.board-dday .badge {
+  margin-left: 4px;
+  vertical-align: 1px;
+}
+
+:root:not([data-grade]) .board-dday > li + li,
+[data-grade='1'] .board-dday > li:not(:nth-child(1 of [data-grades~='1'])),
+[data-grade='2'] .board-dday > li:not(:nth-child(1 of [data-grades~='2'])),
+[data-grade='3'] .board-dday > li:not(:nth-child(1 of [data-grades~='3'])) {
+  display: none;
+}
+
+/* 쉬는 날: 「다음 등교 10월 26일 (월) · 6교시까지」 */
+.board-next {
+  margin: 12px 0 0;
+  font-size: var(--fs-15);
+  color: var(--chalk-dim);
+}
+
+.board-dayoff + .board-next {
+  margin-top: 2px;
+}
+
+.board-next b {
+  margin-left: 2px;
+  font-size: var(--fs-17);
+  font-weight: 700;
+  color: var(--chalk);
+}
+
+.board-next .board-until {
+  margin-left: 6px;
+}
+
 .board-dayoff {
   margin: 12px 0 0;
   font-size: var(--fs-17);
@@ -652,12 +725,13 @@ p.sheet-status {
   line-height: 1.5;
 }
 
-/* 바뀐 수업: 원래 과목은 줄 긋고 흐리게 */
+/* 바뀐 수업: 원래 과목은 줄 긋고 흐리게. 한글 가로획에 묻히지 않게 줄은 1.5px. */
 .board-items s {
   margin-left: 2px;
-  font-size: 0.875rem;
+  font-size: var(--fs-15);
   font-weight: 400;
   color: var(--chalk-dim);
+  text-decoration-thickness: 1.5px;
 }
 
 .board-items small {
@@ -799,7 +873,7 @@ p.sheet-status {
 
 .sign-note {
   margin: 0;
-  font-size: var(--fs-15);
+  font-size: var(--fs-17);
   color: #33404d;
 }
 
@@ -807,7 +881,7 @@ p.sheet-status {
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: var(--fs-15);
+  font-size: var(--fs-17);
 }
 
 .sign-rows > li {
@@ -867,6 +941,26 @@ p.sheet-status {
   text-decoration: underline;
 }
 
+/* 이 기기에서 아직 안 연 가정통신문: 굵게, 판 제목 옆에 「안 읽은 글 N」 */
+.sign-rows .is-unread .sign-title {
+  font-weight: 700;
+}
+
+.sign-count {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--red);
+  color: #fff;
+  font-size: var(--fs-12);
+  font-weight: 700;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
 /* 보기(전체·1·2·3학년)마다 data-show에 든 줄만. 처음 보이는 줄 위에는 괘선을 긋지 않는다. */
 :root:not([data-grade]) .sign--views .sign-rows > li:not([data-show~='all']),
 [data-grade='1'] .sign--views .sign-rows > li:not([data-show~='1']),
@@ -908,7 +1002,7 @@ p.sheet-status {
 
 .meal-dishes {
   margin: 0;
-  font-size: var(--fs-15);
+  font-size: var(--fs-17);
   color: #33404d;
 }
 
@@ -1229,6 +1323,15 @@ p.sheet-status {
   white-space: normal;
 }
 
+/* 달 목록: 끝난 일정은 흐리게(배지 색은 그대로 두지 않고 함께 낮춘다) */
+.sign-rows--cal > li.is-past {
+  color: var(--muted);
+}
+
+.sign-rows--cal > li.is-past .badge {
+  opacity: 0.6;
+}
+
 .cal-src {
   margin: 10px 0 0;
   font-size: var(--fs-12);
@@ -1253,6 +1356,31 @@ p.sheet-status {
 
 .prose > :first-child {
   margin-top: 0;
+}
+
+.prose h2 {
+  margin: 1.75rem 0 0.5rem;
+  font-size: var(--fs-20);
+}
+
+.prose ul {
+  margin: 0.5rem 0 1rem;
+  padding-left: 1.25rem;
+}
+
+/* 이용 안내의 긴 설명은 접어 둔다. 펼치는 줄도 누르는 곳 44px. */
+.about-more summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 700;
+  color: var(--navy);
+  cursor: pointer;
+}
+
+.about-more p {
+  margin-top: 0.25rem;
+  color: #33404d;
 }
 
 .prose li + li {
@@ -1486,7 +1614,7 @@ html[data-grade] .docs[data-view='all'] > li {
   margin-left: auto;
   font-size: var(--fs-13);
   font-weight: 700;
-  color: var(--red);
+  color: var(--navy);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1524,6 +1652,22 @@ html[data-grade] .docs[data-view='all'] > li {
   padding: 7px 10px;
   font-size: var(--fs-15);
   line-height: 1.5;
+}
+
+/* 정보 표 바로 아래: AI 요약이라는 것과 원문이 우선이라는 것 */
+.facts-note {
+  margin: 0 14px;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--rule);
+  font-size: var(--fs-13);
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.facts-note a {
+  margin-left: 2px;
+  font-weight: 700;
+  color: var(--navy);
 }
 
 .facts .badge {
@@ -1778,6 +1922,13 @@ html[data-grade] .docs[data-view='all'] > li {
   min-width: 44px;
 }
 
+/* 넓은 화면: 바닥 탭 카드가 바닥글 바로 위에 붙지 않게 */
+@media (min-width: 48rem) {
+  .site-footer {
+    padding-bottom: 3.5rem;
+  }
+}
+
 @media print {
   .tabbar,
   .site-footer,
@@ -1878,20 +2029,23 @@ html[data-grade] .docs[data-view='all'] > li {
 
 .tt-weeks button span {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  column-gap: 4px;
   height: 100%;
-  min-height: 38px;
+  min-height: 44px;
+  padding: 3px 0;
   border-radius: 8px;
   font-size: var(--fs-15);
-  font-weight: 600;
+  font-weight: 700;
   line-height: 1.25;
 }
 
+/* 날짜 범위: 이름 아래 작게 */
 .tt-weeks button small {
-  font-size: inherit;
+  font-size: var(--fs-12);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
 .tt-weeks button:hover span {
@@ -1945,7 +2099,7 @@ html[data-grade] .docs[data-view='all'] > li {
   table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
-  font-size: 0.875rem;
+  font-size: var(--fs-15);
   line-height: 1.2;
   text-align: center;
 }
@@ -1971,7 +2125,7 @@ html[data-grade] .docs[data-view='all'] > li {
 
 .tt-grid thead small {
   display: block;
-  font-size: 0.6875rem;
+  font-size: var(--fs-12);
   font-weight: 500;
 }
 
@@ -2027,9 +2181,15 @@ html[data-grade] .docs[data-view='all'] > li {
 .tt-grid .tt-note,
 .tt-grid .tt-special {
   display: block;
-  font-size: 0.6875rem;
+  font-size: var(--fs-12);
   font-weight: 500;
   color: var(--muted);
+}
+
+/* 원래 과목: 진한 회색 + 1.5px 줄. 11px 회색 줄은 한글 가로획에 묻혀 보이지 않았다. */
+.tt-grid td.tt-changed s {
+  color: #33404d;
+  text-decoration-thickness: 1.5px;
 }
 
 .tt-grid .tt-special {

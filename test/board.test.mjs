@@ -181,3 +181,51 @@ test('changesFor: 못 받음 → error, 그날·반이 피드에 없음 → nofe
   assert.deepEqual(changesFor(tt, 'class-9_9', '2026-10-22'), { kind: 'nofeed' });
   assert.equal(changesFor(tt, 'class-1_5', '2026-10-26'), null);
 });
+
+test('주말·쉬는 날 칠판은 다음 등교일을 알린다(날짜 줄 아래 「다음 등교」, 등교일에는 없음)', () => {
+  const sat = boardFromFeed('2026-10-24', feed());
+  assert.equal(sat.closed, true);
+  assert.equal(sat.next, '2026-10-26');
+  const html = boardHTML(sat, '/');
+  assert.match(html, /id="board-date"[\s\S]*10월 24일[\s\S]*토요일/);
+  assert.match(html, /class="board-next">다음 등교 <b>10월 26일 \(월\)<\/b><span class="board-until" data-board-until><\/span><\/p>/);
+  const off = boardFromFeed('2026-10-22', feed({ daysOff: [{ title: '재량휴업일', start: '2026-10-22', end: '2026-10-22' }] }));
+  assert.equal(off.closed, true);
+  assert.match(boardHTML(off, '/'), /오늘은 재량휴업일입니다[\s\S]*다음 등교 <b>10월 23일 \(금\)/);
+  const open = boardFromFeed('2026-10-22', feed());
+  assert.equal(open.closed, false);
+  const openHtml = boardHTML(open, '/');
+  assert.ok(!openHtml.includes('다음 등교'));
+  // 등교일에는 몇 교시까지인지를 날짜 줄 끝에 브라우저가 채운다
+  assert.match(openHtml, /class="board-date" id="board-date">[\s\S]*<span class="board-until" data-board-until><\/span><\/p>/);
+});
+
+test('다음 등교일 바뀐 수업: 제목과 「그날 시간표가 아직 없어요」', () => {
+  for (const kind of ['none', 'nofeed', 'error', 'loading']) assert.match(changesStateHTML({ kind }, true), /다음 등교일 바뀐 수업/);
+  assert.match(changesStateHTML({ kind: 'nofeed' }, true), /그날 시간표가 아직 없어요/);
+  assert.ok(!changesStateHTML({ kind: 'nofeed' }, true).includes('오늘'));
+});
+
+test('D-day: 오늘 뒤 60일 안의 시험·방학·행사 이름만, 가까운 순, 학년 배지', () => {
+  const s = [
+    { title: '기말고사', start: '2026-10-26', end: '2026-10-28', grades: [3], kind: 'event' },
+    { title: '학급자치회의', start: '2026-10-26', end: '2026-10-26', grades: [], kind: 'event' },
+    { title: '북적북적나들이', start: '2026-10-30', end: '2026-10-30', grades: [], kind: 'event' },
+    { title: '대학수학능력시험', start: '2026-11-19', end: '2026-11-19', grades: [], kind: 'dayoff' },
+    { title: '기말고사', start: '2026-12-07', end: '2026-12-09', grades: [1, 2], kind: 'event' },
+    { title: '겨울방학', start: '2027-01-01', end: '2027-02-28', grades: [], kind: 'dayoff' },
+    { title: '체육대회', start: '2026-10-24', end: '2026-10-24', grades: [], kind: 'event' },
+  ];
+  const b = boardFromFeed('2026-10-24', feed({ schedule: s }));
+  assert.deepEqual(b.dday.map((d) => [d.title, d.days, d.grades]), [
+    ['기말고사', 2, [3]],
+    ['북적북적나들이', 6, [1, 2, 3]],
+    ['기말고사', 44, [1, 2]],
+  ]);
+  const html = boardHTML(b, '/');
+  assert.match(html, /<ul class="board-dday">[\s\S]*<li data-grades="3"><span class="board-dday-name">기말고사<\/span> <span class="badge badge--g3 board-badge">3학년<\/span> <b>D-2<\/b><\/li>/);
+  assert.match(html, /<li data-grades="1 2 3"><span class="board-dday-name">북적북적나들이<\/span> <b>D-6<\/b><\/li>/);
+  // 방학은 방학 이름으로, 60일 넘게 남았으면 쓰지 않는다
+  assert.equal(boardFromFeed('2026-12-20', feed({ schedule: s })).dday[0].title, '겨울방학');
+  assert.ok(!boardHTML(boardFromFeed('2026-10-22', feed({ schedule: [] })), '/').includes('board-dday'));
+});
