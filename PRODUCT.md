@@ -48,7 +48,8 @@ web
 
 ## Evidence on Hand
 
-- 교표 이미지: public/emblem.png.
+- 교표 이미지: public/emblem.png. 화면 안 명판과 가정통신문에 쓴다.
+- 앱 아이콘(바탕화면 바로가기·탭·안드로이드): 남색 바탕의 웃는 칠판(2026-10-24, Codex 이미지 생성). favicon 64, apple-touch-icon 180, icon-192, icon-512, icon-512-maskable(그림을 72%로 줄여 둥근 틀 안전 영역에 넣음).
 - 실제 데이터: AI 교무실 피드(가정통신문, 급식), 시간표 API, 분실물 API, 나이스 학사일정.
 - 디자인 검토 기록: .impeccable/critique/ (2026-10-23, 20/40).
 - 사용자 후기나 이용 통계는 아직 없다. 지어내지 않는다.
