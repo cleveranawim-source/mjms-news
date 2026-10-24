@@ -55,9 +55,16 @@ export function monthsOf(items: Item[], today: string): string[] {
   return [...year, ...extra.slice(0, keep)];
 }
 
-/** 처음 고른 날: 오늘이 그 달이면 오늘, 아니면 그 달 첫 일정 날(앞 달에서 이어지면 1일), 없으면 1일. items는 이미 거른 것을 준다. */
+/**
+ * 처음 고른 날. 오늘이 그 달이면: 오늘 일정이 있으면 오늘, 없으면 오늘 뒤 그 달 첫 일정 날(주말에 열어도 빈 칸을 보지 않게), 그것도 없으면 오늘.
+ * 다른 달이면 그 달 첫 일정 날(앞 달에서 이어지면 1일), 없으면 1일. items는 이미 거른 것을 준다.
+ */
 export function initialDay(ym: string, today: string, items: Item[]): string {
-  if (today.startsWith(ym)) return today;
+  if (today.startsWith(ym)) {
+    if (itemsOn(today, items, null).length > 0) return today;
+    const after = items.filter((i) => i.start > today && i.start.startsWith(ym)).map((i) => i.start).sort()[0];
+    return after ?? today;
+  }
   const first = monthItems(ym, items, null)[0];
   const day1 = `${ym}-01`;
   return first && first.start > day1 ? first.start : day1;
@@ -89,12 +96,12 @@ export function monthTitle(ym: string): string {
   return `${Number(ym.slice(5, 7))}월 일정 전체`;
 }
 
-/** 달력 칸. 그 달 날짜는 단추(읽기 이름·고른 날 aria-pressed), 앞뒤 달은 흐린 글자(읽지 않음). 점은 장식. */
+/** 달력 칸. 그 달 날짜는 단추(읽기 이름·고른 날 aria-pressed), 앞뒤 달은 빈 칸. 점은 장식. */
 export function gridHTML(ym: string, today: string, selected: string, items: Item[], grade: number | null): string {
   return monthCells(ym)
     .map(({ ymd, inMonth }) => {
       const d = Number(ymd.slice(8, 10));
-      if (!inMonth) return `<span class="cal-out" aria-hidden="true">${d}</span>`;
+      if (!inMonth) return '<span class="cal-out" aria-hidden="true"></span>';
       const on = itemsOn(ymd, items, grade);
       // 학년만 쉬는 날은 그 학년 보기에서만 빨간 날
       const off = on.some((i) => i.kind !== 'event' && (i.grades.length === 0 || grade !== null));
@@ -115,13 +122,14 @@ export function dayRowsHTML(ymd: string, items: Item[], grade: number | null): s
   return `<ul class="sign-rows sign-rows--day">${on.map((i) => `<li>${row(i)}</li>`).join('')}</ul>`;
 }
 
-/** 달 목록 안내판 내용: 날짜 · 이름 · 배지. 긴 날짜는 「~」 뒤에서 줄을 바꿀 수 있게. */
-export function monthRowsHTML(ym: string, items: Item[], grade: number | null): string {
+/** 달 목록 안내판 내용: 날짜 · 이름 · 배지. 긴 날짜는 「~」 뒤에서 줄을 바꿀 수 있게. today를 주면 끝난 일정 줄은 흐리게. */
+export function monthRowsHTML(ym: string, items: Item[], grade: number | null, today?: string): string {
   const list = monthItems(ym, items, grade);
   if (list.length === 0) return '<p class="sign-note">이달에는 학사일정이 없어요</p>';
   const date = (i: Item) => {
     const text = escapeHTML(rangeLabel(i));
     return i.start.slice(0, 7) === i.end.slice(0, 7) ? text : text.replace(/ /g, '&nbsp;').replace('~', '~<wbr>');
   };
-  return `<ul class="sign-rows sign-rows--cal">${list.map((i) => `<li><span class="sign-date">${date(i)}</span>${row(i)}</li>`).join('')}</ul>`;
+  const li = (i: Item) => (today && i.end < today ? '<li class="is-past">' : '<li>');
+  return `<ul class="sign-rows sign-rows--cal">${list.map((i) => `${li(i)}<span class="sign-date">${date(i)}</span>${row(i)}</li>`).join('')}</ul>`;
 }

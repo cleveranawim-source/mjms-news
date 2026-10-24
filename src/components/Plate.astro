@@ -4,7 +4,7 @@
 //   단추를 누르면 반 고르기 창이 열린다(2026-10-23 이승열 P, 시안 A).
 // kind='class'(시간표): 저장된 반으로 제목을 채운다(「1학년 5반」 + title 접미사). 반이 없으면 「우리 반을 골라 주세요」.
 // kind='page': 제목만 쓴다 — 바로 아래 내용과 같은 말을 되풀이하는 보조 줄을 두지 않는다.
-// classButton: class 명패에 반 고르기 단추를 둘지(반이 있으면 「반 바꾸기」, 없으면 「반 고르기」). class 명패는 기본으로 켠다.
+// classButton: class 명패에 「반 바꾸기」 단추를 둘지(반을 골랐을 때만 보인다). class 명패는 기본으로 켠다.
 // 반 단추는 hidden으로 내보내고 아래 스크립트가 켠다(자바스크립트가 없으면 누를 수 없는 단추를 보이지 않는다).
 // compact: 교표 없이 한 단 낮게(시간표처럼 제목이 긴 class 명패).
 import { href } from '../lib/paths.ts';
@@ -54,7 +54,7 @@ const isBrand = kind === 'brand';
   {
     isClass && classButton && (
       <button type="button" class="plate-btn" data-open-class-sheet aria-haspopup="dialog" hidden>
-        <span data-plate-btn>반 고르기</span>
+        <span data-plate-btn>반 바꾸기</span>
       </button>
     )
   }
@@ -95,10 +95,11 @@ const isBrand = kind === 'brand';
         chip.hidden = false;
         return;
       }
+      // 반이 없으면 본문의 큰 「반 고르기」 단추 하나만 두고 명패 단추는 감춘다(같은 단추가 두 번 보이지 않게).
       const btn = plate.querySelector('[data-plate-btn]');
       if (btn) {
-        btn.textContent = m ? '반 바꾸기' : '반 고르기';
-        btn.parentElement.hidden = false;
+        btn.textContent = '반 바꾸기';
+        btn.parentElement.hidden = !m;
       }
       if (!plate.hasAttribute('data-plate-class')) return;
       plate.classList.toggle('plate--empty', !m);

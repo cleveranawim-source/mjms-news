@@ -6,7 +6,7 @@ import { getLetters } from '../../lib/content.ts';
 import { buildToday } from '../../lib/dates.ts';
 import { isNewLetter } from '../../lib/home.ts';
 
-// 게시일 최신순. 「새 글」은 매일 아침 빌드 날 기준 2주 안.
+// 게시일 최신순. 「새 글」은 매일 아침 빌드 날 기준 2주 안, 그중 이 기기에서 연 글은 브라우저가 뗀다.
 const letters = await getLetters();
 const today = buildToday();
 const pills = [
@@ -74,6 +74,9 @@ const pills = [
       let id = '';
       try {
         id = localStorage.getItem('mjms-class') || '';
+        // 이 기기에서 이미 연 글은 「새 글」을 뗀다(꼴은 lib/read.ts와 같다).
+        const read = JSON.parse(localStorage.getItem('mjms-read') || '[]');
+        if (Array.isArray(read)) for (const li of items) if (read.includes(li.dataset.id)) li.querySelector('.badge--new')?.remove();
       } catch {}
       setClass(id);
       filter.hidden = false;

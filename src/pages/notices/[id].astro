@@ -33,6 +33,10 @@ const paragraphs = l.summary.split(/\n+/).map((p) => p.trim()).filter(Boolean);
       {l.due && <div><dt>준비물 챙길 날</dt><dd>{formatDate(l.due)}</dd></div>}
       <div><dt>게시일</dt><dd>{formatDate(l.postedOn)}</dd></div>
     </dl>
+    <p class="facts-note">
+      요약은 AI가 만들고 선생님이 확인했어요. 원문과 다르면 원문이 맞아요.
+      {/^https?:\/\//.test(l.sourceUrl) && <a class="tap-inline" href={l.sourceUrl} target="_blank" rel="noopener noreferrer">원문 보기</a>}
+    </p>
 
     <div class="letter-body">
       {paragraphs.map((p) => <p>{p}</p>)}
@@ -49,4 +53,13 @@ const paragraphs = l.summary.split(/\n+/).map((p) => p.trim()).filter(Boolean);
     }
   </article>
   <button class="letter-print" type="button" onclick="window.print()">이 가정통신문 인쇄하기</button>
+  <script is:inline define:vars={{ id: l.id }}>
+    // 이 기기에서 연 글로 적어 둔다(목록·첫 화면의 「새 글」이 꺼진다). 꼴은 lib/read.ts와 같다: JSON 배열, 최근 200개.
+    try {
+      let ids = JSON.parse(localStorage.getItem('mjms-read') || '[]');
+      if (!Array.isArray(ids)) ids = [];
+      ids = ids.filter((x) => typeof x === 'string' && x !== id);
+      localStorage.setItem('mjms-read', JSON.stringify([...ids, id].slice(-200)));
+    } catch {}
+  </script>
 </Base>

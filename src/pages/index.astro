@@ -51,7 +51,7 @@ const letters = newLetterRows(feed.letters, today);
       <ul class="sign-rows" data-cap={LETTERS_N}>
         {
           letters.map(({ item, show, spare }) => (
-            <li data-show={show} data-spare={spare || undefined} data-published={item.publishedOn}>
+            <li data-show={show} data-spare={spare || undefined} data-published={item.publishedOn} data-letter-id={item.id}>
               <a href={href(`notices/${item.id}/`)}>
                 <span class="sign-title">{item.subject}</span>
                 <Fragment set:html={badgeHTML(item.grades)} />
@@ -77,6 +77,7 @@ const letters = newLetterRows(feed.letters, today);
   import { addDays, seoulToday } from '../lib/dates.ts';
   import { visibleShows } from '../lib/home.ts';
   import { loadLost } from '../lib/lost.ts';
+  import { readIds } from '../lib/read.ts';
 
   // 일정·가정통신문 판은 빌드한 날 기준이다. 아침 빌드를 놓쳐도 오늘·지난 일정(오늘 것은 칠판에), 2주 지난 글은 브라우저가 뺀다.
   // 빌드는 보기마다 예비 줄을 더 실어 두므로, 뺀 뒤 보기마다 앞에서 n개를 다시 고른다.
@@ -88,6 +89,13 @@ const letters = newLetterRows(feed.letters, today);
     const shows = visibleShows(lis.map((li) => ({ show: li.dataset.show ?? '', spare: li.dataset.spare ?? '' })), Number(ul.dataset.cap));
     lis.forEach((li, i) => (li.dataset.show = shows[i]));
   }
+
+  // 새 가정통신문 판: 이 기기에서 아직 안 연 글은 굵게, 제목 옆에 「안 읽은 글 N」(보이는 줄만 센다). 다 읽으면 없어진다.
+  const read = readIds();
+  const unread = [...document.querySelectorAll<HTMLElement>('[data-letter-id]')].filter((li) => !read.has(li.dataset.letterId!));
+  for (const li of unread) li.classList.add('is-unread');
+  const shown = unread.filter((li) => li.checkVisibility?.() ?? li.offsetParent !== null).length;
+  if (shown > 0) document.querySelector('#new-letters')?.insertAdjacentHTML('beforeend', ` <span class="sign-count">안 읽은 글 ${shown}</span>`);
 
   // 분실물 판: 보관 중인 물건이 있을 때만 「분실물 N개」로 보인다. 못 받거나 0개면 감춘 채로 둔다.
   const sign = document.querySelector<HTMLElement>('[data-lost-sign]');

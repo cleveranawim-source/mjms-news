@@ -1,7 +1,8 @@
 ---
-// 첫 화면 칠판 = 오늘 칸. 날짜(손글씨)·요일, 쉬는 날 줄, 우리 반 「오늘 바뀐 수업」, 챙길 것, 오늘 일정.
+// 첫 화면 칠판 = 오늘 칸. 날짜(손글씨)·요일과 귀퉁이 D-day, 쉬는 날 줄, 다음 등교(쉬는 날), 우리 반 바뀐 수업, 챙길 것, 오늘 일정.
+// 주말·쉬는 날에는 바뀐 수업·몇 교시까지를 다음 등교일 것으로 보여 준다(급식 안내판과 같은 기준).
 import { boardFromFeed, boardHTML } from '../lib/board.ts';
-import { buildToday, formatDate, weekday } from '../lib/dates.ts';
+import { buildToday } from '../lib/dates.ts';
 import { getFeed } from '../lib/feed.ts';
 import { base } from '../lib/paths.ts';
 import { site } from '../site.config.ts';
@@ -10,7 +11,6 @@ import { site } from '../site.config.ts';
 const feed = await getFeed();
 const today = buildToday();
 const html = boardHTML(boardFromFeed(today, feed), base);
-const dayLabel = (iso: string) => formatDate(iso).replace(/ \(.\)$/, '');
 // 브라우저가 다시 그릴 때 쓰는 칸만 싣는다: 준비물이 있는 알림, 학사일정·쉬는 날, 오늘부터의 급식.
 const letters = feed.letters
   .filter((l) => l.bring.length > 0 && l.due && l.due >= today)
@@ -21,33 +21,27 @@ const boardJson = JSON.stringify({ base, letters, schedule: feed.schedule, daysO
 ---
 
 <section class="board" aria-labelledby="board-date" data-today={today} data-tt-api={site.timetableApi || undefined}>
-  <p class="board-date" id="board-date">
-    <span class="board-day" data-board-day>{dayLabel(today)}</span>{' '}
-    <span class="board-weekday" data-board-weekday>{weekday(today)}요일</span>
-  </p>
   <div class="board-groups" data-board-groups set:html={html} />
   <script type="application/json" data-board-json set:html={boardJson} />
 </section>
 
 <script>
   import { boardFromFeed, boardHTML, changesFor, changesStateHTML } from '../lib/board.ts';
-  import { seoulToday, formatDate, weekday, isDayOff, offRanges } from '../lib/dates.ts';
+  import { seoulToday } from '../lib/dates.ts';
   import { forgetStaleClass, isStaleClass, readClass } from '../lib/klass.ts';
   import { mealHTML } from '../lib/meal.ts';
-  import { loadTimetable } from '../lib/timetable.ts';
+  import { lastPeriod, loadTimetable } from '../lib/timetable.ts';
 
   const board = document.querySelector<HTMLElement>('.board');
   if (board) {
     const data = JSON.parse(board.querySelector('[data-board-json]')!.textContent!);
     const groups = board.querySelector<HTMLElement>('[data-board-groups]')!;
     const today = seoulToday();
+    const view = boardFromFeed(today, data);
 
     // 빌드한 날과 오늘이 다르면 칠판과 급식 안내판을 오늘 것으로 다시 그린다.
     if (board.dataset.today !== today) {
-      const view = boardFromFeed(today, data);
       board.dataset.today = today;
-      board.querySelector('[data-board-day]')!.textContent = formatDate(today).replace(/ \(.\)$/, '');
-      board.querySelector('[data-board-weekday]')!.textContent = `${weekday(today)}요일`;
       groups.innerHTML = boardHTML(view, data.base);
       const meal = document.querySelector<HTMLElement>('[data-meal-sign]');
       if (meal) {
@@ -56,27 +50,31 @@ const boardJson = JSON.stringify({ base, letters, schedule: feed.schedule, daysO
       }
     }
 
-    // 「오늘 바뀐 수업」: 반을 골랐고 오늘이 등교일일 때만. 주말·쉬는 날에는 소제목을 쓰지 않는다.
+    // 바뀐 수업과 몇 교시까지: 반을 골랐을 때만. 등교일이면 오늘, 주말·쉬는 날이면 다음 등교일 것.
     const api = board.dataset.ttApi;
-    const closed = ['토', '일'].includes(weekday(today)) || isDayOff(today, offRanges(data));
+    const day = view.closed ? view.next : today;
     let ticket = 0;
     const draw = async (retried = false) => {
       const slot = groups.querySelector<HTMLElement>('[data-board-changes]');
+      const untilEl = groups.querySelector<HTMLElement>('[data-board-until]');
       const classId = readClass();
       const mine = ++ticket;
       if (!slot) return;
-      if (!api || !classId || closed) {
+      if (untilEl) untilEl.textContent = '';
+      if (!api || !classId) {
         slot.innerHTML = '';
         return;
       }
-      slot.innerHTML = changesStateHTML({ kind: 'loading' });
+      slot.innerHTML = changesStateHTML({ kind: 'loading' }, view.closed);
       const feed = await loadTimetable(api);
       if (mine !== ticket) return; // 그새 반을 바꿨으면 늦게 온 답은 버린다
       // 저장된 반이 피드에 없으면 지운다 — 'mjms:class'로 다시 그려지므로 여기서 끝낸다.
       if (isStaleClass(feed?.classes, classId)) return forgetStaleClass(feed!.classes);
-      const state = changesFor(feed, classId, today);
-      slot.innerHTML = state ? changesStateHTML(state) : '';
-      // 「다시 불러오기」를 눌렀으면 초점을 결과로 옮긴다(단추가 사라지므로). 칸이 비면(쉬는 날) 칠판 날짜로.
+      const state = changesFor(feed, classId, day, view.closed);
+      slot.innerHTML = state ? changesStateHTML(state, view.closed) : '';
+      const last = lastPeriod(feed, classId, day);
+      if (untilEl && last !== null) untilEl.textContent = `${last}교시까지`;
+      // 「다시 불러오기」를 눌렀으면 초점을 결과로 옮긴다(단추가 사라지므로). 칸이 비면(시간표가 쉬는 날로 적음) 칠판 날짜로.
       if (retried) {
         const again = slot.querySelector<HTMLElement>('[data-retry-changes]');
         const target = again ?? (slot.innerHTML ? slot : board.querySelector<HTMLElement>('#board-date')!);

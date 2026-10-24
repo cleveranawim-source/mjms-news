@@ -5,7 +5,7 @@ import { site } from '../site.config.ts';
 ---
 
 <Base title="시간표" description="우리 반 이번 주·다음 주 시간표와 오늘 바뀐 수업을 한눈에 볼 수 있습니다.">
-  <Plate kind="class" title=" 시간표" sub="" compact />
+  <Plate kind="class" title=" 시간표" compact />
   {
     site.timetableApi && (
       <div class="tt" data-timetable data-api={site.timetableApi}>
@@ -63,10 +63,10 @@ import { site } from '../site.config.ts';
       const m = mondayOf(groups[week].days[0]);
       return [0, 1, 2, 3, 4].map((i) => addDays(m, i));
     };
-    // 고른 주 단추에만 날짜 범위를 붙인다(「이번 주 10/19~23」). 이름이 날짜인 주(「11/2 주」)는 그대로.
+    // 주 단추는 모두 같은 꼴: 이름 위, 날짜 범위 아래(「이번 주 / 10/19~23」).
     const weekText = (i: number) => {
       const w = groups[i];
-      return i === week && !/\d/.test(w.label) ? `${escapeHTML(w.label)} <small>${weekRange(mondayOf(w.days[0]))}</small>` : escapeHTML(w.label);
+      return `${escapeHTML(w.label)} <small>${weekRange(mondayOf(w.days[0]))}</small>`;
     };
 
     // 주 단추는 그대로 두고 눌림·글자와 표만 바꾼다(포커스가 단추에 남도록).

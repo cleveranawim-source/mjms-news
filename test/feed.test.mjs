@@ -95,3 +95,9 @@ test('schedule: 검사 통과한 항목만, 없으면 null', async () => {
   const empty = await loadFeed({ fetcher: respond({ ...base, schedule: [] }), url: 'x' });
   assert.deepEqual(empty.schedule, []);
 });
+
+test('schedule: 나이스 머리말 「(적응)」「(자치)」는 떼고 이름만', async () => {
+  const item = (title) => ({ title, start: '2026-11-02', end: '2026-11-02', grades: [], kind: 'event' });
+  const feed = await loadFeed({ fetcher: respond({ ...base, schedule: [item('(적응)학교폭력예방교육'), item('(자치) 총학생회 선거'), item('기말고사(3학년)'), item('(적응)')] }), url: 'x' });
+  assert.deepEqual(feed.schedule.map((s) => s.title), ['학교폭력예방교육', '총학생회 선거', '기말고사(3학년)', '(적응)']);
+});
