@@ -19,6 +19,9 @@
   --chalk-dim: #b9c6bd;
   --chalk-yellow: #f1d65a; /* 칠판 소제목: 바뀐 수업 */
   --chalk-orange: #f7b26b; /* 칠판 소제목: 챙길 것 */
+  --chalk-pink: #f6a8bd; /* 칠판 날짜(손글씨) */
+  --board-ledge: #9c7650; /* 칠판 받침대(나무) */
+  --board-ledge-top: #b8936b;
   /* 학년 배지(바탕/글자) */
   --g1: #f5dc6b;
   --g1-ink: #3a3000;
@@ -596,8 +599,12 @@ p.sheet-status {
   gap: 10px;
 }
 
-/* 칠판: 첫 화면 오늘 칸에만. 평면(질감·그림자 없음). 손글씨(개구)는 날짜 한 곳. */
+/* 칠판: 첫 화면 오늘 칸에만. 평면(질감·그림자 없음). 손글씨(개구)는 날짜 한 곳.
+   첫 화면의 주인공: 높이를 21rem으로 고정해 칠판처럼 늘 같은 크기로 두고, 내용이 더 많으면 따라 늘어난다. */
 .board {
+  display: flex;
+  flex-direction: column;
+  min-height: 21rem;
   padding: 14px 16px;
   border-radius: 12px;
   background: var(--board);
@@ -615,6 +622,7 @@ p.sheet-status {
 
 .board-day {
   font-family: 'Gaegu', var(--font);
+  color: var(--chalk-pink);
   font-size: var(--fs-30);
   font-weight: 700;
 }
@@ -708,6 +716,53 @@ p.sheet-status {
   font-weight: 700;
   line-height: 1.4;
   color: var(--chalk);
+}
+
+/* 칠판 구역: 날짜·다음 등교 / 바뀐 수업 / 챙길 것 / 오늘 일정. 구역 사이는 분필로 그은 점선과 여백으로 나눈다.
+   남는 높이는 「챙길 것」 위에 모아, 챙길 것이 칠판 아래쪽에 앉게 한다(바로 앞 구역과는 14px 이상 띄운다). */
+.board-groups {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 칠판 받침대: 칠판 아래 나무 턱 위에 분필 두 자루와 지우개(장식, 평면). */
+.board-tray {
+  position: relative;
+  height: 12px;
+  margin: 38px -16px -14px;
+  border-top: 3px solid var(--board-ledge-top);
+  border-radius: 0 0 12px 12px;
+  background: var(--board-ledge);
+}
+
+.board-tray-things {
+  position: absolute;
+  right: 18px;
+  bottom: calc(100% + 3px);
+  display: block;
+}
+
+.board-groups > .board-bring {
+  margin-top: auto;
+}
+
+.board-groups > :has(+ .board-bring),
+.board-groups > :has(+ [data-board-changes]:empty + .board-bring) {
+  margin-bottom: 14px;
+}
+
+.board [data-board-changes],
+.board-group {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1.5px dashed rgb(238 241 234 / 0.22);
+}
+
+.board [data-board-changes] > .board-sub:first-child,
+.board-group > .board-sub:first-child {
+  margin-top: 0;
+  margin-bottom: 4px;
 }
 
 .board-sub--changes {
