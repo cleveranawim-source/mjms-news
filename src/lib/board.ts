@@ -98,13 +98,14 @@ export function boardFromFeed(today: string, feed: Pick<Feed, 'letters' | 'daysO
   };
 }
 
-// 학년이 정해진 것에는 학년 배지(글자)를 붙인다. 반을 골랐으면 그 학년 것만 보이므로 CSS가 배지를 감춘다.
+// 학년이 정해진 것에는 학년 배지(글자)를 앞에 붙인다(뒤에 두면 긴 줄이 넘칠 때 배지만 다음 줄에 남는다).
+// 반을 골랐으면 그 학년 것만 보이므로 CSS가 배지를 감춘다.
 function li(text: string, grades: number[], href?: string, event = false): string {
   const body = href ? `<a href="${escape(href)}">${escape(text)}</a>` : escape(text);
-  const badge = grades.length < 3 ? ` ${badgeHTML(grades, 'board-badge')}` : '';
+  const badge = grades.length < 3 ? `${badgeHTML(grades, 'board-badge')} ` : '';
   // 오늘 일정 줄은 이름을 data-event로: 바뀐 수업(「1~6교시 기말고사」)과 겹치면 브라우저가 감춘다.
   const name = event ? ` data-event="${escape(text)}"` : '';
-  return `<li data-grades="${grades.join(' ')}"${name}>${body}${badge}</li>`;
+  return `<li data-grades="${grades.join(' ')}"${name}>${badge}${body}</li>`;
 }
 
 // 빈 칸은 아예 그리지 않는다. 학년을 고르면 그 학년 것이 없는 칸은 CSS가 숨긴다(board-group--opt).
