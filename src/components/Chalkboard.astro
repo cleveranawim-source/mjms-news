@@ -24,6 +24,14 @@ const boardJson = JSON.stringify({ base, letters, schedule: feed.schedule, daysO
 
 <section class="board" aria-labelledby="board-date" data-today={today} data-tt-api={site.timetableApi || undefined}>
   <div class="board-groups" data-board-groups set:html={html} />
+  <div class="board-tray" aria-hidden="true">
+    <svg class="board-tray-things" viewBox="0 0 100 20" width="120" height="24">
+      <rect x="2" y="13" width="26" height="6" rx="3" fill="#eef1ea" />
+      <rect x="32" y="12" width="16" height="6" rx="3" fill="#f1d65a" transform="rotate(-10 40 15)" />
+      <rect x="56" y="2" width="42" height="12" rx="3" fill="#033e7b" />
+      <rect x="56" y="12" width="42" height="7" rx="2" fill="#d8d2c4" />
+    </svg>
+  </div>
   <script type="application/json" data-board-json set:html={boardJson} />
 </section>
 
