@@ -120,7 +120,8 @@ test('칠판 오늘 일정에는 쉬는 날·공휴일을 다시 쓰지 않는�
 
 test('학년이 정해진 준비물에는 학년 배지(글자)가 붙는다(전 학년 것은 없음)', () => {
   const html = boardHTML(boardFromFeed('2026-10-22', feed()), '/');
-  assert.match(html, /실험 노트[\s\S]*?<span class="badge badge--g2[^"]*">2학년<\/span>/);
+  // 학년 배지는 줄 앞에(긴 줄이 넘쳐도 배지만 따로 떨어지지 않게)
+  assert.match(html, /<li data-grades="2"><span class="badge badge--g2[^"]*">2학년<\/span> [^<]*<a [^>]*>[^<]*실험 노트/);
   const li = html.match(/<li[^>]*>(?:(?!<\/li>)[\s\S])*체육복[\s\S]*?<\/li>/)[0];
   assert.ok(!li.includes('badge'));
 });

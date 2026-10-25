@@ -820,6 +820,11 @@ p.sheet-status {
   vertical-align: 2px;
 }
 
+/* 칠판 줄의 학년 배지는 줄 앞에 */
+.board-items .badge {
+  margin: 0 2px 0 0;
+}
+
 /* 반을 골랐으면 그 학년 것만 보이므로 학년 배지는 감춘다 */
 [data-grade] .board-badge {
   display: none;
