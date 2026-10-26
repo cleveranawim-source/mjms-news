@@ -1,7 +1,7 @@
 // AI 교무실 tests/unit/lost-found-water.test.ts를 node:test로 옮겼다.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gravityVector, shakeDetector, slots, step } from '../src/lib/water.ts';
+import { arrange, gravityVector, groupItems, shakeDetector, step } from '../src/lib/water.ts';
 
 const world = { w: 400, h: 600, size: 100 };
 const body = (id, x, y) => ({ id, x, y, vx: 0, vy: 0, a: 0, phase: 0 });
@@ -69,21 +69,35 @@ test('물살이 잦아들면(stir 0) 멈춘다', () => {
   assert.deepEqual([b.vx, b.vy], [0, 0]);
 });
 
-const at = (m, id) => m.get(id).map(Math.round);
+const ids = (n, p) => Array.from({ length: n }, (_, i) => `${p}${i}`);
 
-test('흔들어 정리: 무리마다 새 줄에서 시작하고, 넘치면 이어 붙인다', () => {
-  const placed = slots([['a', 'b', 'c', 'd', 'e'], ['f']], world); // 한 줄 4칸
-  assert.deepEqual(at(placed, 'a'), [0, 0]);
-  assert.deepEqual(at(placed, 'd'), [300, 0]);
-  assert.deepEqual(at(placed, 'e'), [0, 110]);
-  assert.deepEqual(at(placed, 'f'), [0, 220]);
-  const many = slots(Array.from({ length: 7 }, (_, i) => [`g${i}`]), world); // 무리마다 한 줄이면 7줄 — 안 들어감
-  assert.deepEqual(at(many, 'g4'), [0, 110]);
+test('흔들어 정리: 무리마다 이름 줄 아래 새 줄에서 시작하고, 다 들어가게 사진을 줄인다', () => {
+  const fits = arrange([{ label: '가', ids: ids(5, 'a') }, { label: '나', ids: ['b0'] }], world); // 400 너비면 한 줄 3장(100+8)
+  assert.equal(fits.k, 1);
+  assert.deepEqual(fits.heads.map((h) => [h.label, h.count, h.y]), [['가', 5, 0], ['나', 1, 28 + 2 * 108]]);
+  assert.deepEqual(fits.spots.get('a0'), [0, 28]);
+  assert.deepEqual(fits.spots.get('a3'), [0, 28 + 108]);
+  assert.deepEqual(fits.spots.get('b0'), [0, 28 + 216 + 28]);
+  const many = arrange([{ label: '가', ids: ids(20, 'c') }, { label: '나', ids: ids(9, 'd') }], world);
+  assert.ok(many.k < 1);
+  const last = Math.max(...[...many.spots.values()].map(([, y]) => y));
+  assert.ok(last + (100 + 100 * many.k) / 2 <= 600); // 줄인 사진 아래 끝이 함 안
 });
 
-test('흔들어 정리: 너무 많으면 줄 사이를 좁혀 함 안에 둔다', () => {
-  const placed = slots([Array.from({ length: 40 }, (_, i) => `i${i}`)], world);
-  for (const [, y] of placed.values()) assert.ok(y <= 500);
+test('흔들어 정리: 날짜순은 주로 묶고 최근 것이 앞, 종류별은 정한 차례', () => {
+  const items = [
+    { id: 'old', category: '기타', foundOn: '2026-04-23' },
+    { id: 'sun', category: '학용품', foundOn: '2026-10-25' },
+    { id: 'mon', category: '기타', foundOn: '2026-10-26' },
+    { id: 'lastMon', category: '학용품', foundOn: '2026-10-19' },
+    { id: 'w2', category: '외계', foundOn: '2026-10-16' },
+  ];
+  assert.deepEqual(groupItems(1, items, '2026-10-27', ['학용품', '기타']), [
+    { label: '이번 주', ids: ['mon'] }, { label: '지난주', ids: ['sun', 'lastMon'] }, { label: '2주 전', ids: ['w2'] }, { label: '그 전', ids: ['old'] },
+  ]);
+  assert.deepEqual(groupItems(2, items, '2026-10-27', ['학용품', '기타']).map((g) => [g.label, g.ids]), [
+    ['학용품', ['sun', 'lastMon']], ['기타', ['mon', 'old']], ['외계', ['w2']],
+  ]);
 });
 
 test('흔들어 정리: 제자리로 가서 멈추고, 기울여도 살짝만 쏠린다', () => {

@@ -1938,19 +1938,23 @@ html[data-grade] .docs[data-view='all'] > li {
   display: none;
 }
 
-.group-chip {
+.group-head {
   position: absolute;
-  z-index: 1;
-  top: -0.6rem;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 0.05rem 0.5rem;
-  border-radius: 999px;
-  background: var(--ink);
-  color: #fff;
+  left: 14px;
+  margin: 0;
+  padding-bottom: 6px;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
   font-size: var(--text-sm);
-  white-space: nowrap;
+  font-weight: 700;
+  color: var(--ink);
   pointer-events: none;
+}
+
+.group-head span {
+  font-weight: 400;
+  color: var(--muted);
 }
 
 .tilt-ask {

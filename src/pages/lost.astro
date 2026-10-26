@@ -30,7 +30,8 @@ import { site } from '../site.config.ts';
 <script>
   // AI 교무실 app/(main)/lost-found/FloatingBox.tsx(학생용 보기)를 React 없이 옮겼다. 움직임 셈은 lib/water.ts.
   import { loadLost, foundOnLabel, type LostItem } from '../lib/lost.ts';
-  import { gravityVector, shakeDetector, slots, step, WATER, type Body, type World } from '../lib/water.ts';
+  import { seoulToday } from '../lib/dates.ts';
+  import { arrange, ARRANGE, gravityVector, groupItems, shakeDetector, step, WATER, type Body, type Group, type World } from '../lib/water.ts';
 
   type OrientationAPI = typeof DeviceOrientationEvent & { requestPermission?: () => Promise<string> };
   type MotionAPI = typeof DeviceMotionEvent & { requestPermission?: () => Promise<string> };
@@ -38,16 +39,6 @@ import { site } from '../site.config.ts';
   // 흔들 때마다(컴퓨터는 빈 곳 두 번 누르기) 떠다님 → 날짜순 → 종류별 → 떠다님. 손으로 밀면 다시 떠다님(AI 교무실과 같다).
   const NOTES = ['다시 떠다녀요', '날짜순으로 정리했어요 · 위가 최근', '종류별로 모았어요'];
   const CATEGORIES = ['전자기기', '의류·잡화', '학용품', '생활용품', '기타']; // AI 교무실 lib/lost-found/items.ts와 같은 차례
-  const monthDay = (ymd: string) => `${+ymd.slice(5, 7)}/${+ymd.slice(8, 10)}`;
-  function groupsFor(mode: number, items: LostItem[]) {
-    if (!mode) return [];
-    const key = (item: LostItem) => (mode === 1 ? item.foundOn : item.category);
-    const rank = (c: string) => (CATEGORIES.includes(c) ? CATEGORIES.indexOf(c) : CATEGORIES.length); // 모르는 종류는 맨 뒤
-    const sorted = [...items].sort(mode === 1 ? (a, b) => b.foundOn.localeCompare(a.foundOn) : (a, b) => rank(a.category) - rank(b.category));
-    const groups = new Map<string, string[]>();
-    for (const item of sorted) groups.set(key(item), [...(groups.get(key(item)) ?? []), item.id]);
-    return [...groups].map(([k, ids]) => ({ label: `${mode === 1 ? monthDay(k) : k}${ids.length > 1 ? ` ${ids.length}개` : ''}`, ids }));
-  }
 
   // 처음 자리(가로·세로 0~1): R2 수열이라 몇 개든 함 전체에 고루 퍼진다.
   const G = 1.32471795724;
@@ -71,29 +62,31 @@ import { site } from '../site.config.ts';
   let touched = performance.now();
   let mode = 0;
   let list: LostItem[] = [];
-  let layout: string[][] | null = null;
+  let layout: Group[] | null = null;
+  const zoom = { now: 1, to: 1 }; // 정리하면 사진을 줄인다(arrange의 k) — 그리면서 천천히 맞춘다
   let noteTimer = 0;
 
   /** 정리한 모양이면 몸마다 돌아갈 자리를, 떠다님이면 자리를 지운다. */
   function place() {
-    const spots = layout && slots(layout, world);
-    for (const b of bodies.values()) [b.tx, b.ty] = spots?.get(b.id) ?? [];
+    const plan = layout && arrange(layout, world);
+    for (const b of bodies.values()) [b.tx, b.ty] = plan?.spots.get(b.id) ?? [];
+    zoom.to = plan?.k ?? 1;
+    // 무리 이름 줄: 「지난주 9개」
+    box.querySelectorAll('.group-head').forEach((el) => el.remove());
+    for (const h of plan?.heads ?? []) {
+      const head = Object.assign(document.createElement('p'), { className: 'group-head', textContent: `${h.label} ` });
+      head.append(Object.assign(document.createElement('span'), { textContent: `${h.count}개` }));
+      head.style.top = `${PAD + h.y}px`;
+      head.style.height = `${ARRANGE.head}px`;
+      box.append(head);
+    }
   }
   function shift(next: number) {
     mode = next;
-    const groups = groupsFor(mode, list);
-    layout = mode ? groups.map((g) => g.ids) : null;
+    layout = mode ? groupItems(mode, list, seoulToday(), CATEGORIES) : null;
     place();
-    // 이름표는 무리 첫 사진에, 아래 줄이 위에 오게(겹쳐도 이름표가 윗줄 사진에 가리지 않게).
-    const order = new Map(groups.flatMap((g) => g.ids).map((id, i) => [id, i + 1]));
-    const leads = new Map(groups.map((g) => [g.ids[0], g.label]));
-    for (const [id, el] of els) {
-      el.style.zIndex = String(order.get(id) ?? '');
-      el.querySelector('.group-chip')?.remove();
-      const label = leads.get(id);
-      if (label) el.prepend(Object.assign(document.createElement('span'), { className: 'group-chip', textContent: label }));
-    }
     if (reduced) {
+      zoom.now = zoom.to;
       for (const b of bodies.values()) if (b.tx !== undefined && b.ty !== undefined) [b.x, b.y] = [b.tx, b.ty];
       settle();
     }
@@ -105,7 +98,7 @@ import { site } from '../site.config.ts';
   const nextMode = () => shift((mode + 1) % NOTES.length);
 
   function draw() {
-    for (const [id, b] of bodies) els.get(id)!.style.transform = `translate3d(${b.x}px, ${b.y}px, 0) rotate(${b.a}deg)`;
+    for (const [id, b] of bodies) els.get(id)!.style.transform = `translate3d(${b.x}px, ${b.y}px, 0) rotate(${b.a}deg) scale(${zoom.now})`;
   }
   function settle() {
     step([...bodies.values()], world, 0, 0, 0, 0, 0);
@@ -247,6 +240,7 @@ import { site } from '../site.config.ts';
         const dt = Math.min(0.033, (now - last) / 1000);
         last = now;
         const stir = Math.max(0, 1 - (now - touched) / STIR_MS);
+        zoom.now = Math.abs(zoom.to - zoom.now) < 0.005 ? zoom.to : zoom.now + (zoom.to - zoom.now) * (1 - Math.exp(-6 * dt));
         step([...bodies.values()], world, gravity[0], gravity[1], now / 1000, dt, stir);
         draw();
         requestAnimationFrame(tick);
