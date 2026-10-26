@@ -12,7 +12,7 @@ import { site } from '../site.config.ts';
     <button type="button" class="tilt-ask" data-tilt-ask hidden>기울여서 움직이기</button>
     <p class="lost-message" role="status" data-lost-message>분실물을 불러오는 중이에요.</p>
   </div>
-  <p class="lost-hint">사진을 손가락으로 밀어 보세요. 휴대폰을 기울이면 그쪽으로 흘러가요.</p>
+  <p class="lost-hint">사진을 손가락으로 밀어 보세요. 휴대폰을 기울이면 그쪽으로 흘러가고, 흔들면 날짜순·종류별로 정리돼요.</p>
 
   <dialog class="lost-detail" data-lost-detail aria-labelledby="lost-detail-title">
     <img alt="" data-detail-photo />
@@ -30,9 +30,24 @@ import { site } from '../site.config.ts';
 <script>
   // AI 교무실 app/(main)/lost-found/FloatingBox.tsx(학생용 보기)를 React 없이 옮겼다. 움직임 셈은 lib/water.ts.
   import { loadLost, foundOnLabel, type LostItem } from '../lib/lost.ts';
-  import { gravityVector, step, WATER, type Body, type World } from '../lib/water.ts';
+  import { gravityVector, shakeDetector, slots, step, WATER, type Body, type World } from '../lib/water.ts';
 
   type OrientationAPI = typeof DeviceOrientationEvent & { requestPermission?: () => Promise<string> };
+  type MotionAPI = typeof DeviceMotionEvent & { requestPermission?: () => Promise<string> };
+
+  // 흔들 때마다(컴퓨터는 빈 곳 두 번 누르기) 떠다님 → 날짜순 → 종류별 → 떠다님. 손으로 밀면 다시 떠다님(AI 교무실과 같다).
+  const NOTES = ['다시 떠다녀요', '날짜순으로 정리했어요 · 위가 최근', '종류별로 모았어요'];
+  const CATEGORIES = ['전자기기', '의류·잡화', '학용품', '생활용품', '기타']; // AI 교무실 lib/lost-found/items.ts와 같은 차례
+  const monthDay = (ymd: string) => `${+ymd.slice(5, 7)}/${+ymd.slice(8, 10)}`;
+  function groupsFor(mode: number, items: LostItem[]) {
+    if (!mode) return [];
+    const key = (item: LostItem) => (mode === 1 ? item.foundOn : item.category);
+    const rank = (c: string) => (CATEGORIES.includes(c) ? CATEGORIES.indexOf(c) : CATEGORIES.length); // 모르는 종류는 맨 뒤
+    const sorted = [...items].sort(mode === 1 ? (a, b) => b.foundOn.localeCompare(a.foundOn) : (a, b) => rank(a.category) - rank(b.category));
+    const groups = new Map<string, string[]>();
+    for (const item of sorted) groups.set(key(item), [...(groups.get(key(item)) ?? []), item.id]);
+    return [...groups].map(([k, ids]) => ({ label: `${mode === 1 ? monthDay(k) : k}${ids.length > 1 ? ` ${ids.length}개` : ''}`, ids }));
+  }
 
   // 처음 자리(가로·세로 0~1): R2 수열이라 몇 개든 함 전체에 고루 퍼진다.
   const G = 1.32471795724;
@@ -54,6 +69,40 @@ import { site } from '../site.config.ts';
   let world: World = { w: 0, h: 0, size: 0 };
   let gravity: [number, number] = [0, 0];
   let touched = performance.now();
+  let mode = 0;
+  let list: LostItem[] = [];
+  let layout: string[][] | null = null;
+  let noteTimer = 0;
+
+  /** 정리한 모양이면 몸마다 돌아갈 자리를, 떠다님이면 자리를 지운다. */
+  function place() {
+    const spots = layout && slots(layout, world);
+    for (const b of bodies.values()) [b.tx, b.ty] = spots?.get(b.id) ?? [];
+  }
+  function shift(next: number) {
+    mode = next;
+    const groups = groupsFor(mode, list);
+    layout = mode ? groups.map((g) => g.ids) : null;
+    place();
+    // 이름표는 무리 첫 사진에, 아래 줄이 위에 오게(겹쳐도 이름표가 윗줄 사진에 가리지 않게).
+    const order = new Map(groups.flatMap((g) => g.ids).map((id, i) => [id, i + 1]));
+    const leads = new Map(groups.map((g) => [g.ids[0], g.label]));
+    for (const [id, el] of els) {
+      el.style.zIndex = String(order.get(id) ?? '');
+      el.querySelector('.group-chip')?.remove();
+      const label = leads.get(id);
+      if (label) el.prepend(Object.assign(document.createElement('span'), { className: 'group-chip', textContent: label }));
+    }
+    if (reduced) {
+      for (const b of bodies.values()) if (b.tx !== undefined && b.ty !== undefined) [b.x, b.y] = [b.tx, b.ty];
+      settle();
+    }
+    message.textContent = NOTES[mode];
+    clearTimeout(noteTimer);
+    noteTimer = window.setTimeout(() => (message.textContent = ''), 2000);
+    touched = performance.now();
+  }
+  const nextMode = () => shift((mode + 1) % NOTES.length);
 
   function draw() {
     for (const [id, b] of bodies) els.get(id)!.style.transform = `translate3d(${b.x}px, ${b.y}px, 0) rotate(${b.a}deg)`;
@@ -118,6 +167,7 @@ import { site } from '../site.config.ts';
       const b = bodies.get(item.id)!;
       if (!drag) return;
       if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > TAP) dragged = true;
+      if (dragged && mode) shift(0);
       if (!dragged) return;
       const [px, py] = point(e);
       const dt = Math.max(1, e.timeStamp - drag.lt) / 1000;
@@ -147,6 +197,16 @@ import { site } from '../site.config.ts';
     });
   }
 
+  function listenShake() {
+    const shaken = shakeDetector();
+    addEventListener('devicemotion', (e) => {
+      const a = e.acceleration, g = e.accelerationIncludingGravity;
+      const force = a?.x != null ? Math.hypot(a.x, a.y ?? 0, a.z ?? 0)
+        : g?.x != null ? Math.abs(Math.hypot(g.x, g.y ?? 0, g.z ?? 0) - 9.81) : 0; // 중력 뺀 값이 없는 기기
+      if (shaken(e.timeStamp, force)) nextMode();
+    });
+  }
+
   function listenTilt() {
     addEventListener('deviceorientation', (e) => {
       if (e.beta === null || e.gamma === null) return;
@@ -163,6 +223,7 @@ import { site } from '../site.config.ts';
   } else {
     message.textContent = '';
     box.style.setProperty('--scale', String(scaleFor(items.length)));
+    list = items;
     items.forEach(addPiece);
     measure();
     [...bodies.values()].forEach((b, i) => {
@@ -173,8 +234,12 @@ import { site } from '../site.config.ts';
     settle();
     new ResizeObserver(() => {
       measure();
+      place();
       settle();
     }).observe(box);
+    box.addEventListener('dblclick', (e) => {
+      if (e.target === box) nextMode();
+    });
 
     if (!reduced) {
       let last = performance.now();
@@ -195,9 +260,12 @@ import { site } from '../site.config.ts';
         askButton.hidden = false;
         askButton.addEventListener('click', async () => {
           askButton.hidden = true;
+          // 흔들기(가속도)도 같은 누름에서 물어야 한다 — 사파리는 손댄 그 순간에만 묻게 해 준다.
+          const motion = (DeviceMotionEvent as MotionAPI).requestPermission?.().catch(() => 'denied');
           try {
             if ((await api.requestPermission!()) === 'granted') {
               listenTilt();
+              if ((await motion) === 'granted') listenShake();
               touched = performance.now();
               return;
             }
@@ -206,6 +274,7 @@ import { site } from '../site.config.ts';
         });
       } else {
         listenTilt();
+        listenShake();
       }
     }
   }

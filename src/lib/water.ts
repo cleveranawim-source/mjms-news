@@ -2,7 +2,8 @@
 // 분실물 함 — 물 위에 뜬 사진의 움직임(2026-10-17 이승열 P가 보낸 영상의 느낌). 화면 없이 셈만 해서 단위 테스트가 지킨다.
 // 진짜 중력 방향을 따른다: 폰을 세워 들면 화면 아래가 낮아 사진이 아래로 가라앉아 쌓이고, 눕히면 위로, 옆으로 기울이면 옆으로 흐른다.
 
-export type Body = { id: string; x: number; y: number; vx: number; vy: number; a: number; phase: number; held?: boolean };
+/** tx·ty: 흔들어 정리했을 때 돌아갈 자리(없으면 자유롭게 떠다님). */
+export type Body = { id: string; x: number; y: number; vx: number; vy: number; a: number; phase: number; held?: boolean; tx?: number; ty?: number };
 /** w·h: 사진 왼쪽 위가 다닐 수 있는 넓이(사진 크기 포함), size: 사진 한 변. */
 export type World = { w: number; h: number; size: number };
 
@@ -16,6 +17,10 @@ export const WATER = {
   rest: 3, // 물살이 잦아든 뒤 이보다 느리면(px/s) 멈춘 것으로
   settle: 60, // 이보다 느리게 닿으면(px/s) 튕기지 않고 붙는다 — 쌓인 사진이 떨지 않게
   maxFling: 2500, // 손으로 밀 때 최고 속도(px/s)
+  spring: 40, // 정리했을 때 제자리로 당기는 힘(1/s²)
+  hold: 9, // 정리했을 때 제자리에서 출렁임이 잦아드는 빠르기(1/s)
+  lean: 0.12, // 정리했을 때 기울임이 미치는 몫 — 무리째 살짝만 쏠린다
+  shake: 14, // 흔듦으로 볼 가속(m/s², 중력 뺀 것)
 };
 
 const clamp = (v: number, lo = -1, hi = 1) => Math.min(hi, Math.max(lo, v));
@@ -49,8 +54,13 @@ export function step(bodies: Body[], world: World, gx: number, gy: number, t: nu
   const current = WATER.current * stir;
   for (const b of bodies) {
     if (b.held) continue;
-    const ax = gx * WATER.gravity + current * Math.sin(t * 0.3 + b.phase);
-    const ay = gy * WATER.gravity + current * Math.cos(t * 0.23 + b.phase * 1.7);
+    const lean = b.tx === undefined ? 1 : WATER.lean;
+    let ax = gx * WATER.gravity * lean + current * Math.sin(t * 0.3 + b.phase);
+    let ay = gy * WATER.gravity * lean + current * Math.cos(t * 0.23 + b.phase * 1.7);
+    if (b.tx !== undefined && b.ty !== undefined) {
+      ax += (b.tx - b.x) * WATER.spring - b.vx * WATER.hold;
+      ay += (b.ty - b.y) * WATER.spring - b.vy * WATER.hold;
+    }
     b.vx = (b.vx + ax * dt) * keep;
     b.vy = (b.vy + ay * dt) * keep;
     b.x += b.vx * dt;
@@ -62,6 +72,7 @@ export function step(bodies: Body[], world: World, gx: number, gy: number, t: nu
   for (let i = 0; i < bodies.length; i++) {
     for (let j = i + 1; j < bodies.length; j++) {
       const p = bodies[i], q = bodies[j];
+      if (p.tx !== undefined && q.tx !== undefined) continue; // 정리된 자리끼리는 밀지 않는다 — 많아서 칸이 겹쳐도 떨지 않게
       const dx = q.x - p.x, dy = q.y - p.y;
       const d = Math.hypot(dx, dy);
       const overlap = minDist - d;
@@ -95,4 +106,43 @@ export function step(bodies: Body[], world: World, gx: number, gy: number, t: nu
     const next = b.a + (target - b.a) * (1 - Math.exp(-3 * dt));
     b.a = Math.abs(target - next) < 0.05 ? target : next;
   }
+}
+
+/**
+ * 흔들어 정리할 자리(사진 왼쪽 위). groups는 차례대로 놓을 무리(날짜·종류별 id) — 왼쪽 위부터 줄줄이,
+ * 다 들어가면 무리마다 새 줄에서 시작하고, 넘치면 이어 붙이고 그래도 넘치면 줄 사이를 좁혀 겹친다.
+ */
+export function slots(groups: string[][], world: World): Map<string, [number, number]> {
+  const size = world.size || 1;
+  const cols = Math.max(1, Math.floor(world.w / size));
+  const gapX = cols > 1 ? (world.w - size) / (cols - 1) : 0;
+  const fits = (rows: number) => rows <= 1 || (world.h - size) / (rows - 1) >= size * 1.1; // 줄 사이에 이름표 자리
+  const ownRows = groups.reduce((n, g) => n + Math.ceil(g.length / cols), 0);
+  const split = fits(ownRows);
+  const rows = split ? ownRows : Math.ceil(groups.flat().length / cols);
+  const gapY = rows > 1 ? Math.min(size * 1.1, (world.h - size) / (rows - 1)) : 0;
+  const out = new Map<string, [number, number]>();
+  let row = 0, col = 0;
+  for (const g of groups) {
+    if (split && col > 0) { row++; col = 0; }
+    for (const id of g) {
+      out.set(id, [col * gapX, row * gapY]);
+      if (++col === cols) { row++; col = 0; }
+    }
+  }
+  return out;
+}
+
+/** devicemotion 세기(m/s²)를 받아 흔들었는지 — 0.5초 안에 세게 두 번(사이에 잠깐 약해짐, 내려놓는 한 번은 아님), 알린 뒤 1.2초는 쉰다. */
+export function shakeDetector() {
+  let peak = -Infinity, dipped = false, quiet = -Infinity;
+  return (now: number, force: number) => {
+    if (now < quiet) return false;
+    if (force < WATER.shake) { dipped = true; return false; }
+    if (now - peak > 500) { peak = now; dipped = false; return false; }
+    if (!dipped) return false; // 같은 한 번이 이어지는 중
+    peak = -Infinity;
+    quiet = now + 1200;
+    return true;
+  };
 }

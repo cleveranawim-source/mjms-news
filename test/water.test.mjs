@@ -1,7 +1,7 @@
 // AI 교무실 tests/unit/lost-found-water.test.ts를 node:test로 옮겼다.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { gravityVector, step } from '../src/lib/water.ts';
+import { gravityVector, shakeDetector, slots, step } from '../src/lib/water.ts';
 
 const world = { w: 400, h: 600, size: 100 };
 const body = (id, x, y) => ({ id, x, y, vx: 0, vy: 0, a: 0, phase: 0 });
@@ -67,4 +67,39 @@ test('물살이 잦아들면(stir 0) 멈춘다', () => {
   const b = { ...body('a', 150, 250), vx: 2, vy: -2 };
   step([b], world, 0, 0, 0, 1 / 60, 0);
   assert.deepEqual([b.vx, b.vy], [0, 0]);
+});
+
+const at = (m, id) => m.get(id).map(Math.round);
+
+test('흔들어 정리: 무리마다 새 줄에서 시작하고, 넘치면 이어 붙인다', () => {
+  const placed = slots([['a', 'b', 'c', 'd', 'e'], ['f']], world); // 한 줄 4칸
+  assert.deepEqual(at(placed, 'a'), [0, 0]);
+  assert.deepEqual(at(placed, 'd'), [300, 0]);
+  assert.deepEqual(at(placed, 'e'), [0, 110]);
+  assert.deepEqual(at(placed, 'f'), [0, 220]);
+  const many = slots(Array.from({ length: 7 }, (_, i) => [`g${i}`]), world); // 무리마다 한 줄이면 7줄 — 안 들어감
+  assert.deepEqual(at(many, 'g4'), [0, 110]);
+});
+
+test('흔들어 정리: 너무 많으면 줄 사이를 좁혀 함 안에 둔다', () => {
+  const placed = slots([Array.from({ length: 40 }, (_, i) => `i${i}`)], world);
+  for (const [, y] of placed.values()) assert.ok(y <= 500);
+});
+
+test('흔들어 정리: 제자리로 가서 멈추고, 기울여도 살짝만 쏠린다', () => {
+  const b = { ...body('a', 0, 0), tx: 200, ty: 300 };
+  for (let t = 0; t < 3; t += 1 / 60) step([b], world, 0, 1, t, 1 / 60, 0);
+  assert.ok(Math.abs(b.x - 200) < 0.5);
+  assert.ok(b.y - 300 > 0 && b.y - 300 < 10);
+});
+
+test('세게 두 번 흔들어야 알린다(내려놓는 한 번은 아님)', () => {
+  const shaken = shakeDetector();
+  assert.deepEqual([0, 16, 32].map((t) => shaken(t, 20)), [false, false, false]); // 한 번 쿵
+  assert.equal(shaken(48, 2), false);
+  assert.equal(shaken(200, 20), true);
+  assert.equal(shaken(400, 2) || shaken(500, 20) || shaken(700, 20), false); // 알린 뒤 쉼
+  const late = shakeDetector();
+  late(0, 20); late(100, 2);
+  assert.equal(late(800, 20), false); // 너무 늦은 두 번째는 새 첫 번
 });
