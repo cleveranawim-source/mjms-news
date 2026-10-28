@@ -55,7 +55,7 @@ test('가정통신문 한 건: 원문 링크·요약·첨부, 준비물은 정�
   assert.match(html, /함께 온 파일/);
   assert.match(html, /<dt>준비물<\/dt><dd>도시락, 물병, 체험학습 동의서<\/dd>/);
   assert.match(html, /<dt>준비물 챙길 날<\/dt><dd>10월 23일 \(금\)<\/dd>/);
-  const link = html.match(/<a [^>]*href="[^"]*example-school[^"]*"[^>]*>/)[0];
+  const link = html.match(/<a [^>]*href="[^"]*myongji\.sen\.ms\.kr[^"]*"[^>]*>/)[0];
   assert.match(link, /target="_blank"/);
   assert.match(link, /rel="[^"]*noopener/);
 });
@@ -329,4 +329,10 @@ test('시간표 화면: 「학교 행사」 칸 이름을 붙일 학사일정(�
   const events = JSON.parse(json);
   assert.ok(events.length > 0);
   assert.ok(events.every((e) => e.kind === 'event' && e.end >= '2026-10-22'));
+});
+
+test('가정통신문 한 건: 이알리미 PDF 글은 아래 원문 링크가 「원문 보기(PDF)」', () => {
+  const html = read('notices/L-2026-1020-2/index.html');
+  assert.match(html, /class="letter-src"[^>]*>\s*원문 보기\(PDF\)\s*</);
+  assert.doesNotMatch(html, /학교 홈페이지 원문 보기/);
 });

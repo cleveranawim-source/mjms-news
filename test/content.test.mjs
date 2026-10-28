@@ -20,3 +20,11 @@ test('sortSchedule: 피드에 학사일정이 없으면 null', () => {
   assert.equal(sortSchedule(null), null);
   assert.deepEqual(sortSchedule([]), []);
 });
+
+test('sourceLabel: 학교 홈페이지 글은 「학교 홈페이지 원문 보기」, 그 밖(이알리미 PDF·해석 못 하는 주소)은 「원문 보기(PDF)」', async () => {
+  const { sourceLabel } = await import('../src/lib/content.ts');
+  assert.equal(sourceLabel('https://myongji.sen.ms.kr/dggb/module/board/selectBoardDetail.do?id=1'), '학교 홈페이지 원문 보기');
+  assert.equal(sourceLabel('https://www.ealimi.com/files/letter.pdf'), '원문 보기(PDF)');
+  assert.equal(sourceLabel('https://myongji.sen.ms.kr.evil.com/a'), '원문 보기(PDF)');
+  assert.equal(sourceLabel('not a url'), '원문 보기(PDF)');
+});

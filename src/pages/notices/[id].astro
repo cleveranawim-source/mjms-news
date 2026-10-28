@@ -1,7 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import GradeBadge from '../../components/GradeBadge.astro';
-import { getLetters } from '../../lib/content.ts';
+import { getLetters, sourceLabel } from '../../lib/content.ts';
 import { usableDue } from '../../lib/board.ts';
 import { formatDate, formatRange } from '../../lib/dates.ts';
 import { href } from '../../lib/paths.ts';
@@ -49,7 +49,7 @@ const paragraphs = l.summary.split(/\n+/).map((p) => p.trim()).filter(Boolean);
     {
       /^https?:\/\//.test(l.sourceUrl) && (
         <a class="letter-src" href={l.sourceUrl} target="_blank" rel="noopener noreferrer">
-          학교 홈페이지 원문 보기
+          {sourceLabel(l.sourceUrl)}
         </a>
       )
     }
