@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadFeed } from '../src/lib/feed.ts';
+import { SCHEDULE_FIXES } from '../src/lib/schedule-fix.ts';
+
+// 11·12월은 학교 학사일정표로 바꿔 끼우므로(schedule-fix) 파싱만 볼 때는 그 달을 뺀다.
+const noFix = (list) => list && list.filter((s) => !SCHEDULE_FIXES.months.includes(s.start.slice(0, 7)));
 
 const FIXTURE = new URL('./fixtures/feed.json', import.meta.url).pathname;
 const respond = (body, status = 200) => async () =>
@@ -83,7 +87,7 @@ test('schedule: 검사 통과한 항목만, 없으면 null', async () => {
   const good = { title: '기말고사', start: '2026-10-26', end: '2026-10-28', grades: [3], kind: 'event' };
   const bad = [{ ...good, kind: 'party' }, { ...good, start: '2026-10-29' }, { ...good, grades: [4] }, { ...good, title: '' }];
   const feed = await loadFeed({ fetcher: respond({ ...base, schedule: [good, ...bad] }), url: 'x' });
-  assert.deepEqual(feed.schedule, [good]);
+  assert.deepEqual(noFix(feed.schedule), [good]);
   const none = await loadFeed({ fetcher: respond(base), url: 'x' });
   assert.equal(none.schedule, null);
   const notArray = await loadFeed({ fetcher: respond({ ...base, schedule: 'x' }), url: 'x' });
@@ -93,17 +97,30 @@ test('schedule: 검사 통과한 항목만, 없으면 null', async () => {
   assert.equal(allBad.schedule, null);
   // 빈 배열은 그대로 「일정 없음」.
   const empty = await loadFeed({ fetcher: respond({ ...base, schedule: [] }), url: 'x' });
-  assert.deepEqual(empty.schedule, []);
+  assert.deepEqual(noFix(empty.schedule), []);
 });
 
 test('schedule: 나이스 머리말 「(적응)」「(자치)」는 떼고 이름만', async () => {
-  const item = (title) => ({ title, start: '2026-11-02', end: '2026-11-02', grades: [], kind: 'event' });
+  const item = (title) => ({ title, start: '2026-10-02', end: '2026-10-02', grades: [], kind: 'event' });
   const feed = await loadFeed({ fetcher: respond({ ...base, schedule: [item('(적응)학교폭력예방교육'), item('(자치) 총학생회 선거'), item('기말고사(3학년)'), item('(적응)')] }), url: 'x' });
-  assert.deepEqual(feed.schedule.map((s) => s.title), ['학교폭력예방교육', '총학생회 선거', '기말고사(3학년)', '(적응)']);
+  assert.deepEqual(noFix(feed.schedule).map((s) => s.title), ['학교폭력예방교육', '총학생회 선거', '기말고사(3학년)', '(적응)']);
 });
 
 test('schedule: 학생예배는 예배 제목표의 그날 제목으로', async () => {
   const item = (title, start) => ({ title, start, end: start, grades: [], kind: 'event' });
   const feed = await loadFeed({ fetcher: respond({ ...base, schedule: [item('학생예배', '2026-10-21'), item('학생예배', '2026-10-28'), item('성탄절예배', '2026-12-23')] }), url: 'x' });
-  assert.deepEqual(feed.schedule.map((s) => s.title), ['회복 탄력성', '사랑하는 삶']);
+  assert.deepEqual(noFix(feed.schedule).map((s) => s.title), ['회복 탄력성']);
+  // 12월은 표로 바꿔 끼워도 그날 예배 제목은 같다
+  assert.deepEqual(feed.schedule.filter((s) => s.start === '2026-12-23').map((s) => s.title), ['사랑하는 삶', '크리스마스 페스티벌(2~4교시)']);
+});
+
+test('피드 학사일정: 2026년 11·12월은 학교 학사일정표로 바꿔 끼운다(나이스 「동아리」 11/11 → 동아리활동 11/12)', async () => {
+  const raw = { version: 1, generatedAt: '', letters: [], events: [], daysOff: [], meals: [], schedule: [
+    { title: '동아리', start: '2026-11-11', end: '2026-11-11', grades: [], kind: 'event' },
+    { title: '회복 탄력성', start: '2026-10-21', end: '2026-10-21', grades: [], kind: 'event' },
+  ] };
+  const f = await loadFeed({ url: 'u', fetcher: async () => new Response(JSON.stringify(raw)) });
+  assert.ok(f.schedule.some((i) => i.title === '회복 탄력성'));
+  assert.ok(!f.schedule.some((i) => i.title === '동아리'));
+  assert.deepEqual(f.schedule.filter((i) => i.start === '2026-11-12').map((i) => i.title), ['동아리활동(5~6교시)']);
 });

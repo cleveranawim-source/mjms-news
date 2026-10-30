@@ -277,3 +277,11 @@ test('여러 날 준비물: 오늘 줄에 이미 있는 가정통신문은 다�
   assert.deepEqual(b.bringNext, []);
   assert.ok(!boardHTML(b, '/').includes('10월 27일 (화) 준비물'));
 });
+
+test('디데이: 한글 「페스티벌」(백마페스티벌·크리스마스 페스티벌)도 센다', () => {
+  const s = [
+    { title: '백마페스티벌(1~7교시)', start: '2026-11-13', end: '2026-11-13', grades: [], kind: 'event' },
+    { title: '방송제(5~6교시)', start: '2026-11-11', end: '2026-11-11', grades: [], kind: 'event' },
+  ];
+  assert.deepEqual(boardFromFeed('2026-11-09', feed({ schedule: s })).dday.map((d) => [d.title, d.label]), [['백마페스티벌(1~7교시)', 'D-4']]);
+});

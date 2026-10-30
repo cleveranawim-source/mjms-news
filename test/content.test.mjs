@@ -8,12 +8,13 @@ import { resolve } from 'node:path';
 const fixture = JSON.parse(readFileSync(resolve(import.meta.dirname, 'fixtures/feed.json'), 'utf8'));
 const tmp = resolve(mkdtempSync(resolve(tmpdir(), 'feed-')), 'feed.json');
 const ev = (title, start, end = start) => ({ title, start, end, grades: [], kind: 'event' });
-writeFileSync(tmp, JSON.stringify({ ...fixture, schedule: [ev('나중', '2026-11-02'), ev('나', '2026-10-05'), ev('가', '2026-10-05'), ev('먼저', '2026-10-01')] }));
+writeFileSync(tmp, JSON.stringify({ ...fixture, schedule: [ev('나중', '2026-10-20'), ev('나', '2026-10-05'), ev('가', '2026-10-05'), ev('먼저', '2026-10-01')] }));
 process.env.NEWS_FEED_FILE = tmp;
 const { getSchedule, sortSchedule } = await import('../src/lib/content.ts');
 
 test('getSchedule: 피드 학사일정을 시작일 순(같은 날은 이름 순)으로', async () => {
-  assert.deepEqual((await getSchedule()).map((s) => s.title), ['먼저', '가', '나', '나중']);
+  // 11·12월은 학교 학사일정표로 바꿔 끼워 뒤에 붙으므로(schedule-fix) 10월까지만 견준다
+  assert.deepEqual((await getSchedule()).filter((s) => s.start < '2026-11').map((s) => s.title), ['먼저', '가', '나', '나중']);
 });
 
 test('sortSchedule: 피드에 학사일정이 없으면 null', () => {
