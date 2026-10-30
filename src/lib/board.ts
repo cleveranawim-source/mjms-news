@@ -25,7 +25,7 @@ export type Board = {
 };
 
 // 교실 칠판 귀퉁이에 적어 두는 D-day: 시험·방학과 학생들이 기다리는 행사만. 회의·교육·예배는 빼고, 쉬는 날은 방학만.
-const DDAY_EVENT = /고사|평가|수련회|체육|축제|festival|졸업식|수학여행|현장체험|나들이|탐방/i;
+const DDAY_EVENT = /고사|평가|수련회|체육|축제|festival|페스티벌|졸업식|수학여행|현장체험|나들이|탐방/i;
 const DDAY_OFF = /방학/;
 const DDAY_DAYS = 60;
 

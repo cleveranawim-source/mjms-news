@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { SCHEDULE_FIXES } from '../src/lib/schedule-fix.ts';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -12,7 +13,10 @@ const feed = JSON.parse(readFileSync(fixture, 'utf8'));
 // 공유 fixture는 건드리지 않고, 태그를 끊으려는 제목이 든 알림을 더한 사본으로 빌드한다.
 const evil = { ...feed.letters[2], id: 'L-evil', subject: '끊기 시험 </script><b>x', number: '제2026-80호', postedOn: '2026-09-01', publishedOn: '2026-09-01', bring: ['끊기 </script><b>물건'], due: '2026-10-23' };
 const tmp = resolve(mkdtempSync(resolve(tmpdir(), 'feed-')), 'feed.json');
-writeFileSync(tmp, JSON.stringify({ ...feed, letters: [...feed.letters, evil] }));
+// 11·12월은 학교 학사일정표로 바꿔 끼우므로(src/lib/schedule-fix.ts) 쉬는 날 배지 확인용 재량휴업일은 10월에 둔다.
+const dayOff = { title: '재량휴업일', start: '2026-10-30', end: '2026-10-30', grades: [], kind: 'dayoff' };
+const built = { ...feed, letters: [...feed.letters, evil], schedule: [...feed.schedule, dayOff] };
+writeFileSync(tmp, JSON.stringify(built));
 execFileSync('npx', ['astro', 'build'], {
   cwd: root,
   env: { ...process.env, NEWS_FEED_FILE: tmp, NEWS_TODAY: '2026-10-22' },
@@ -163,7 +167,9 @@ test('학사일정: 나이스 일정만, 빌드한 달을 먼저 그려 둔다, 
   assert.match(html, /10월 남은 일정/);
   assert.match(html, /data-cal-list-rows[\s\S]*학급자치회의[\s\S]*기말고사/);
   const json = html.match(/<script type="application\/json" data-cal-json>(.*?)<\/script>/s)[1];
-  assert.deepEqual(JSON.parse(json).map((s) => s.title), feed.schedule.map((s) => s.title));
+  // 10월 일정은 피드 그대로, 11·12월은 학교 학사일정표(schedule-fix)로 — 시작일·이름 순
+  const expected = [...built.schedule.filter((s) => s.start < '2026-11'), ...SCHEDULE_FIXES.items].sort((a, b) => a.start.localeCompare(b.start) || a.title.localeCompare(b.title));
+  assert.deepEqual(JSON.parse(json).map((s) => s.title), expected.map((s) => s.title));
 });
 
 test('첫 화면에 예전 예시 알림이 없다', () => {
