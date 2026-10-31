@@ -37,7 +37,6 @@ const paragraphs = l.summary.split(/\n+/).map((p) => p.trim()).filter(Boolean);
     </dl>
     <p class="facts-note">
       요약은 AI가 만들고 선생님이 확인했어요. 원문과 다르면 원문이 맞아요.
-      {/^https?:\/\//.test(l.sourceUrl) && <a class="tap-inline" href={l.sourceUrl} target="_blank" rel="noopener noreferrer">원문 보기</a>}
     </p>
 
     <div class="letter-body">

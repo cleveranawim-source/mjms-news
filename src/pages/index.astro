@@ -90,12 +90,11 @@ const letters = newLetterRows(feed.letters, today);
     lis.forEach((li, i) => (li.dataset.show = shows[i]));
   }
 
-  // 새 가정통신문 판: 이 기기에서 아직 안 연 글은 굵게, 제목 옆에 「안 읽은 글 N」(보이는 줄만 센다). 다 읽으면 없어진다.
+  // 새 가정통신문 판: 이 기기에서 아직 안 연 글은 굵게, 제목 옆에 「안 읽은 글 N」. 보이는 줄 너머의 것도 세어 목록의 「새 글」 수와 같게 한다.
   const read = readIds();
   const unread = [...document.querySelectorAll<HTMLElement>('[data-letter-id]')].filter((li) => !read.has(li.dataset.letterId!));
   for (const li of unread) li.classList.add('is-unread');
-  const shown = unread.filter((li) => li.checkVisibility?.() ?? li.offsetParent !== null).length;
-  if (shown > 0) document.querySelector('#new-letters')?.insertAdjacentHTML('beforeend', ` <span class="sign-count">안 읽은 글 ${shown}</span>`);
+  if (unread.length > 0) document.querySelector('#new-letters')?.insertAdjacentHTML('beforeend', ` <span class="sign-count">안 읽은 글 ${unread.length}</span>`);
 
   // 분실물 판: 보관 중인 물건이 있을 때만 「분실물 N개」로 보인다. 못 받거나 0개면 감춘 채로 둔다.
   const sign = document.querySelector<HTMLElement>('[data-lost-sign]');

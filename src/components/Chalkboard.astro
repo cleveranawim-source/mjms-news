@@ -40,7 +40,7 @@ const boardJson = JSON.stringify({ base, letters, schedule: feed.schedule, daysO
   import { seoulToday } from '../lib/dates.ts';
   import { forgetStaleClass, isStaleClass, readClass } from '../lib/klass.ts';
   import { mealHTML } from '../lib/meal.ts';
-  import { lastPeriod, loadTimetable, nameSchoolEvents } from '../lib/timetable.ts';
+  import { eventName, lastPeriod, loadTimetable, nameSchoolEvents } from '../lib/timetable.ts';
 
   const board = document.querySelector<HTMLElement>('.board');
   if (board) {
@@ -72,7 +72,8 @@ const boardJson = JSON.stringify({ base, letters, schedule: feed.schedule, daysO
       if (!slot) return;
       if (untilEl) untilEl.textContent = '';
       if (!api || !classId) {
-        slot.innerHTML = '';
+        // 반을 안 골랐으면 빈 초록 대신 「우리 반을 고르면 바뀐 수업이 보여요」 + 반 고르기 단추(피드 주소가 없으면 비움).
+        slot.innerHTML = api ? changesStateHTML({ kind: 'pick' }, view.closed) : '';
         return;
       }
       slot.innerHTML = changesStateHTML({ kind: 'loading' }, view.closed);
@@ -87,7 +88,8 @@ const boardJson = JSON.stringify({ base, letters, schedule: feed.schedule, daysO
       if (!view.closed && state?.kind === 'lines') {
         const named = new Set(state.lines.flatMap((x) => (typeof x === 'string' ? [] : [x.text.replace(/^[\d~]+교시 /, '')])));
         const events = groups.querySelector<HTMLElement>('.board-events');
-        for (const li of events?.querySelectorAll<HTMLElement>('[data-event]') ?? []) li.hidden = named.has(li.dataset.event!);
+        // 일정 제목의 교시 꼬리표(「(1교시)」)는 시간표 칸에서 떼었으므로 뗀 이름끼리 견준다.
+        for (const li of events?.querySelectorAll<HTMLElement>('[data-event]') ?? []) li.hidden = named.has(eventName(li.dataset.event!));
         if (events) events.hidden = [...events.querySelectorAll('li')].every((li) => li.hidden);
       }
       const last = lastPeriod(feed, classId, day);

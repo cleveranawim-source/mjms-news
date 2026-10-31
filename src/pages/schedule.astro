@@ -4,14 +4,15 @@ import Plate from '../components/Plate.astro';
 import Sign from '../components/Sign.astro';
 import { getSchedule } from '../lib/content.ts';
 import { buildToday, formatMonth } from '../lib/dates.ts';
-import { dayRowsHTML, dayTitle, gridHTML, initialDay, monthItems, monthRowsHTML, monthTitle, monthsOf } from '../lib/calendar.ts';
+import { dayRowsHTML, dayTitle, gridHTML, initialDay, initialMonth, monthItems, monthRowsHTML, monthTitle, monthsOf } from '../lib/calendar.ts';
 
 // 나이스 공개 학사일정만. 빌드한 날의 달을 먼저 그려 두고, 브라우저가 서울 날짜·우리 반 학년으로 다시 그린다.
 const schedule = await getSchedule();
 const items = schedule ?? [];
 const today = buildToday();
-const ym = today.slice(0, 7);
 const months = monthsOf(items, today);
+// 이달에 남은 일정이 없으면(월말 주말) 일정이 있는 다음 달을 먼저 보인다. 「오늘」 단추로 이달에 돌아온다.
+const ym = initialMonth(today, items, months);
 const selected = initialDay(ym, today, items);
 const listMonths = months.filter((m) => monthItems(m, items, null).length > 0);
 // <script> 안의 JSON이 </script>로 끊기지 않도록 <를 이스케이프한다.
@@ -82,7 +83,7 @@ const chevron = (d: string) => `<svg viewBox="0 0 24 24" aria-hidden="true"><pat
 </Base>
 
 <script>
-  import { dayRowsHTML, dayTitle, gridHTML, initialDay, monthItems, monthRowsHTML, monthTitle, monthsOf, swipeStep } from '../lib/calendar.ts';
+  import { dayRowsHTML, dayTitle, gridHTML, initialDay, initialMonth, monthItems, monthRowsHTML, monthTitle, monthsOf, swipeStep } from '../lib/calendar.ts';
   import { formatMonth, seoulToday } from '../lib/dates.ts';
   import type { FeedScheduleItem } from '../lib/feed.ts';
   import { gradeOf, readClass } from '../lib/klass.ts';
@@ -102,9 +103,11 @@ const chevron = (d: string) => `<svg viewBox="0 0 24 24" aria-hidden="true"><pat
 
     let grade = gradeOf(readClass());
     let all = false; // 「모든 학년 보기」
-    let ym = today.slice(0, 7);
     // 반을 골랐으면 그 학년 + 전 학년만
     const g = () => (grade && !all ? grade : null);
+    const fits = (i: FeedScheduleItem) => g() === null || i.grades.length === 0 || i.grades.includes(g()!);
+    // 이달에 남은 일정이 없으면 일정이 있는 다음 달부터(월말 주말에 빈 달력을 보지 않게)
+    let ym = initialMonth(today, items.filter(fits), months);
     const firstDay = () => initialDay(ym, today, monthItems(ym, items, g()));
     let selected = firstDay();
 

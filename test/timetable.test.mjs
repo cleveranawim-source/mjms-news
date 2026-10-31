@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadTimetable, weekTableHTML, changesBoxHTML, changesTarget, changeItems, lastPeriod, nameSchoolEvents, weekGroups, weekRange } from '../src/lib/timetable.ts';
+import { loadTimetable, weekTableHTML, changesBoxHTML, changesTarget, changeItems, lastPeriod, nameSchoolEvents, eventName, weekChangesBoxHTML, weekGroups, weekRange } from '../src/lib/timetable.ts';
 
 const cell = (period, subject, extra = {}) => ({ period, subject, special: false, changed: null, ...extra });
 const feed = {
@@ -291,8 +291,42 @@ test('nameSchoolEvents: 그날 행사가 여럿이어도 제목의 교시가 그
   const out = nameSchoolEvents(tt, schedule);
   const at = (ymd) => out.classes[0].days.find((d) => d.ymd === ymd).cells.map((c) => c.subject);
   // 1교시: 「(1교시)」가 맞는 것 하나. 시각(08:30~09:10)으로 적힌 조회 시간 행사는 교시 칸의 후보가 아니다.
-  // 2교시: 맞는 것이 없으니 그대로.
-  assert.deepEqual(at('2026-11-02'), ['학교폭력예방교육(1교시)', '학교 행사']);
+  // 칸에는 교시 꼬리표를 떼고 쓴다(「1교시 학교폭력예방교육(1교시)」가 되지 않게). 2교시: 맞는 것이 없으니 그대로.
+  assert.deepEqual(at('2026-11-02'), ['학교폭력예방교육', '학교 행사']);
   // 교시가 안 적힌 행사(예배)는 모든 교시의 후보: 3교시는 「(2~4교시)」, 1·5교시는 예배만 남는다.
-  assert.deepEqual(at('2026-12-23'), ['사랑하는 삶', '크리스마스 페스티벌(2~4교시)', '사랑하는 삶']);
+  assert.deepEqual(at('2026-12-23'), ['사랑하는 삶', '크리스마스 페스티벌', '사랑하는 삶']);
+});
+
+test('eventName: 제목 끝의 교시·시각 꼬리표를 뗀 이름(칠판 오늘 일정 줄과 바뀐 수업을 견줄 때)', () => {
+  assert.equal(eventName('학교폭력예방교육(1교시)'), '학교폭력예방교육');
+  assert.equal(eventName('크리스마스 페스티벌(2~4교시)'), '크리스마스 페스티벌');
+  assert.equal(eventName('학급자치(08:30~09:10)'), '학급자치');
+  assert.equal(eventName('기말고사'), '기말고사');
+});
+
+const festival = { id: 'f', name: '1-1', grade: 1, days: [
+  { ymd: '2026-11-13', off: null, until: null, cells: [
+    cell(1, '백마페스티벌', { changed: { from: '수학', note: null } }), cell(2, '백마페스티벌', { changed: { from: '음악', note: null } }),
+    cell(3, '백마페스티벌', { changed: { from: '국어', note: null } }), cell(4, '체육'), cell(5, '영어', { changed: { from: '과학', note: null } }),
+  ] },
+] };
+const festWeek = ['2026-11-09', '2026-11-10', '2026-11-11', '2026-11-12', '2026-11-13'];
+
+test('weekTableHTML: 이어진 교시가 같은 과목으로 바뀌었으면 한 칸(rowspan)에 이름 한 번 + 원래 과목들', () => {
+  const html = weekTableHTML(festival, festWeek, '2026-11-09');
+  assert.equal((html.match(/백마페스티벌/g) ?? []).length, 2); // 칸 글자 + aria-label
+  assert.match(html, /<td rowspan="3" class="tt-changed tt-run" aria-label="금요일 1~3교시 백마페스티벌, 원래 수학·음악·국어, 바뀜"><b>백마페스티벌<\/b><s>수학<\/s><s>음악<\/s><s>국어<\/s><\/td>/);
+  // 2·3교시 줄의 금요일 자리에는 칸이 없다(1교시 칸이 내려와 덮는다): 각 줄의 td 수 = 월~목 4개
+  const rows = html.split('<tr>').slice(2); // tbody 1교시 줄부터
+  assert.equal((rows[1].match(/<td/g) ?? []).length, 4);
+  assert.equal((rows[2].match(/<td/g) ?? []).length, 4);
+  // 혼자 바뀐 5교시는 그대로 한 칸
+  assert.match(html, /aria-label="금요일 5교시 영어, 원래 과학, 바뀜"><b>영어<\/b><s>과학<\/s><\/td>/);
+});
+
+test('weekChangesBoxHTML: 보고 있는 주의 바뀐 수업을 요일별 한 줄로, 없으면 「이 주 바뀐 수업 없어요」', () => {
+  const html = weekChangesBoxHTML(festival, festWeek);
+  assert.match(html, /<h2 id="tt-changes-title">이 주 바뀐 수업<\/h2><span class="sign-date">11\/9~13<\/span>/);
+  assert.match(html, /<li><span>금 1~3교시<\/span><span><b>백마페스티벌<\/b><\/span><\/li><li><span>금 5교시<\/span><span><b>영어<\/b> <s><span class="sr-only">원래 <\/span>과학<\/s><\/span><\/li>/);
+  assert.match(weekChangesBoxHTML(festival, ['2026-11-16', '2026-11-17', '2026-11-18', '2026-11-19', '2026-11-20']), /이 주 바뀐 수업 없어요/);
 });

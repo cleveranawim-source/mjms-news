@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  monthCells, itemsOn, monthItems, monthsOf, initialDay, dayLabel, rangeLabel, dayTitle, monthTitle,
+  monthCells, itemsOn, monthItems, monthsOf, initialDay, initialMonth, dayLabel, rangeLabel, dayTitle, monthTitle,
   gridHTML, dayRowsHTML, monthRowsHTML, swipeStep,
 } from '../src/lib/calendar.ts';
 
@@ -143,4 +143,15 @@ test('swipeStep: 가로로 50px 넘게, 세로보다 확실히, 0.8초 안에 �
   assert.equal(swipeStep(-40, 0, 200), 0); // 너무 짧음
   assert.equal(swipeStep(-80, 70, 200), 0); // 비스듬함(세로 스크롤)
   assert.equal(swipeStep(-80, 5, 1200), 0); // 너무 느림(끌다가 멈춤)
+});
+
+test('처음 보일 달: 이달에 오늘 이후 일정이 없으면 일정이 있는 다음 달(월말 주말에 빈 달력을 보지 않게)', () => {
+  const months = ['2026-10', '2026-11', '2026-12'];
+  const nov = [{ title: '학급자치', start: '2026-11-02', end: '2026-11-02', grades: [], kind: 'event' }];
+  assert.equal(initialMonth('2026-10-31', nov, months), '2026-11');
+  const oct = [{ title: '전시', start: '2026-10-31', end: '2026-10-31', grades: [], kind: 'event' }, ...nov];
+  assert.equal(initialMonth('2026-10-31', oct, months), '2026-10');
+  // 이달 뒤로 일정이 하나도 없거나(학년도 끝) 아예 없으면 이달
+  assert.equal(initialMonth('2026-10-31', [{ title: '옛', start: '2026-10-07', end: '2026-10-07', grades: [], kind: 'event' }], months), '2026-10');
+  assert.equal(initialMonth('2026-10-31', [], months), '2026-10');
 });

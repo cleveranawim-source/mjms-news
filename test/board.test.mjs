@@ -285,3 +285,16 @@ test('디데이: 한글 「페스티벌」(백마페스티벌·크리스마스 �
   ];
   assert.deepEqual(boardFromFeed('2026-11-09', feed({ schedule: s })).dday.map((d) => [d.title, d.label]), [['백마페스티벌(1~7교시)', 'D-4']]);
 });
+
+test('반을 안 골랐으면 칠판 「바뀐 수업」 자리에 반을 고르라는 한 줄과 반 고르기 단추', () => {
+  const html = changesStateHTML({ kind: 'pick' });
+  assert.match(html, /오늘 바뀐 수업/);
+  assert.match(html, /<p class="board-none">우리 반을 고르면 바뀐 수업이 보여요<\/p><button type="button" data-open-class-sheet>반 고르기<\/button>/);
+  assert.match(changesStateHTML({ kind: 'pick' }, true), /다음 등교일 바뀐 수업/);
+});
+
+test('칠판 귀퉁이 D-day 이름에는 행사 제목의 교시 꼬리표를 떼고 쓴다(「백마페스티벌 D-13」)', () => {
+  const feed = { letters: [], daysOff: [], meals: [], schedule: [{ title: '백마페스티벌(1~7교시)', start: '2026-11-13', end: '2026-11-13', grades: [], kind: 'event' }] };
+  const html = boardHTML(boardFromFeed('2026-10-31', feed), '/');
+  assert.match(html, /<span class="board-dday-name">백마페스티벌<\/span> <b>D-13<\/b>/);
+});

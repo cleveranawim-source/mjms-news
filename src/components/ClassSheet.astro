@@ -88,8 +88,14 @@ import { site } from '../site.config.ts';
         forgetStaleClass(classes);
         $('[data-sheet-pick]').hidden = false;
         render();
+        // 열자마자 불러온 경우: 초점이 아직 「닫기」에 있으면 학년 칸으로 옮긴다.
+        if (sheet.open && document.activeElement?.hasAttribute('data-sheet-close')) focusGrade();
       })());
     };
+
+    // 첫 초점은 「닫기」가 아니라 지금 학년 칸(없으면 1학년)으로 — 열자마자 고를 수 있게.
+    const focusGrade = () =>
+      (sheet.querySelector<HTMLButtonElement>('[data-pick-grade][aria-pressed="true"]') ?? sheet.querySelector<HTMLButtonElement>('[data-pick-grade]'))?.focus();
 
     const open = (from: HTMLElement) => {
       opener = from;
@@ -97,7 +103,8 @@ import { site } from '../site.config.ts';
       grade = gradeOf(picked) ?? 0;
       render();
       sheet.showModal();
-      if (!classes) load();
+      if (classes) focusGrade();
+      else load();
     };
 
     document.addEventListener('click', (e) => {

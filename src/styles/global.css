@@ -668,6 +668,7 @@ p.sheet-status {
   font-weight: 800;
   color: var(--chalk-yellow);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap; /* 글자를 키워도 「D-13」이 두 줄로 갈리지 않게 */
 }
 
 .board-dday .badge {
@@ -851,7 +852,8 @@ p.sheet-status {
   outline: none;
 }
 
-[data-retry-changes] {
+[data-retry-changes],
+.board [data-open-class-sheet] {
   min-height: 44px;
   margin-top: 6px;
   padding: 0 16px;
@@ -864,7 +866,8 @@ p.sheet-status {
   cursor: pointer;
 }
 
-[data-retry-changes]:hover {
+[data-retry-changes]:hover,
+.board [data-open-class-sheet]:hover {
   background: rgb(238 241 234 / 0.08);
 }
 
@@ -2347,6 +2350,16 @@ html[data-grade] .docs[data-view='all'] > li {
 .tt-grid td.tt-changed s {
   color: #33404d;
   text-decoration-thickness: 1.5px;
+}
+
+/* 이어진 교시가 한 행사로 바뀐 날의 묶음 칸: 이름은 위에 한 번, 원래 과목들은 그 아래로. */
+.tt-grid td.tt-run {
+  vertical-align: top;
+  padding-top: 10px;
+}
+
+.tt-grid td.tt-run b {
+  margin-bottom: 4px;
 }
 
 .tt-grid .tt-special {

@@ -46,12 +46,19 @@ export async function loadTimetable(api: string, fetcher: typeof fetch = fetch):
 const SCHOOL_EVENT = '학교 행사';
 type ScheduleEvent = { title: string; start: string; end: string; grades: number[]; kind: string };
 
-// 행사 제목 끝의 때와 그 칸 교시의 맞음새: 「(1교시)」「(2~4교시)」는 그 교시면 2(콕 집음), 아니면 0.
-// 안 적혔으면 어느 교시든 1. 「(08:30~09:10)」처럼 시각이면 조회 시간 행사라 교시 수업 칸의 후보가 아니다(0).
+// 행사 제목 끝의 때: 「(1교시)」「(2~4교시)」 또는 「(08:30~09:10)」 같은 시각.
+const PERIOD_TAIL = /\((\d+)(?:\s*~\s*(\d+))?교시\)\s*$/;
+const CLOCK_TAIL = /\(\d{1,2}:\d{2}\s*~\s*\d{1,2}:\d{2}\)\s*$/;
+
+/** 교시·시각 꼬리표를 뗀 행사 이름. 시간표 칸에는 이것을 쓴다(「1교시 학교폭력예방교육(1교시)」가 되지 않게). */
+export const eventName = (title: string) => title.replace(PERIOD_TAIL, '').replace(CLOCK_TAIL, '').trim();
+
+// 행사 제목 끝의 때와 그 칸 교시의 맞음새: 교시가 적혔으면 그 교시일 때 2(콕 집음), 아니면 0.
+// 안 적혔으면 어느 교시든 1. 시각이면 조회 시간 행사라 교시 수업 칸의 후보가 아니다(0).
 function periodFit(title: string, period: number): 0 | 1 | 2 {
-  const m = /\((\d+)(?:\s*~\s*(\d+))?교시\)\s*$/.exec(title);
+  const m = PERIOD_TAIL.exec(title);
   if (m) return Number(m[1]) <= period && period <= Number(m[2] ?? m[1]) ? 2 : 0;
-  return /\(\d{1,2}:\d{2}\s*~\s*\d{1,2}:\d{2}\)\s*$/.test(title) ? 0 : 1;
+  return CLOCK_TAIL.test(title) ? 0 : 1;
 }
 
 /**
@@ -69,7 +76,7 @@ export function nameSchoolEvents(feed: TimetableFeed | null, schedule: ScheduleE
     // 교시를 콕 집은 행사(「(2~4교시)」)가 있으면 교시가 안 적힌 행사(예배)보다 우선.
     const best = Math.max(0, ...pool.map((e) => periodFit(e.title, period)));
     const pick = pool.filter((e) => periodFit(e.title, period) === best);
-    return pick.length === 1 ? pick[0].title : null;
+    return pick.length === 1 ? eventName(pick[0].title) : null;
   };
   return {
     ...feed,
@@ -183,10 +190,22 @@ export function weekTableHTML(cls: ClassTimetable, weekDays: string[], today: st
       return `<th scope="col"${at(d)}><span>${escapeHTML(weekday(d.ymd))}</span><small>${date}</small>${until}</th>`;
     })
     .join('');
+  // 이어진 교시가 같은 과목으로 바뀐 날(행사 날 「백마페스티벌」 1~7교시)은 한 칸으로 내려 긋는다. 칸을 차지한 뒤 교시는 비운다.
+  const runStart = new Map<string, number>(); // `${ymd}:${period}` → 묶음 길이
+  const covered = new Set<string>();
+  for (const d of days) {
+    if (d.off) continue;
+    for (const run of runs(changesOf(cls, d.ymd).cells)) {
+      if (run.length < 2) continue;
+      runStart.set(`${d.ymd}:${run[0].period}`, run.length);
+      for (const c of run.slice(1)) covered.add(`${d.ymd}:${c.period}`);
+    }
+  }
   const body: string[] = [];
   for (let p = 1; p <= rows; p++) {
     const tds = days.map((d) => {
       if (d.off) return p === 1 ? `<td rowspan="${rows}"${at(d, 'tt-off-col')}><span>${escapeHTML(d.off)}</span></td>` : '';
+      if (covered.has(`${d.ymd}:${p}`)) return '';
       const cell = d.cells.find((c) => Number(c.period) === p);
       const cut = d.until !== null && p > d.until;
       if (!cell || cut || (cell.subject === '' && !cell.changed)) return `<td${at(d, cut ? 'tt-cut' : '')}></td>`;
@@ -195,6 +214,15 @@ export function weekTableHTML(cls: ClassTimetable, weekDays: string[], today: st
       // 과목과 「창체」가 붙어 읽히지 않게 숨은 쉼표를 둔다
       const tag = special ? '<small class="tt-special"><span class="sr-only">, </span>창체</small>' : '';
       if (!cell.changed) return `<td${at(d)}>${escapeHTML(subject)}${tag}</td>`;
+      const span = runStart.get(`${d.ymd}:${p}`);
+      if (span) {
+        // 묶음 칸: 이름 한 번, 원래 과목은 교시 순서대로 줄 그어(없는 교시는 사유만 있으니 건너뛴다).
+        const run = d.cells.filter((c) => c.changed && Number(c.period) >= p && Number(c.period) < p + span).sort((a, b) => a.period - b.period);
+        const froms = run.map((c) => c.changed!.from).filter((f): f is string => !!f);
+        const why = froms.map((f) => `<s>${escapeHTML(f)}</s>`).join('');
+        const label = `${weekday(d.ymd)}요일 ${p}~${p + span - 1}교시 ${subject}${special ? '(창체)' : ''}, ${froms.length ? `원래 ${froms.join('·')}, ` : ''}바뀜`;
+        return `<td rowspan="${span}"${at(d, 'tt-changed tt-run')} aria-label="${escapeHTML(label)}"><b>${escapeHTML(subject)}</b>${why}${tag}</td>`;
+      }
       const { from, note } = cell.changed;
       const why = from ? `<s>${escapeHTML(from)}</s>` : note ? `<small class="tt-note">${escapeHTML(note)}</small>` : '';
       const label = `${weekday(d.ymd)}요일 ${p}교시 ${subject}${special ? '(창체)' : ''}, ${from ? `원래 ${from}, ` : note ? `${note}, ` : ''}바뀜`;
@@ -231,4 +259,23 @@ export function changesBoxHTML(cls: ClassTimetable, ymd: string, label: string, 
   const list = rows.length ? `<ul class="sign-rows tt-change-rows">${rows.join('')}</ul>` : `<p class="sign-note">${escapeHTML(none)}</p>`;
   const when = date ? `<span class="sign-date">${escapeHTML(date)}</span>` : '';
   return `<section class="sign tt-changes" aria-labelledby="tt-changes-title"><div class="sign-head"><h2 id="tt-changes-title">${escapeHTML(label)}</h2>${when}</div>${list}</section>`;
+}
+
+/** 보고 있는 주가 오늘·다음 등교일을 품지 않을 때의 안내판: 그 주 바뀐 수업을 요일별 한 줄로(「금 1~3교시 · 백마페스티벌」). */
+export function weekChangesBoxHTML(cls: ClassTimetable, weekDays: string[]): string {
+  const rows = weekDays.flatMap((ymd) => {
+    const { cells, until } = changesOf(cls, ymd);
+    const wd = weekday(ymd);
+    const lines = runs(cells).map((run) => {
+      const all = run.map(itemOf);
+      const same = (k: 'from' | 'note') => (all.every((i) => i[k] === all[0][k]) ? all[0][k] : null);
+      const periods = run.length > 1 ? `${run[0].period}~${run.at(-1)!.period}교시` : `${run[0].period}교시`;
+      return `<li><span>${wd} ${periods}</span><span><b>${escapeHTML(run[0].subject || '수업 없음')}</b>${changeWhyHTML({ from: same('from'), note: same('note') })}</span></li>`;
+    });
+    if (until !== null) lines.push(`<li><span>${wd} ${until + 1}교시부터</span><span>수업 없음</span></li>`);
+    return lines;
+  });
+  const list = rows.length ? `<ul class="sign-rows tt-change-rows">${rows.join('')}</ul>` : '<p class="sign-note">이 주 바뀐 수업 없어요</p>';
+  const when = `<span class="sign-date">${weekRange(mondayOf(weekDays[0]))}</span>`;
+  return `<section class="sign tt-changes" aria-labelledby="tt-changes-title"><div class="sign-head"><h2 id="tt-changes-title">이 주 바뀐 수업</h2>${when}</div>${list}</section>`;
 }

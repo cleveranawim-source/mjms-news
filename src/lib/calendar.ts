@@ -70,6 +70,16 @@ export function initialDay(ym: string, today: string, items: Item[]): string {
   return first && first.start > day1 ? first.start : day1;
 }
 
+/**
+ * 처음 보일 달. 이달에 오늘부터의 일정이 있으면 이달, 없으면 일정이 있는 다음 달(월말 주말에 빈 달력 둘을 보지 않게).
+ * 뒤로 일정이 하나도 없으면 이달. items는 이미 거른 것을 준다.
+ */
+export function initialMonth(today: string, items: Item[], months: string[]): string {
+  const ym = today.slice(0, 7);
+  if (items.some((i) => i.end >= today && i.start.slice(0, 7) <= ym)) return ym;
+  return months.find((m) => m > ym && monthItems(m, items, null).length > 0) ?? ym;
+}
+
 /** 날짜 단추 읽기 이름: 「10월 7일, 일정 1개」. */
 export function dayLabel(ymd: string, count: number): string {
   const { m, d } = md(ymd);
