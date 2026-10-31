@@ -1865,11 +1865,20 @@ html[data-grade] .docs[data-view='all'] > li {
   color: var(--ink);
 }
 
-/* 분실물함 페이지: 물 위에 뜬 사진 */
+/* 분실물함 페이지: 명패·설명·함·만지는 법이 한 화면(탭바 위)에 다 들어가게 세로로 세우고, 함이 남는 높이를 차지한다.
+   함 높이를 따로 정해 두면(예 100dvh - 19rem) 글이 줄 바꿈되는 좁은 화면에서 아래 안내가 탭바 뒤로 밀려 잘린다. */
+.lost-page {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - 12px - 2rem - var(--tab-space) - env(safe-area-inset-bottom));
+}
+
+/* 물 위에 뜬 사진 */
 .lost-box {
   --size: calc(7.5rem * var(--scale, 1));
   position: relative;
-  height: max(420px, 100dvh - 19rem);
+  flex: 1 1 auto;
+  min-height: 16rem;
   border: 1px solid var(--rule);
   border-radius: 20px;
   background: linear-gradient(180deg, #fff 0%, #f3f8fb 100%);
@@ -1976,7 +1985,18 @@ html[data-grade] .docs[data-view='all'] > li {
 .lost-hint {
   color: var(--muted);
   font-size: var(--text-sm);
+  line-height: 1.45;
   margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.lost-hint b {
+  color: var(--ink);
+  font-weight: 700;
+  margin-right: 2px;
 }
 
 .lost-detail {

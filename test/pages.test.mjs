@@ -342,3 +342,11 @@ test('가정통신문 한 건: 이알리미 PDF 글은 아래 원문 링크가 �
   assert.match(html, /class="letter-src"[^>]*>\s*원문 보기\(PDF\)\s*</);
   assert.doesNotMatch(html, /학교 홈페이지 원문 보기/);
 });
+
+test('분실물함 화면: 함과 안내가 한 화면 높이 안에 들어가고, 안내에 밀기·기울이기·흔들기(컴퓨터는 두 번 누르기)가 다 있다', () => {
+  const html = read('lost/index.html');
+  // 함 높이를 고정해 두면 아래 안내문이 탭바 뒤로 밀려 잘린다(2026-10-31). 세로 flex 틀 안에서 함이 남는 높이를 차지한다.
+  assert.match(html, /<div class="lost-page">[\s\S]*data-lost-box[\s\S]*class="lost-hint"[\s\S]*<\/div>/);
+  const hint = html.match(/<(ul|p) class="lost-hint"[\s\S]*?<\/\1>/)[0];
+  for (const word of ['밀', '기울', '흔들', '날짜순', '종류별', '두 번']) assert.ok(hint.includes(word), word);
+});
