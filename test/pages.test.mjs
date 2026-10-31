@@ -262,7 +262,8 @@ test('분실물 안내판: 처음엔 감춰 두고 분실물함으로 간다', (
 test('모든 화면: 아래 탭 라벨, 명패, IBM Plex 없음', () => {
   for (const f of ['index.html', 'notices/index.html', 'schedule/index.html', 'timetable/index.html', 'lost/index.html', 'about/index.html']) {
     const html = read(f);
-    assert.match(html, /class="tabbar"[\s\S]*오늘[\s\S]*가정<wbr>통신문[\s\S]*일정[\s\S]*분실물[\s\S]*시간표/, f);
+    // 탭 순서: 오늘 · 시간표 · 일정 · 분실물 · 가정통신문 (2026-10-31)
+    assert.match(html, /class="tabbar"[\s\S]*오늘[\s\S]*시간표[\s\S]*일정[\s\S]*분실물[\s\S]*가정<wbr>통신문/, f);
     assert.match(html, /class="plate/, f);
     assert.ok(!/ibm-plex|IBM Plex/i.test(html), f);
     assert.match(html, /data-class-sheet/, f);
