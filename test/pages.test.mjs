@@ -348,8 +348,12 @@ test('분실물함 화면: 함과 안내가 한 화면 높이 안에 들어가�
   const html = read('lost/index.html');
   // 함 높이를 고정해 두면 아래 안내문이 탭바 뒤로 밀려 잘린다(2026-10-31). 세로 flex 틀 안에서 함이 남는 높이를 차지한다.
   assert.match(html, /<div class="lost-page">[\s\S]*data-lost-box[\s\S]*class="lost-hint"[\s\S]*<\/div>/);
-  const hint = html.match(/<(ul|p) class="lost-hint"[\s\S]*?<\/\1>/)[0];
+  // 만지는 법은 접어 둔다(한 줄) — 함이 높이를 더 가져가게. 접힌 줄에도 세 손짓 이름이 보인다.
+  const hint = html.match(/<details class="lost-hint">[\s\S]*?<\/details>/)[0];
+  assert.match(hint, /<summary>만지는 법 <span>밀기 · 기울이기 · 흔들기<\/span><\/summary>/);
   for (const word of ['밀', '기울', '흔들', '날짜순', '종류별', '두 번']) assert.ok(hint.includes(word), word);
+  // 설명문은 짧게 — 「선생님께 특징을 말하고 찾아가요」는 사진을 눌렀을 때 상세 창이 말한다.
+  assert.match(html, /<p class="lede">학교에서 보관 중인 물건이에요\. 사진을 누르면 찾으러 갈 곳이 보여요\.<\/p>/);
 });
 
 test('404: 해요체로 말하고 「오늘」 화면과 가정통신문 목록으로 가는 길이 있다', () => {
