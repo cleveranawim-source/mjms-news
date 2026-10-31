@@ -399,6 +399,14 @@ main {
   stroke-width: 2.4;
 }
 
+/* 지금 화면 탭: 도형을 남색으로 채우고 선은 흰색. 선을 먼저 긋고 그 위에 채우기(paint-order)라 바깥 테두리는 가려지고 안쪽 선만 흰색으로 남는다. */
+.tabbar a[aria-current='page'] svg {
+  fill: var(--navy);
+  stroke: #fff;
+  stroke-width: 1.8;
+  paint-order: stroke;
+}
+
 .tabbar a:focus-visible {
   outline-offset: -3px;
 }
@@ -749,11 +757,13 @@ p.sheet-status {
 }
 
 .board-groups > :has(+ .board-bring),
-.board-groups > :has(+ [data-board-changes]:empty + .board-bring) {
+.board-groups > :has(+ [data-board-lessons]:empty + .board-bring),
+.board-groups > :has(+ [data-board-changes]:empty + [data-board-lessons]:empty + .board-bring) {
   margin-bottom: 14px;
 }
 
 .board [data-board-changes],
+.board [data-board-lessons],
 .board-group {
   margin-top: 14px;
   padding-top: 12px;
@@ -761,6 +771,7 @@ p.sheet-status {
 }
 
 .board [data-board-changes] > .board-sub:first-child,
+.board [data-board-lessons] > .board-sub:first-child,
 .board-group > .board-sub:first-child {
   margin-top: 0;
   margin-bottom: 4px;
@@ -844,8 +855,50 @@ p.sheet-status {
   color: var(--chalk-dim);
 }
 
-[data-board-changes]:empty {
+[data-board-changes]:empty,
+[data-board-lessons]:empty {
   display: none;
+}
+
+/* 「오늘 수업」 한 줄: 교시 번호 위, 과목 아래. 칸은 같은 폭으로 나누고 긴 과목은 칸 안에서 줄을 바꾼다. 바뀐 교시는 분필 노랑 굵게. */
+.board-lessons {
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  gap: 4px;
+}
+
+.board-lessons > li {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 2px;
+  border-radius: 8px;
+  font-size: var(--fs-15);
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.board-lessons > li > span {
+  font-size: var(--fs-12);
+  font-weight: 500;
+  color: var(--chalk-dim);
+}
+
+.board-lessons > li.is-changed {
+  background: rgb(238 241 234 / 0.1);
+}
+
+.board-lessons > li.is-changed b {
+  font-size: var(--fs-13);
+  font-weight: 800;
+  color: var(--chalk-yellow);
 }
 
 [data-board-changes]:focus {

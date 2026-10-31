@@ -36,7 +36,7 @@ const boardJson = JSON.stringify({ base, letters, schedule: feed.schedule, daysO
 </section>
 
 <script>
-  import { boardFromFeed, boardHTML, changesFor, changesStateHTML } from '../lib/board.ts';
+  import { boardFromFeed, boardHTML, changesFor, changesStateHTML, lessonsHTML } from '../lib/board.ts';
   import { seoulToday } from '../lib/dates.ts';
   import { forgetStaleClass, isStaleClass, readClass } from '../lib/klass.ts';
   import { mealHTML } from '../lib/meal.ts';
@@ -66,11 +66,13 @@ const boardJson = JSON.stringify({ base, letters, schedule: feed.schedule, daysO
     let ticket = 0;
     const draw = async (retried = false) => {
       const slot = groups.querySelector<HTMLElement>('[data-board-changes]');
+      const lessonsEl = groups.querySelector<HTMLElement>('[data-board-lessons]');
       const untilEl = groups.querySelector<HTMLElement>('[data-board-until]');
       const classId = readClass();
       const mine = ++ticket;
       if (!slot) return;
       if (untilEl) untilEl.textContent = '';
+      if (lessonsEl) lessonsEl.innerHTML = '';
       if (!api || !classId) {
         // 반을 안 골랐으면 빈 초록 대신 「우리 반을 고르면 바뀐 수업이 보여요」 + 반 고르기 단추(피드 주소가 없으면 비움).
         slot.innerHTML = api ? changesStateHTML({ kind: 'pick' }, view.closed) : '';
@@ -84,6 +86,8 @@ const boardJson = JSON.stringify({ base, letters, schedule: feed.schedule, daysO
       if (isStaleClass(feed?.classes, classId)) return forgetStaleClass(feed!.classes);
       const state = changesFor(feed, classId, day, view.closed);
       slot.innerHTML = state ? changesStateHTML(state, view.closed) : '';
+      // 「오늘 수업」 한 줄: 바뀐 수업 아래. 피드가 없거나 쉬는 날이면 자리를 비워 숨긴다.
+      if (lessonsEl) lessonsEl.innerHTML = lessonsHTML(feed, classId, day, view.closed);
       // 오늘 일정 줄이 바뀐 수업과 같은 행사면(「1~6교시 기말고사」와 「기말고사」) 한 번만 보이게 감춘다.
       if (!view.closed && state?.kind === 'lines') {
         const named = new Set(state.lines.flatMap((x) => (typeof x === 'string' ? [] : [x.text.replace(/^[\d~]+교시 /, '')])));

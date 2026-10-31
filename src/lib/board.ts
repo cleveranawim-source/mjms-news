@@ -135,6 +135,8 @@ export function boardHTML(board: Board, base: string): string {
   const next = board.closed ? `<p class="board-next">다음 등교 <b>${escape(formatDate(board.next))}</b>${until}</p>` : '';
   // 「오늘 바뀐 수업」은 브라우저가 우리 반 시간표를 받아 채운다(changesStateHTML).
   const changes = '<div data-board-changes></div>';
+  // 「오늘 수업」(1~N교시 한 줄)도 브라우저가 우리 반 시간표를 받아 채운다(lessonsHTML).
+  const lessons = '<div data-board-lessons></div>';
   // 준비물은 가정통신문 한 장에 한 줄로 모은다(「도시락, 물병」 + 학년 배지 하나, 누르면 그 가정통신문).
   const bringItems = (list: Board['bringToday']) =>
     [...new Set(list.map((b) => b.slug))].map((slug) => {
@@ -150,7 +152,7 @@ export function boardHTML(board: Board, base: string): string {
   const events = board.events.length
     ? `<section class="board-group board-group--opt board-events"><h2 class="board-sub">오늘 일정</h2>${items(board.events.map((e) => li(e.title, e.grades, undefined, true)))}</section>`
     : '';
-  return head + dayOff + next + changes + bring + events;
+  return head + dayOff + next + changes + lessons + bring + events;
 }
 
 export type ChangesState =
@@ -196,4 +198,36 @@ export function changesFor(feed: TimetableFeed | null, classId: string, ymd: str
   if (day.off) return null;
   const lines = changeItems(feed, classId, ymd, next ? '그날은' : '오늘은');
   return lines.length ? { kind: 'lines', lines } : { kind: 'none' };
+}
+
+/**
+ * 칠판 「오늘 수업」 줄(쉬는 날이면 「그날 수업」): 교시 번호 + 과목을 한 줄에. 바뀐 교시는 굵게(원래 과목은 읽기 이름에만 — 바로 위 「바뀐 수업」 줄이 보여 준다).
+ * 「N교시까지」 뒤 교시와 빈 칸은 그리지 않는다. 쉬는 날이거나 그날·반이 피드에 없으면 빈 문자열(자리를 숨긴다).
+ */
+export function lessonsHTML(feed: TimetableFeed | null, classId: string, ymd: string, next = false): string {
+  const day = feed?.classes.find((c) => c.id === classId)?.days.find((d) => d.ymd === ymd);
+  if (!day || day.off) return '';
+  const cells = [...day.cells]
+    .filter((c) => (day.until === null || c.period <= day.until) && (c.subject !== '' || c.changed))
+    .sort((a, b) => a.period - b.period);
+  if (!cells.length) return '';
+  // 이어진 교시가 같은 과목으로 바뀌었으면(행사 날) 한 칸으로 묶는다 — 칠판·시간표와 같은 규칙.
+  const runs: (typeof cells)[] = [];
+  for (const c of cells) {
+    const last = runs.at(-1)?.at(-1);
+    if (last && last.changed && c.changed && last.period + 1 === c.period && last.subject === c.subject) runs.at(-1)!.push(c);
+    else runs.push([c]);
+  }
+  const lis = runs.map((run) => {
+    const c = run[0];
+    const subject = c.subject || '수업 없음';
+    const periods = run.length > 1 ? `${c.period}~${run.at(-1)!.period}` : `${c.period}`;
+    const no = `<span aria-hidden="true">${periods}</span>`;
+    if (!c.changed) return `<li aria-label="${periods}교시 ${escape(subject)}">${no}${escape(subject)}</li>`;
+    const froms = run.map((x) => x.changed!.from).filter((f): f is string => !!f);
+    const why = froms.length ? `원래 ${froms.join('·')}, ` : c.changed.note ? `${c.changed.note}, ` : '';
+    const grow = run.length > 1 ? ` style="flex-grow: ${run.length}"` : '';
+    return `<li class="is-changed"${grow} aria-label="${periods}교시 ${escape(subject)}, ${escape(why)}바뀜">${no}<b>${escape(subject)}</b></li>`;
+  });
+  return `<h2 class="board-sub board-sub--lessons">${next ? '그날' : '오늘'} 수업</h2><ol class="board-lessons">${lis.join('')}</ol>`;
 }

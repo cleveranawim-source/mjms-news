@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { boardFromFeed, boardHTML, changesStateHTML, changesFor } from '../src/lib/board.ts';
+import { boardFromFeed, boardHTML, changesStateHTML, changesFor, lessonsHTML } from '../src/lib/board.ts';
 
 const letter = (o) => ({
   id: 'x', number: null, subject: '제목', grades: [1, 2, 3], classes: null, eventDate: null, eventEnd: null,
@@ -297,4 +297,34 @@ test('칠판 귀퉁이 D-day 이름에는 행사 제목의 교시 꼬리표를 �
   const feed = { letters: [], daysOff: [], meals: [], schedule: [{ title: '백마페스티벌(1~7교시)', start: '2026-11-13', end: '2026-11-13', grades: [], kind: 'event' }] };
   const html = boardHTML(boardFromFeed('2026-10-31', feed), '/');
   assert.match(html, /<span class="board-dday-name">백마페스티벌<\/span> <b>D-13<\/b>/);
+});
+
+test('칠판 「오늘 수업」 줄: 교시 순서대로, 바뀐 교시는 굵게 + 읽기 이름에 원래 과목, 「N교시까지」 뒤는 빼고, 쉬는 날·없는 날은 비움', () => {
+  const cell = (period, subject, changed = null) => ({ period, subject, special: false, changed });
+  const tt = { version: 1, generatedAt: '', days: [], classes: [{ id: 'class-1_1', name: '1-1', grade: 1, days: [
+    { ymd: '2026-11-02', off: null, until: null, cells: [cell(1, '학교폭력예방교육', { from: '수학', note: null }), cell(2, '과학'), cell(3, '중국어')] },
+    { ymd: '2026-11-03', off: null, until: 4, cells: [cell(1, '국어'), cell(2, '영어'), cell(3, '창체', { from: null, note: '동아리활동' }), cell(4, '미술'), cell(5, '', { from: '체육', note: null }), cell(6, '', { from: '음악', note: null })] },
+    { ymd: '2026-11-20', off: '재량휴업일', until: null, cells: [] },
+  ] }] };
+  const html = lessonsHTML(tt, 'class-1_1', '2026-11-02');
+  assert.match(html, /^<h2 class="board-sub board-sub--lessons">오늘 수업<\/h2><ol class="board-lessons">/);
+  assert.match(html, /<li class="is-changed" aria-label="1교시 학교폭력예방교육, 원래 수학, 바뀜"><span aria-hidden="true">1<\/span><b>학교폭력예방교육<\/b><\/li><li aria-label="2교시 과학"><span aria-hidden="true">2<\/span>과학<\/li>/);
+  // 「4교시까지」: 5·6교시는 그리지 않는다. 사유만 있는 바뀐 칸도 굵게.
+  const cut = lessonsHTML(tt, 'class-1_1', '2026-11-03', true);
+  assert.match(cut, /그날 수업/);
+  assert.equal((cut.match(/<li/g) ?? []).length, 4);
+  assert.match(cut, /<li class="is-changed" aria-label="3교시 창체, 동아리활동, 바뀜"><span aria-hidden="true">3<\/span><b>창체<\/b><\/li>/);
+  // 이어진 교시가 같은 행사로 바뀌었으면 한 칸(폭은 교시 수만큼)에 「1~3」.
+  const fest = { ...tt, classes: [{ ...tt.classes[0], days: [{ ymd: '2026-11-13', off: null, until: null, cells: [cell(1, '백마페스티벌', { from: '사회', note: null }), cell(2, '백마페스티벌', { from: '과학', note: null }), cell(3, '백마페스티벌', { from: '정보', note: null }), cell(4, '체육')] }] }] };
+  const run = lessonsHTML(fest, 'class-1_1', '2026-11-13');
+  assert.match(run, /<li class="is-changed" style="flex-grow: 3" aria-label="1~3교시 백마페스티벌, 원래 사회·과학·정보, 바뀜"><span aria-hidden="true">1~3<\/span><b>백마페스티벌<\/b><\/li><li aria-label="4교시 체육">/);
+  assert.equal((run.match(/<li/g) ?? []).length, 2);
+  assert.equal(lessonsHTML(tt, 'class-1_1', '2026-11-20'), '');
+  assert.equal(lessonsHTML(tt, 'class-1_1', '2026-11-04'), '');
+  assert.equal(lessonsHTML(null, 'class-1_1', '2026-11-02'), '');
+});
+
+test('칠판에는 오늘 수업 줄 자리가 바뀐 수업 자리 다음, 챙길 것 앞에 있다', () => {
+  const html = boardHTML(boardFromFeed('2026-10-22', { letters: [], daysOff: [], meals: [] }), '/');
+  assert.match(html, /<div data-board-changes><\/div><div data-board-lessons><\/div><section class="board-group board-bring">/);
 });
