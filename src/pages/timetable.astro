@@ -40,7 +40,7 @@ const eventsJson = JSON.stringify(events).replace(/</g, '\\u003c');
 </Base>
 
 <script>
-  import { loadTimetable, nameSchoolEvents, weekTableHTML, changesTarget, changesBoxHTML, weekGroups, weekRange, mondayOf, type TimetableFeed } from '../lib/timetable.ts';
+  import { loadTimetable, nameSchoolEvents, weekTableHTML, changesTarget, changesBoxHTML, weekChangesBoxHTML, weekGroups, weekRange, mondayOf, type TimetableFeed } from '../lib/timetable.ts';
   import { readClass, knownClass, forgetStaleClass } from '../lib/klass.ts';
   import { seoulToday, addDays, weekday } from '../lib/dates.ts';
   import { escapeHTML } from '../lib/html.ts';
@@ -85,7 +85,11 @@ const eventsJson = JSON.stringify(events).replace(/</g, '\\u003c');
         b.setAttribute('aria-pressed', String(i === week));
         b.firstElementChild!.innerHTML = weekText(i);
       });
-      $('[data-tt-grid]').innerHTML = weekTableHTML(cls, weekDays(), today);
+      const days = weekDays();
+      // 안내판은 보고 있는 주를 따른다: 오늘(다음 등교일)이 그 주에 있으면 그날 것, 아니면 그 주 바뀐 수업 전부.
+      const t = changesTarget(cls, today);
+      $('[data-tt-changes]').innerHTML = days.includes(t.ymd) ? changesBoxHTML(cls, t.ymd, t.label, t.empty, t.date) : weekChangesBoxHTML(cls, days);
+      $('[data-tt-grid]').innerHTML = weekTableHTML(cls, days, today);
     };
 
     const mine = () => (feed ? feed.classes.find((c) => c.id === knownClass(feed!.classes, classId)) : undefined);
@@ -99,8 +103,6 @@ const eventsJson = JSON.stringify(events).replace(/</g, '\\u003c');
       view.hidden = !has || !feed;
       const cls = mine();
       if (!cls) return;
-      const t = changesTarget(cls, today);
-      $('[data-tt-changes]').innerHTML = changesBoxHTML(cls, t.ymd, t.label, t.empty, t.date);
       if (weeksEl.childElementCount !== groups.length) {
         weeksEl.style.setProperty('--n', String(groups.length));
         weeksEl.innerHTML = groups.map((_, i) => `<button type="button" data-week="${i}" aria-pressed="false"><span></span></button>`).join('');

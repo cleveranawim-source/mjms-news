@@ -139,6 +139,8 @@ import { site } from '../site.config.ts';
     const img = document.createElement('img');
     img.src = item.photo;
     img.alt = '';
+    img.loading = 'lazy';
+    img.decoding = 'async';
     img.draggable = false;
     button.append(img);
     piece.append(button);

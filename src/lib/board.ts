@@ -5,7 +5,7 @@ import type { Feed } from './feed.ts';
 import { badgeHTML } from './grades.ts';
 import { escapeHTML as escape } from './html.ts';
 import { pickMeal, type MealView } from './meal.ts';
-import { changeItems, changeWhyHTML, type ChangeItem, type TimetableFeed } from './timetable.ts';
+import { changeItems, changeWhyHTML, eventName, type ChangeItem, type TimetableFeed } from './timetable.ts';
 
 export type BoardEvent = { title: string; start: string; end: string; grades: number[] };
 export type BoardDday = { title: string; start: string; days: number; label: string; grades: number[] };
@@ -125,7 +125,8 @@ export function boardHTML(board: Board, base: string): string {
     ? `<ul class="board-dday">${board.dday
         .map((d) => {
           const badge = d.grades.length < 3 ? ` ${badgeHTML(d.grades, 'board-badge')}` : '';
-          return `<li data-grades="${d.grades.join(' ')}"><span class="board-dday-name">${escape(d.title)}</span>${badge} <b>${d.label}</b></li>`;
+          // 귀퉁이에는 교시 꼬리표(「(1~7교시)」) 없이 이름만.
+          return `<li data-grades="${d.grades.join(' ')}"><span class="board-dday-name">${escape(eventName(d.title))}</span>${badge} <b>${d.label}</b></li>`;
         })
         .join('')}</ul>`
     : '';
@@ -157,7 +158,8 @@ export type ChangesState =
   | { kind: 'none' }
   | { kind: 'nofeed' }
   | { kind: 'error' }
-  | { kind: 'loading' };
+  | { kind: 'loading' }
+  | { kind: 'pick' };
 
 function changeLi(line: ChangeItem | string): string {
   if (typeof line === 'string') return `<li>${escape(line)}</li>`;
@@ -179,6 +181,9 @@ export function changesStateHTML(state: ChangesState, next = false): string {
       return head + none('불러오는 중…');
     case 'error':
       return head + none('바뀐 수업을 불러오지 못했어요') + '<button type="button" data-retry-changes>다시 불러오기</button>';
+    case 'pick':
+      // 반을 안 골랐을 때: 빈 초록 대신 무엇이 보이게 되는지와 고르는 단추(반 고르기 창을 연다).
+      return head + none('우리 반을 고르면 바뀐 수업이 보여요') + '<button type="button" data-open-class-sheet>반 고르기</button>';
   }
 }
 

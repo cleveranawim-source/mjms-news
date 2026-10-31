@@ -350,3 +350,16 @@ test('분실물함 화면: 함과 안내가 한 화면 높이 안에 들어가�
   const hint = html.match(/<(ul|p) class="lost-hint"[\s\S]*?<\/\1>/)[0];
   for (const word of ['밀', '기울', '흔들', '날짜순', '종류별', '두 번']) assert.ok(hint.includes(word), word);
 });
+
+test('404: 해요체로 말하고 「오늘」 화면과 가정통신문 목록으로 가는 길이 있다', () => {
+  const html = read('404.html');
+  assert.ok(!html.includes('찾을 수 없습니다'));
+  assert.match(html, /<h1[^>]*>이 주소에는 아무것도 없어요<\/h1>/);
+  assert.match(html, /<a class="tap-inline" href="\/">오늘 화면<\/a>/);
+  assert.match(html, /<a class="tap-inline" href="\/notices\/">가정통신문 목록<\/a>/);
+});
+
+test('가정통신문 한 건: 원문으로 가는 링크는 아래 단추 하나뿐(AI 안내 줄에는 링크 없음)', () => {
+  const html = read(`notices/${feed.letters[0].id}/index.html`);
+  assert.equal((html.match(/원문 보기/g) ?? []).length, 1);
+});
