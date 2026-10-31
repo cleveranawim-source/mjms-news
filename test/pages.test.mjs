@@ -368,3 +368,11 @@ test('가정통신문 한 건: 원문으로 가는 링크는 아래 단추 하�
   const html = read(`notices/${feed.letters[0].id}/index.html`);
   assert.equal((html.match(/원문 보기/g) ?? []).length, 1);
 });
+
+test('바닥글: 학교 대표전화(tel 링크)와 학교 홈페이지 링크가 모든 화면에 있다', () => {
+  for (const f of ['index.html', 'about/index.html', 'schedule/index.html']) {
+    const html = read(f);
+    assert.match(html, /학교 대표전화 <a href="tel:02-302-7072">02-302-7072<\/a>\./, f);
+    assert.match(html, /<a href="https:\/\/myongji\.sen\.ms\.kr">학교 홈페이지<\/a>/, f);
+  }
+});
