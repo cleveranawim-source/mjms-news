@@ -2038,11 +2038,59 @@ html[data-grade] .docs[data-view='all'] > li {
   cursor: pointer;
 }
 
+/* 설명문은 한 줄 반쯤 — 함에 높이를 돌려준다 */
+.lost-page .lede {
+  margin-bottom: 0.75rem;
+}
+
+/* 만지는 법: 접어 두면 한 줄(「만지는 법 밀기 · 기울이기 · 흔들기」), 누르면 세 줄 설명. 누르는 줄 44px. */
 .lost-hint {
   color: var(--muted);
   font-size: var(--text-sm);
   line-height: 1.45;
-  margin: 0.75rem 0 0;
+  margin: 0.25rem 0 0;
+}
+
+.lost-hint summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  list-style: none;
+}
+
+.lost-hint summary::-webkit-details-marker {
+  display: none;
+}
+
+.lost-hint summary span {
+  flex: 1;
+  font-weight: 400;
+  color: var(--muted);
+}
+
+/* 펼침 표시: 선 두 개로 그린 꺾쇠(급식 안내판과 같다) */
+.lost-hint summary::after {
+  content: '';
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin: -4px 6px 0 0;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg);
+}
+
+.lost-hint[open] summary::after {
+  margin-top: 3px;
+  transform: rotate(-135deg);
+}
+
+.lost-hint ul {
+  margin: 0 0 0.5rem;
   padding: 0;
   list-style: none;
   display: grid;
