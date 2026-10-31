@@ -2177,42 +2177,55 @@ html[data-grade] .docs[data-view='all'] > li {
 }
 
 /* 바닥글 */
+/* 바닥글: 가운데 정렬 한 단. 학교(교표·이름·연락처) → 안내 두 줄 → 이용 안내. 줄 사이는 12px, 묶음 사이는 20px. */
 .site-footer {
   border-top: 1px solid var(--rule);
+  padding-block: 1.75rem 2.5rem;
   color: var(--muted);
-  font-size: var(--text-sm);
-  padding-block: 1.5rem 2.5rem;
+  font-size: var(--fs-13);
+  line-height: 1.6;
+  text-align: center;
+}
+
+.site-footer .wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
 }
 
 .site-footer p {
-  margin: 0.25rem 0;
-  max-width: var(--measure);
+  margin: 0;
 }
 
-/* 혼자 선 링크(이용 안내)는 누르는 곳 44px */
-.site-footer .footer-link {
-  display: inline-flex;
+.footer-school {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  min-height: 44px;
-  min-width: 44px;
+  gap: 4px;
 }
 
-/* 연락처 줄: 학교 이름 · 전화 · 홈페이지를 가운뎃점으로 잇고, 좁으면 항목 단위로 줄을 바꾼다. 링크는 44px 누르는 곳. */
+.footer-school img {
+  width: 28px;
+  height: auto;
+  margin-bottom: 2px;
+  opacity: 0.85;
+}
+
+.footer-school b {
+  font-size: var(--fs-15);
+  font-weight: 800;
+  color: var(--navy);
+}
+
+/* 전화 · 홈페이지: 링크는 44px 누르는 곳, 가운뎃점은 읽지 않는 글자 */
 .footer-contact {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
-  column-gap: 6px;
-  margin-top: 0.75rem;
+  column-gap: 8px;
   color: var(--ink-soft);
-}
-
-.footer-contact span {
-  color: var(--faint);
-}
-
-.footer-contact b {
-  font-weight: 700;
 }
 
 .footer-contact a {
@@ -2221,7 +2234,33 @@ html[data-grade] .docs[data-view='all'] > li {
   min-height: 44px;
   color: inherit;
   text-underline-offset: 3px;
-  text-decoration-color: var(--muted);
+  text-decoration-color: var(--faint);
+}
+
+.footer-contact span {
+  color: var(--faint);
+}
+
+.footer-note {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-width: 20rem;
+}
+
+/* 두 줄로 접힐 때 한 낱말만 남지 않게 줄 길이를 고르게 */
+.footer-note p {
+  text-wrap: balance;
+}
+
+/* 혼자 선 링크(이용 안내)는 누르는 곳 44px */
+.site-footer .footer-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
+  color: var(--muted);
+  text-underline-offset: 3px;
 }
 
 /* 넓은 화면: 바닥 탭 카드가 바닥글 바로 위에 붙지 않게 */
