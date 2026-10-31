@@ -372,7 +372,8 @@ test('가정통신문 한 건: 원문으로 가는 링크는 아래 단추 하�
 test('바닥글: 학교 대표전화(tel 링크)와 학교 홈페이지 링크가 모든 화면에 있다', () => {
   for (const f of ['index.html', 'about/index.html', 'schedule/index.html']) {
     const html = read(f);
-    assert.match(html, /학교 대표전화 <a href="tel:02-302-7072">02-302-7072<\/a>\./, f);
-    assert.match(html, /<a href="https:\/\/myongji\.sen\.ms\.kr">학교 홈페이지<\/a>/, f);
+    // 연락처는 문장에 섞지 않고 한 줄: 학교 이름 · 전화 · 홈페이지
+    assert.match(html, /<p class="footer-contact"><b>명지중학교<\/b><span aria-hidden="true">·<\/span><a href="tel:02-302-7072">02-302-7072<\/a><span aria-hidden="true">·<\/span><a href="https:\/\/myongji\.sen\.ms\.kr">학교 홈페이지<\/a><\/p>/, f);
+    assert.ok(!html.includes('학교 대표전화 '), f);
   }
 });

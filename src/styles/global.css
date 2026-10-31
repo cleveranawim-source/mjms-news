@@ -2197,6 +2197,33 @@ html[data-grade] .docs[data-view='all'] > li {
   min-width: 44px;
 }
 
+/* 연락처 줄: 학교 이름 · 전화 · 홈페이지를 가운뎃점으로 잇고, 좁으면 항목 단위로 줄을 바꾼다. 링크는 44px 누르는 곳. */
+.footer-contact {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 6px;
+  margin-top: 0.75rem;
+  color: var(--ink-soft);
+}
+
+.footer-contact span {
+  color: var(--faint);
+}
+
+.footer-contact b {
+  font-weight: 700;
+}
+
+.footer-contact a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  color: inherit;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--muted);
+}
+
 /* 넓은 화면: 바닥 탭 카드가 바닥글 바로 위에 붙지 않게 */
 @media (min-width: 48rem) {
   .site-footer {
