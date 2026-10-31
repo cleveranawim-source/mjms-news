@@ -272,3 +272,27 @@ test('changesBoxHTML: 이어진 교시가 같은 과목이면 한 줄(「1~3교�
   assert.match(box, /<li><span>1~3교시<\/span><span><b>기말고사<\/b><\/span><\/li>/);
   assert.match(box, /<li><span>5교시<\/span><span><b>영어<\/b> <s><span class="sr-only">원래 <\/span>체육<\/s><\/span><\/li>/);
 });
+
+test('nameSchoolEvents: 그날 행사가 여럿이어도 제목의 교시가 그 칸 교시에 맞는 것이 하나면 그 이름으로', () => {
+  const ev = (title, start, end = start, grades = []) => ({ title, start, end, grades, kind: 'event' });
+  const schedule = [
+    ev('학교폭력예방교육(1교시)', '2026-11-02'),
+    ev('학급자치(08:30~09:10)', '2026-11-02'),
+    ev('사랑하는 삶', '2026-12-23'),
+    ev('크리스마스 페스티벌(2~4교시)', '2026-12-23'),
+  ];
+  const ch = (p, subject, from) => cell(p, subject, { changed: { from, note: null } });
+  const tt = { ...feed, classes: [
+    { id: 'c1', name: '1-1', grade: 1, days: [
+      { ymd: '2026-11-02', off: null, until: null, cells: [ch(1, '학교 행사', '수학'), ch(2, '학교 행사', '영어')] },
+      { ymd: '2026-12-23', off: null, until: null, cells: [ch(1, '학교 행사', '국어'), ch(3, '학교 행사', '과학'), ch(5, '학교 행사', '체육')] },
+    ] },
+  ] };
+  const out = nameSchoolEvents(tt, schedule);
+  const at = (ymd) => out.classes[0].days.find((d) => d.ymd === ymd).cells.map((c) => c.subject);
+  // 1교시: 「(1교시)」가 맞는 것 하나. 시각(08:30~09:10)으로 적힌 조회 시간 행사는 교시 칸의 후보가 아니다.
+  // 2교시: 맞는 것이 없으니 그대로.
+  assert.deepEqual(at('2026-11-02'), ['학교폭력예방교육(1교시)', '학교 행사']);
+  // 교시가 안 적힌 행사(예배)는 모든 교시의 후보: 3교시는 「(2~4교시)」, 1·5교시는 예배만 남는다.
+  assert.deepEqual(at('2026-12-23'), ['사랑하는 삶', '크리스마스 페스티벌(2~4교시)', '사랑하는 삶']);
+});

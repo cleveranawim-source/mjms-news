@@ -46,17 +46,29 @@ export async function loadTimetable(api: string, fetcher: typeof fetch = fetch):
 const SCHOOL_EVENT = '학교 행사';
 type ScheduleEvent = { title: string; start: string; end: string; grades: number[]; kind: string };
 
+// 행사 제목 끝의 때와 그 칸 교시의 맞음새: 「(1교시)」「(2~4교시)」는 그 교시면 2(콕 집음), 아니면 0.
+// 안 적혔으면 어느 교시든 1. 「(08:30~09:10)」처럼 시각이면 조회 시간 행사라 교시 수업 칸의 후보가 아니다(0).
+function periodFit(title: string, period: number): 0 | 1 | 2 {
+  const m = /\((\d+)(?:\s*~\s*(\d+))?교시\)\s*$/.exec(title);
+  if (m) return Number(m[1]) <= period && period <= Number(m[2] ?? m[1]) ? 2 : 0;
+  return /\(\d{1,2}:\d{2}\s*~\s*\d{1,2}:\d{2}\)\s*$/.test(title) ? 0 : 1;
+}
+
 /**
  * 「학교 행사」로 바뀐 칸의 과목을 그날 그 학년 학사일정 이름으로(「기말고사」). 원래 과목은 그대로 둔다.
  * 그 학년만의 행사가 딱 하나면 그것, 없으면 전 학년 행사가 딱 하나일 때만. 후보가 여럿이면 알 수 없으니 그대로 둔다.
+ * 제목 끝에 교시가 적힌 행사(「학교폭력예방교육(1교시)」)는 그 교시 칸에만 붙고, 그 칸에서는 교시가 안 적힌 행사보다 우선.
  */
 export function nameSchoolEvents(feed: TimetableFeed | null, schedule: ScheduleEvent[] | null | undefined): TimetableFeed | null {
   if (!feed || !schedule) return feed;
-  const nameFor = (grade: number, ymd: string): string | null => {
-    const on = schedule.filter((e) => e.kind === 'event' && e.start <= ymd && ymd <= e.end);
+  const nameFor = (grade: number, ymd: string, period: number): string | null => {
+    const on = schedule.filter((e) => e.kind === 'event' && e.start <= ymd && ymd <= e.end && periodFit(e.title, period) > 0);
     const mine = on.filter((e) => e.grades.includes(grade));
     const all = on.filter((e) => e.grades.length === 0);
-    const pick = mine.length ? mine : all;
+    const pool = mine.length ? mine : all;
+    // 교시를 콕 집은 행사(「(2~4교시)」)가 있으면 교시가 안 적힌 행사(예배)보다 우선.
+    const best = Math.max(0, ...pool.map((e) => periodFit(e.title, period)));
+    const pick = pool.filter((e) => periodFit(e.title, period) === best);
     return pick.length === 1 ? pick[0].title : null;
   };
   return {
@@ -65,8 +77,7 @@ export function nameSchoolEvents(feed: TimetableFeed | null, schedule: ScheduleE
       ...c,
       days: c.days.map((d) => {
         if (!d.cells.some((x) => x.changed && x.subject === SCHOOL_EVENT)) return d;
-        const name = nameFor(c.grade, d.ymd);
-        return name ? { ...d, cells: d.cells.map((x) => (x.changed && x.subject === SCHOOL_EVENT ? { ...x, subject: name } : x)) } : d;
+        return { ...d, cells: d.cells.map((x) => (x.changed && x.subject === SCHOOL_EVENT ? { ...x, subject: nameFor(c.grade, d.ymd, x.period) ?? x.subject } : x)) };
       }),
     })),
   };
