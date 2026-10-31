@@ -2177,10 +2177,10 @@ html[data-grade] .docs[data-view='all'] > li {
 }
 
 /* 바닥글 */
-/* 바닥글: 가운데 정렬 한 단. 학교(교표·이름·연락처) → 안내 두 줄 → 이용 안내. 줄 사이는 12px, 묶음 사이는 20px. */
+/* 바닥글: 가운데 정렬 한 단. 이용 안내 → 안내 두 줄 → 짧은 괘선 → 전화 · 홈페이지 → 교표와 학교 이름. 줄 사이 12px. */
 .site-footer {
   border-top: 1px solid var(--rule);
-  padding-block: 1.75rem 2.5rem;
+  padding-block: 1.25rem 2rem;
   color: var(--muted);
   font-size: var(--fs-13);
   line-height: 1.6;
@@ -2191,31 +2191,42 @@ html[data-grade] .docs[data-view='all'] > li {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
+  gap: 12px;
 }
 
 .site-footer p {
   margin: 0;
 }
 
-.footer-school {
+/* 혼자 선 링크(이용 안내)는 누르는 곳 44px */
+.site-footer .footer-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
+  color: var(--muted);
+  text-underline-offset: 3px;
+}
+
+/* 두 줄로 접힐 때 한 낱말만 남지 않게 줄 길이를 고르게 */
+.footer-note {
   display: flex;
   flex-direction: column;
-  align-items: center;
   gap: 4px;
+  max-width: 20rem;
 }
 
-.footer-school img {
-  width: 28px;
-  height: auto;
-  margin-bottom: 2px;
-  opacity: 0.85;
+.footer-note p {
+  text-wrap: balance;
 }
 
-.footer-school b {
-  font-size: var(--fs-15);
-  font-weight: 800;
-  color: var(--navy);
+/* 안내와 학교 연락처를 가르는 짧은 괘선 */
+.footer-rule {
+  width: 40px;
+  height: 1px;
+  margin: 4px 0 0;
+  border: 0;
+  background: var(--rule);
 }
 
 /* 전화 · 홈페이지: 링크는 44px 누르는 곳, 가운뎃점은 읽지 않는 글자 */
@@ -2225,6 +2236,7 @@ html[data-grade] .docs[data-view='all'] > li {
   justify-content: center;
   align-items: center;
   column-gap: 8px;
+  margin-top: -4px;
   color: var(--ink-soft);
 }
 
@@ -2241,26 +2253,21 @@ html[data-grade] .docs[data-view='all'] > li {
   color: var(--faint);
 }
 
-.footer-note {
+/* 맨 아래 교표와 학교 이름 */
+.footer-school {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-width: 20rem;
-}
-
-/* 두 줄로 접힐 때 한 낱말만 남지 않게 줄 길이를 고르게 */
-.footer-note p {
-  text-wrap: balance;
-}
-
-/* 혼자 선 링크(이용 안내)는 누르는 곳 44px */
-.site-footer .footer-link {
-  display: inline-flex;
   align-items: center;
-  min-height: 44px;
-  min-width: 44px;
-  color: var(--muted);
-  text-underline-offset: 3px;
+  gap: 8px;
+  margin-top: -6px;
+  font-size: var(--fs-15);
+  font-weight: 800;
+  color: var(--navy);
+}
+
+.footer-school img {
+  width: 22px;
+  height: auto;
+  opacity: 0.85;
 }
 
 /* 넓은 화면: 바닥 탭 카드가 바닥글 바로 위에 붙지 않게 */

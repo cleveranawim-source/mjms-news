@@ -59,25 +59,23 @@ const onAbout = path.startsWith(href('about/'));
     <main id="main" class="wrap">
       <slot />
     </main>
-    {/* 바닥글: 가운데 정렬 한 단. 위에 학교(교표 · 이름 · 전화 · 홈페이지), 아래에 안내 두 줄, 맨 아래 이용 안내. */}
+    {/* 바닥글(2026-11-01): 가운데 정렬 한 단. 이용 안내 → 안내 두 줄 → 짧은 괘선 → 전화 · 홈페이지 → 교표와 학교 이름으로 끝. */}
     <footer class="site-footer">
       <div class="wrap">
-        <div class="footer-school">
-          <img src={href('emblem.png')} alt="" width="28" height="29" />
-          <b>{site.school}</b>
-          {(site.phone || site.homepage) && (
-            <p class="footer-contact">
-              {site.phone && <a href={`tel:${site.phone}`}>{site.phone}</a>}
-              {site.phone && site.homepage && <span aria-hidden="true">·</span>}
-              {site.homepage && <a href={site.homepage}>학교 홈페이지</a>}
-            </p>
-          )}
-        </div>
+        {!onAbout && <p class="footer-more"><a class="footer-link" href={href('about/')}>이용 안내</a></p>}
         <div class="footer-note">
           <p>이 사이트는 로그인이 없고, 방문자의 개인정보나 쿠키를 수집하지 않습니다.</p>
           <p>개별 상담과 서류 제출은 학교 공식 창구를 이용해 주세요.</p>
         </div>
-        {!onAbout && <p class="footer-more"><a class="footer-link" href={href('about/')}>이용 안내</a></p>}
+        <hr class="footer-rule" />
+        {(site.phone || site.homepage) && (
+          <p class="footer-contact">
+            {site.phone && <a href={`tel:${site.phone}`}>{site.phone}</a>}
+            {site.phone && site.homepage && <span aria-hidden="true">·</span>}
+            {site.homepage && <a href={site.homepage}>학교 홈페이지</a>}
+          </p>
+        )}
+        <p class="footer-school"><img src={href('emblem.png')} alt="" width="22" height="23" /><b>{site.school}</b></p>
       </div>
     </footer>
     <nav class="tabbar" aria-label="주 메뉴">
