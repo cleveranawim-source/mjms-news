@@ -27,3 +27,9 @@ export async function loadLost(api: string, fetcher: typeof fetch = fetch): Prom
 }
 
 export const foundOnLabel = (ymd: string) => formatDate(ymd);
+
+/** 상세 제목: 피드에 물건 이름이 없으므로 「2층 복도에서 찾은 물건」. 발견 장소가 비면 분류명. */
+export const lostTitle = (i: Pick<LostItem, 'category' | 'foundAt'>) => (i.foundAt ? `${i.foundAt}에서 찾은 물건` : i.category);
+
+/** 제목 아래 작은 줄: 「학용품 · 10월 21일 (수) 발견」. */
+export const lostMeta = (i: Pick<LostItem, 'category' | 'foundOn'>) => `${i.category} · ${foundOnLabel(i.foundOn)} 발견`;

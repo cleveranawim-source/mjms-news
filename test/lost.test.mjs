@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadLost, foundOnLabel } from '../src/lib/lost.ts';
+import { loadLost, foundOnLabel, lostTitle, lostMeta } from '../src/lib/lost.ts';
 
 const item = { id: 'a', category: '학용품', photo: 'https://x.supabase.co/a.jpg?token=1&t=2', foundAt: '2층 복도', storedAt: '1학년 교무실', foundOn: '2026-10-21' };
 
@@ -23,4 +23,11 @@ test('loadLost drops items whose photo is not an https address', async () => {
 
 test('foundOnLabel shows month and day', () => {
   assert.equal(foundOnLabel('2026-10-21'), '10월 21일 (수)');
+});
+
+test('분실물 제목은 분류명 대신 「○○에서 찾은 물건」, 그 아래 줄은 「분류 · 날짜 발견」', () => {
+  assert.equal(lostTitle(item), '2층 복도에서 찾은 물건');
+  assert.equal(lostMeta(item), '학용품 · 10월 21일 (수) 발견');
+  // 발견 장소가 비면 분류명으로
+  assert.equal(lostTitle({ ...item, foundAt: '' }), '학용품');
 });
