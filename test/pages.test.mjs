@@ -408,3 +408,11 @@ test('시간표 화면: 주간표 판 오른쪽에 「밀어 보라」 표시 �
   const html = read('timetable/index.html');
   assert.match(html, /<div class="tt-panel-wrap">\s*<div class="tt-panel" data-tt-grid[^>]*><\/div>\s*<span class="tt-more" data-tt-more aria-hidden="true" hidden>/);
 });
+
+test('분실물 상세 창: 제목 자리 다음에 「분류 · 날짜」 줄, 표는 「찾으러 갈 곳」 하나', () => {
+  const html = read('lost/index.html');
+  const d = html.match(/<dialog class="lost-detail"[\s\S]*?<\/dialog>/)[0];
+  assert.match(d, /<h2 id="lost-detail-title" data-detail-title><\/h2>\s*<p class="lost-detail-meta" data-detail-meta><\/p>/);
+  assert.match(d, /<dl>\s*<div><dt>찾으러 갈 곳<\/dt><dd data-detail-stored-at><\/dd><\/div>\s*<\/dl>/);
+  assert.ok(!d.includes('발견 장소') && !d.includes('발견 날짜'));
+});

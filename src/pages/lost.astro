@@ -31,10 +31,10 @@ import { site } from '../site.config.ts';
 
   <dialog class="lost-detail" data-lost-detail aria-labelledby="lost-detail-title">
     <img alt="" data-detail-photo />
-    <h2 id="lost-detail-title" data-detail-category></h2>
+    {/* 제목은 분류명(「기타」)이 아니라 어디서 찾은 물건인지. 분류와 날짜는 아래 작은 줄로. */}
+    <h2 id="lost-detail-title" data-detail-title></h2>
+    <p class="lost-detail-meta" data-detail-meta></p>
     <dl>
-      <div><dt>발견 장소</dt><dd data-detail-found-at></dd></div>
-      <div><dt>발견 날짜</dt><dd data-detail-found-on></dd></div>
       <div><dt>찾으러 갈 곳</dt><dd data-detail-stored-at></dd></div>
     </dl>
     <p class="lost-detail-note" data-detail-note></p>
@@ -44,7 +44,7 @@ import { site } from '../site.config.ts';
 
 <script>
   // AI 교무실 app/(main)/lost-found/FloatingBox.tsx(학생용 보기)를 React 없이 옮겼다. 움직임 셈은 lib/water.ts.
-  import { loadLost, foundOnLabel, type LostItem } from '../lib/lost.ts';
+  import { loadLost, lostTitle, lostMeta, type LostItem } from '../lib/lost.ts';
   import { seoulToday } from '../lib/dates.ts';
   import { arrange, ARRANGE, gravityVector, groupItems, shakeDetector, step, WATER, type Body, type Group, type World } from '../lib/water.ts';
 
@@ -147,9 +147,8 @@ import { site } from '../site.config.ts';
 
   function openDetail(item: LostItem) {
     dialog.querySelector<HTMLImageElement>('[data-detail-photo]')!.src = item.photo;
-    dialog.querySelector('[data-detail-category]')!.textContent = item.category;
-    dialog.querySelector('[data-detail-found-at]')!.textContent = item.foundAt;
-    dialog.querySelector('[data-detail-found-on]')!.textContent = foundOnLabel(item.foundOn);
+    dialog.querySelector('[data-detail-title]')!.textContent = lostTitle(item);
+    dialog.querySelector('[data-detail-meta]')!.textContent = lostMeta(item);
     dialog.querySelector('[data-detail-stored-at]')!.textContent = item.storedAt;
     dialog.querySelector('[data-detail-note]')!.textContent = `내 물건이면 ${item.storedAt}의 선생님께 물건의 특징을 말하고 찾아가요.`;
     dialog.showModal();
@@ -160,7 +159,7 @@ import { site } from '../site.config.ts';
     piece.className = 'piece';
     const button = document.createElement('button');
     button.type = 'button';
-    button.setAttribute('aria-label', `${item.category}, ${item.foundAt}에서 발견. 자세히 보기`);
+    button.setAttribute('aria-label', `${lostTitle(item)}, ${item.category}. 자세히 보기`);
     const img = document.createElement('img');
     img.src = item.photo;
     img.alt = '';
