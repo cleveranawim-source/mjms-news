@@ -1,5 +1,6 @@
 ---
 // 안내판: 흰 판 + 왼쪽 남색 띠. 굵은 남색 제목, 오른쪽에 작은 링크 하나(제목 밖에 두어 제목 읽기에 섞이지 않게). 나머지 속성(data-*, hidden 등)은 판에 그대로 붙인다.
+// slot="head": 제목 글자 바로 뒤에 붙는 작은 표시(첫 화면 「안 읽은 글 N」). 제목(h2) 안에 있어 판 이름과 함께 읽힌다.
 import type { HTMLAttributes } from 'astro/types';
 
 interface Props extends Omit<HTMLAttributes<'section'>, 'title'> {
@@ -13,7 +14,7 @@ const { title, link, id, class: extra, ...rest } = Astro.props;
 
 <section class:list={['sign', extra]} aria-labelledby={id} {...rest}>
   <div class="sign-head">
-    <h2 id={id} data-sign-title>{title}</h2>
+    <h2 id={id} data-sign-title>{title}<slot name="head" /></h2>
     {link && <a class="sign-link" href={link.href}>{link.label}</a>}
   </div>
   <slot />

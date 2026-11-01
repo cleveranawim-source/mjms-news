@@ -2,7 +2,8 @@
 // 학년은 따로 저장하지 않고 반 id에서 얻는다. (Base 머리 스크립트와 Plate도 같은 꼴을 읽는다.)
 import { escapeHTML } from './html.ts';
 
-const KEY = 'mjms-class';
+export const CLASS_KEY = 'mjms-class';
+const KEY = CLASS_KEY;
 const ID = /^class-(\d+)_(\d+)$/;
 
 /** class-1_5 → 1. 꼴이 아니거나 1~3학년이 아니면 null. */
@@ -19,10 +20,15 @@ export function classLabel(classId: string): string | null {
 }
 
 export function readClass(): string {
+  return peekClass() ?? '';
+}
+
+/** 저장된 반을 다시 읽을 때: 없으면 '', 저장소를 읽을 수 없으면 null(반을 지운 것과 구분한다 — 화면의 현재 반을 그대로 둔다). */
+export function peekClass(): string | null {
   try {
     return localStorage.getItem(KEY) ?? '';
   } catch {
-    return '';
+    return null;
   }
 }
 

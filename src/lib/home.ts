@@ -44,8 +44,30 @@ export function upcomingRows(schedule: FeedScheduleItem[] | null, today: string)
 }
 
 /** 「새 글」: 빌드일 기준 2주(14일) 안에 게시된 가정통신문. */
-export function isNewLetter(l: FeedLetter, today: string): boolean {
+export function isNewLetter(l: { publishedOn: string }, today: string): boolean {
   return l.publishedOn >= addDays(today, -14) && l.publishedOn <= today;
+}
+
+/** 홈 「안 읽은 글 N」을 세는 데 필요한 최소 정보. 본문·첨부·반은 싣지 않는다. */
+export type LetterMeta = { id: string; publishedOn: string; grades: number[] };
+
+/** 빌드일 기준 2주 안 가정통신문 전체의 메타데이터(미리보기 줄 수와 무관). 브라우저가 학년·읽음·오늘 날짜로 다시 센다. */
+export function recentLetterMeta(letters: FeedLetter[], today: string): LetterMeta[] {
+  return letters.filter((l) => isNewLetter(l, today)).map(({ id, publishedOn, grades }) => ({ id, publishedOn, grades }));
+}
+
+/**
+ * 이 기기에서 아직 안 연 새 글 수: 오늘(서울) 기준 2주 안이고, 학년을 골랐으면 그 학년 또는 전 학년 글만, readIds에 없는 id를 한 번씩.
+ * 가정통신문 목록의 「새 글」 배지와 같은 뜻이다. grade가 null이면 모든 학년.
+ */
+export function unreadLetterCount(meta: LetterMeta[], today: string, grade: number | null, read: Set<string>): number {
+  const ids = new Set<string>();
+  for (const m of meta) {
+    if (!isNewLetter(m, today) || read.has(m.id)) continue;
+    if (grade !== null && m.grades.length > 0 && !m.grades.includes(grade)) continue;
+    ids.add(m.id);
+  }
+  return ids.size;
 }
 
 /** 2주 안에 게시된 가정통신문, 최근 것부터, 보기마다 3개. */

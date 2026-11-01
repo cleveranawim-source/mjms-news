@@ -15,7 +15,9 @@ const evil = { ...feed.letters[2], id: 'L-evil', subject: '끊기 시험 </scrip
 const tmp = resolve(mkdtempSync(resolve(tmpdir(), 'feed-')), 'feed.json');
 // 11·12월은 학교 학사일정표로 바꿔 끼우므로(src/lib/schedule-fix.ts) 쉬는 날 배지 확인용 재량휴업일은 10월에 둔다.
 const dayOff = { title: '재량휴업일', start: '2026-10-30', end: '2026-10-30', grades: [], kind: 'dayoff' };
-const built = { ...feed, letters: [...feed.letters, evil], schedule: [...feed.schedule, dayOff] };
+// 2학년 글을 여럿 더해(2주 안 8개 이상) 첫 화면 「안 읽은 글」이 미리보기 줄(3+예비 2)이 아니라 전체로 세는지 본다. 날짜는 기존 글보다 앞서지 않게 10/9~10/14.
+const many = [1, 2, 3, 4, 5, 6].map((i) => ({ ...feed.letters[1], id: `L-many-${i}`, subject: `2학년 안내 ${i}`, number: null, grades: [2], classes: null, bring: [], due: null, postedOn: `2026-10-${String(8 + i).padStart(2, '0')}`, publishedOn: `2026-10-${String(8 + i).padStart(2, '0')}` }));
+const built = { ...feed, letters: [...feed.letters, evil, ...many], schedule: [...feed.schedule, dayOff] };
 writeFileSync(tmp, JSON.stringify(built));
 execFileSync('npx', ['astro', 'build'], {
   cwd: root,
@@ -79,7 +81,7 @@ test('가정통신문 목록: 문서 카드 = 배지 → 제목 → 게시일·�
 test('가정통신문 목록: 카드 전체가 링크, 새 글·준비물 표시, 게시일 최신순', () => {
   const html = read('notices/index.html');
   const cards = [...html.matchAll(/<li data-grades="([^"]*)" data-id="[^"]*">\s*<article class="doc"[\s\S]*?<\/article>/g)];
-  assert.equal(cards.length, feed.letters.length + 1);
+  assert.equal(cards.length, feed.letters.length + 1 + many.length);
   const by = (id) => cards.find((c) => c[0].includes(`/notices/${id}/`))[0];
   const first = by('L-2026-1022-3');
   assert.match(first, /<article class="doc"[^>]*>\s*<a class="doc-link" href="\/notices\/L-2026-1022-3\/">[\s\S]*<\/a>\s*<\/article>/);
@@ -94,7 +96,8 @@ test('가정통신문 목록: 카드 전체가 링크, 새 글·준비물 표시
   assert.match(by('L-2026-1015-1'), /10월 15일 게시<\/p>/);
   // 게시일 최신순
   const order = cards.map((c) => c[0].match(/\/notices\/([^/]+)\//)[1]);
-  assert.deepEqual(order, ['L-2026-1022-3', 'L-2026-1020-2', 'L-2026-1015-1', 'L-evil']);
+  assert.deepEqual(order.filter((id) => !id.startsWith('L-many-')), ['L-2026-1022-3', 'L-2026-1020-2', 'L-2026-1015-1', 'L-evil']);
+  assert.ok(order.indexOf('L-many-6') < order.indexOf('L-many-1') && order.indexOf('L-many-1') < order.indexOf('L-evil'));
   assert.equal(cards[0][1], '1');
   assert.ok(!html.includes('class="row'));
 });
@@ -251,6 +254,23 @@ test('새 가정통신문 안내판: 2주 안 것만, 제목 + 대상 배지, �
   assert.match(sign, /2주 안에 새 가정통신문이 없어요/);
 });
 
+test('새 가정통신문 안내판: 「안 읽은 글 N」은 2주 안 글 전체 메타데이터(id·게시일·학년)로 센다 — 미리보기 줄 수와 상관없이, 배지는 제목 안 하나', () => {
+  const html = read('index.html');
+  const sign = html.match(/<section class="sign[^"]*"[^>]*aria-labelledby="new-letters"[\s\S]*?<\/section>/)[0];
+  const meta = JSON.parse(sign.match(/<script type="application\/json" data-letters-meta>(.*?)<\/script>/s)[1]);
+  // 빌드일 10/22 기준 2주 안: 기존 3개 + 2학년 글 6개. 9월 글(L-evil)은 빠진다.
+  assert.deepEqual(meta.map((m) => m.id).sort(), [...feed.letters.map((l) => l.id), ...many.map((l) => l.id)].sort());
+  for (const m of meta) assert.deepEqual(Object.keys(m).sort(), ['grades', 'id', 'publishedOn']);
+  assert.ok(!JSON.stringify(meta).includes('현장체험학습')); // 제목·본문은 싣지 않는다
+  // 미리보기 줄은 2학년 보기에 3+예비 2 = 5개뿐이지만 메타데이터의 2학년 글은 7개(전 학년 1 + 2학년 6) + 2·3학년 1 = 8개.
+  assert.equal((sign.match(/data-show="[^"]*\b2\b|data-spare="[^"]*\b2\b/g) ?? []).length, 5);
+  assert.equal(meta.filter((m) => m.grades.length === 0 || m.grades.includes(2)).length, 8);
+  // 숫자 배지는 제목 안에 하나, 처음엔 감춰 둔다(스크립트가 채운다). 스크립트가 덧붙이는 옛 꼴은 없다.
+  assert.match(sign, /<h2 id="new-letters"[^>]*>새 가정통신문<span[^>]*class="sign-count"[^>]*data-unread-count[^>]*hidden[^>]*><\/span><\/h2>/);
+  assert.equal((sign.match(/sign-count/g) ?? []).length, 1);
+  assert.ok(!html.includes('insertAdjacentHTML'));
+});
+
 test('분실물 안내판: 처음엔 감춰 두고 분실물함으로 간다', () => {
   const html = read('index.html');
   const sign = html.match(/<section class="sign[^"]*"[^>]*data-lost-sign[\s\S]*?<\/section>/)[0];
@@ -316,6 +336,8 @@ test('시간표 화면: 범례 한 줄, 실패 문구 + 다시 불러오기, 옛
   assert.match(html, /시간표를 불러오지 못했어요[\s\S]*<button[^>]*data-tt-retry[^>]*>다시 불러오기<\/button>/);
   assert.match(html, /<button[^>]*data-open-class-sheet[^>]*>반 고르기<\/button>/);
   assert.ok(!html.includes('tt-reveal') && !html.includes('data-reveal') && !html.includes('strip-note'));
+  // 가로 안내는 표 바로 앞, 처음엔 감춰 두고 표가 판보다 실제로 넓을 때만 스크립트가 켠다.
+  assert.match(html, /<p class="tt-scroll-note" id="tt-scroll-note" data-tt-scroll hidden>옆으로 밀면 다른 요일도 볼 수 있어요<\/p>\s*<div class="tt-panel" data-tt-grid/);
 });
 
 test('학사일정을 못 받은 날: 첫 화면 일정 안내판과 학사일정 화면이 「불러오지 못했어요」', () => {
@@ -354,6 +376,10 @@ test('분실물함 화면: 함과 안내가 한 화면 높이 안에 들어가�
   for (const word of ['밀', '기울', '흔들', '날짜순', '종류별', '두 번']) assert.ok(hint.includes(word), word);
   // 설명문은 짧게 — 「선생님께 특징을 말하고 찾아가요」는 사진을 눌렀을 때 상세 창이 말한다.
   assert.match(html, /<p class="lede">학교에서 보관 중인 물건이에요\. 사진을 누르면 찾으러 갈 곳이 보여요\.<\/p>/);
+  // 정리 방식 단추(자유롭게·날짜순·종류별)는 설명과 함 사이, 함 바깥에. 처음엔 감춰 두고(물건이 있을 때만) 「자유롭게」가 눌린 상태.
+  const modes = html.match(/<div class="lost-modes" role="group" aria-label="분실물 정리 방식" data-lost-modes hidden>[\s\S]*?<\/div>/)[0];
+  assert.deepEqual([...modes.matchAll(/data-lost-mode="(\d)" aria-pressed="(true|false)"><span>([^<]+)<\/span>/g)].map((m) => [m[1], m[2], m[3]]), [['0', 'true', '자유롭게'], ['1', 'false', '날짜순'], ['2', 'false', '종류별']]);
+  assert.ok(html.indexOf('class="lede"') < html.indexOf('data-lost-modes') && html.indexOf('data-lost-modes') < html.indexOf('data-lost-box'));
 });
 
 test('404: 해요체로 말하고 「오늘」 화면과 가정통신문 목록으로 가는 길이 있다', () => {

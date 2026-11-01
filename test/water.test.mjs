@@ -82,6 +82,10 @@ test('흔들어 정리: 무리마다 이름 줄 아래 새 줄에서 시작하�
   assert.ok(many.k < 1);
   const last = Math.max(...[...many.spots.values()].map(([, y]) => y));
   assert.ok(last + (100 + 100 * many.k) / 2 <= 600); // 줄인 사진 아래 끝이 함 안
+  // 글자를 키운 화면은 이름 줄을 더 높게 넘긴다(기본 28은 그대로).
+  const tall = arrange([{ label: '가', ids: ids(5, 'a') }, { label: '나', ids: ['b0'] }], world, 50);
+  assert.deepEqual(tall.heads.map((h) => h.y), [0, 50 + 216]);
+  assert.deepEqual(tall.spots.get('b0'), [0, 50 + 216 + 50]);
 });
 
 test('흔들어 정리: 날짜순은 주로 묶고 최근 것이 앞, 종류별은 정한 차례', () => {
