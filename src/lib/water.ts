@@ -138,10 +138,10 @@ export type Arrangement = { k: number; heads: { label: string; count: number; y:
 
 /**
  * 흔들어 정리한 모양: 무리마다 이름 줄 하나, 그 아래 사진을 왼쪽부터 줄 세운다. 다 들어가도록 사진을 k(≤1)만큼 줄인다.
- * spots는 몸의 자리(줄이기 전 사진 왼쪽 위 — 사진은 가운데를 기준으로 줄어든다).
+ * spots는 몸의 자리(줄이기 전 사진 왼쪽 위 — 사진은 가운데를 기준으로 줄어든다). head는 이름 줄 높이(px, 글자를 키운 화면은 더 높게 넘긴다).
  */
-export function arrange(groups: Group[], world: World): Arrangement {
-  const { head, gap, minScale } = ARRANGE;
+export function arrange(groups: Group[], world: World, head: number = ARRANGE.head): Arrangement {
+  const { gap, minScale } = ARRANGE;
   const base = world.size || 1;
   const fit = (k: number) => {
     const s = base * k;

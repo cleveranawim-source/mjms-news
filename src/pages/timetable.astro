@@ -30,6 +30,8 @@ const eventsJson = JSON.stringify(events).replace(/</g, '\\u003c');
         <div class="tt-view" data-tt-view hidden>
           <div class="tt-weeks" role="group" aria-label="주 고르기" data-tt-weeks />
           <div data-tt-changes />
+          {/* 표가 판보다 실제로 넓을 때만 보이는 안내(스크립트가 재서 켠다). 끝까지 밀어도 틀리지 않는 말로. */}
+          <p class="tt-scroll-note" id="tt-scroll-note" data-tt-scroll hidden>옆으로 밀면 다른 요일도 볼 수 있어요</p>
           <div class="tt-panel" data-tt-grid role="region" aria-label="주간 시간표" tabindex="0" />
           <p class="tt-legend"><b>굵은 남색</b> = 바뀐 수업(줄 그은 과목이 원래 수업)</p>
         </div>
@@ -53,6 +55,8 @@ const eventsJson = JSON.stringify(events).replace(/</g, '\\u003c');
     const error = $('[data-tt-error]');
     const view = $('[data-tt-view]');
     const weeksEl = $('[data-tt-weeks]');
+    const panel = $('[data-tt-grid]');
+    const scrollNote = $('[data-tt-scroll]');
     const today = seoulToday();
 
     // undefined = 불러오는 중, null = 못 불러옴
@@ -78,6 +82,35 @@ const eventsJson = JSON.stringify(events).replace(/</g, '\\u003c');
       return `${escapeHTML(w.label)} <small>${weekRange(mondayOf(w.days[0]))}</small>`;
     };
 
+    // 가로 안내: 표가 판보다 실제로 넓을 때(scrollWidth > clientWidth + 1)만 보인다. 화면 폭이 아니라 실제 치수로 판단한다.
+    // 판과 표를 함께 지켜본다 — 판 폭은 그대로여도 글자를 키우거나 글꼴이 늦게 와서 표만 넓어질 수 있다. 한 프레임에 한 번만 잰다.
+    let watched: Element | null = null;
+    let raf = 0;
+    const measureScroll = () => {
+      raf = 0;
+      const table = panel.querySelector('table');
+      const over = !view.hidden && !!table && panel.clientWidth > 0 && panel.scrollWidth > panel.clientWidth + 1;
+      scrollNote.hidden = !over;
+      // 읽기 프로그램에는 보일 때만 판 설명으로 잇는다(resize마다 읊지 않게 live 영역은 쓰지 않는다).
+      if (over) panel.setAttribute('aria-describedby', scrollNote.id);
+      else panel.removeAttribute('aria-describedby');
+    };
+    const scheduleMeasure = () => {
+      if (!raf) raf = requestAnimationFrame(measureScroll);
+    };
+    const watcher = new ResizeObserver(scheduleMeasure);
+    watcher.observe(panel);
+    const watchTable = () => {
+      const table = panel.querySelector('table');
+      if (table === watched) return;
+      if (watched) watcher.unobserve(watched);
+      watched = table;
+      if (table) watcher.observe(table);
+      scheduleMeasure();
+    };
+    document.fonts?.ready.then(scheduleMeasure);
+    addEventListener('pageshow', scheduleMeasure);
+
     // 주 단추는 그대로 두고 눌림·글자와 표만 바꾼다(포커스가 단추에 남도록).
     const renderGrid = (cls: TimetableFeed['classes'][number]) => {
       weeksEl.querySelectorAll<HTMLElement>('[data-week]').forEach((b) => {
@@ -89,7 +122,8 @@ const eventsJson = JSON.stringify(events).replace(/</g, '\\u003c');
       // 안내판은 보고 있는 주를 따른다: 오늘(다음 등교일)이 그 주에 있으면 그날 것, 아니면 그 주 바뀐 수업 전부.
       const t = changesTarget(cls, today);
       $('[data-tt-changes]').innerHTML = days.includes(t.ymd) ? changesBoxHTML(cls, t.ymd, t.label, t.empty, t.date) : weekChangesBoxHTML(cls, days);
-      $('[data-tt-grid]').innerHTML = weekTableHTML(cls, days, today);
+      panel.innerHTML = weekTableHTML(cls, days, today);
+      watchTable();
     };
 
     const mine = () => (feed ? feed.classes.find((c) => c.id === knownClass(feed!.classes, classId)) : undefined);
@@ -102,7 +136,7 @@ const eventsJson = JSON.stringify(events).replace(/</g, '\\u003c');
       error.hidden = !has || feed !== null;
       view.hidden = !has || !feed;
       const cls = mine();
-      if (!cls) return;
+      if (!cls) return scheduleMeasure(); // 표가 숨으면 안내도 숨는다
       if (weeksEl.childElementCount !== groups.length) {
         weeksEl.style.setProperty('--n', String(groups.length));
         weeksEl.innerHTML = groups.map((_, i) => `<button type="button" data-week="${i}" aria-pressed="false"><span></span></button>`).join('');

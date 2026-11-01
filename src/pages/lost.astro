@@ -8,6 +8,12 @@ import { site } from '../site.config.ts';
   <div class="lost-page">
   <Plate kind="page" title="분실물함" />
   <p class="lede">학교에서 보관 중인 물건이에요. 사진을 누르면 찾으러 갈 곳이 보여요.</p>
+  {/* 정리 방식: 흔들기·두 번 누르기와 같은 모드를 단추로도 고른다. 물건이 있을 때만 보인다(스크립트가 켠다). */}
+  <div class="lost-modes" role="group" aria-label="분실물 정리 방식" data-lost-modes hidden>
+    <button type="button" class="pill" data-lost-mode="0" aria-pressed="true"><span>자유롭게</span></button>
+    <button type="button" class="pill" data-lost-mode="1" aria-pressed="false"><span>날짜순</span></button>
+    <button type="button" class="pill" data-lost-mode="2" aria-pressed="false"><span>종류별</span></button>
+  </div>
 
   <div class="lost-box" data-lost-box data-api={site.lostFoundApi} aria-label="떠다니는 분실물" aria-busy="true">
     <button type="button" class="tilt-ask" data-tilt-ask hidden>기울여서 움직이기</button>
@@ -61,6 +67,7 @@ import { site } from '../site.config.ts';
   const box = document.querySelector<HTMLElement>('[data-lost-box]')!;
   const message = box.querySelector<HTMLElement>('[data-lost-message]')!;
   const askButton = box.querySelector<HTMLButtonElement>('[data-tilt-ask]')!;
+  const modes = document.querySelector<HTMLElement>('[data-lost-modes]')!;
   const dialog = document.querySelector<HTMLDialogElement>('[data-lost-detail]')!;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -75,9 +82,13 @@ import { site } from '../site.config.ts';
   const zoom = { now: 1, to: 1 }; // 정리하면 사진을 줄인다(arrange의 k) — 그리면서 천천히 맞춘다
   let noteTimer = 0;
 
+  // 무리 이름 줄 높이: 보통 글자(16px)에서 28px, 글자를 키우면 글자(15px 사다리 × 줄 간격 1.45) + 아래 여백 6px만큼 높게.
+  const headHeight = () => Math.max(ARRANGE.head, Math.round(parseFloat(getComputedStyle(document.documentElement).fontSize) * 0.9375 * 1.45) + 6);
+
   /** 정리한 모양이면 몸마다 돌아갈 자리를, 떠다님이면 자리를 지운다. */
   function place() {
-    const plan = layout && arrange(layout, world);
+    const headH = headHeight();
+    const plan = layout && arrange(layout, world, headH);
     for (const b of bodies.values()) [b.tx, b.ty] = plan?.spots.get(b.id) ?? [];
     zoom.to = plan?.k ?? 1;
     // 무리 이름 줄: 「지난주 9개」
@@ -86,12 +97,23 @@ import { site } from '../site.config.ts';
       const head = Object.assign(document.createElement('p'), { className: 'group-head', textContent: `${h.label} ` });
       head.append(Object.assign(document.createElement('span'), { textContent: `${h.count}개` }));
       head.style.top = `${PAD + h.y}px`;
-      head.style.height = `${ARRANGE.head}px`;
+      head.style.height = `${headH}px`;
       box.append(head);
     }
+    // 가장 작게 줄여도(minScale) 안 들어가면 아래가 잘리므로 함을 필요한 만큼 키운다(페이지는 세로로 스크롤). 떠다님으로 돌아가면 원래 높이로.
+    if (plan && layout && plan.k <= ARRANGE.minScale) {
+      const s = world.size * plan.k;
+      const cols = Math.max(1, Math.floor((world.w + ARRANGE.gap) / (s + ARRANGE.gap)));
+      const need = layout.reduce((h, g) => h + headH + Math.ceil(g.ids.length / cols) * (s + ARRANGE.gap), 0) - ARRANGE.gap;
+      if (need > world.h) box.style.minHeight = `${need + PAD * 2}px`;
+    } else if (!plan) {
+      box.style.minHeight = '';
+    }
   }
+  // 모드가 바뀌는 길(단추·흔들기·두 번 누르기·끌기)은 모두 여기를 지나므로 단추의 눌림도 여기서 맞춘다.
   function shift(next: number) {
     mode = next;
+    modes.querySelectorAll<HTMLButtonElement>('[data-lost-mode]').forEach((b) => b.setAttribute('aria-pressed', String(Number(b.dataset.lostMode) === mode)));
     layout = mode ? groupItems(mode, list, seoulToday(), CATEGORIES) : null;
     place();
     if (reduced) {
@@ -152,8 +174,11 @@ import { site } from '../site.config.ts';
     bodies.set(item.id, { id: item.id, x: 0, y: 0, vx: 0, vy: 0, a: 0, phase: i * 2.3 });
 
     // 끌어 밀기. 조금만 움직이고 떼면 누른 것으로 보고 상세를 연다.
+    // 끌고 나서 떼면 브라우저가 click을 하나 더 만들므로(마우스) 그 포인터의 click 한 번만 삼킨다.
+    // 키보드·보조기기의 Enter/Space도 click이지만 포인터가 아니므로 삼키지 않는다 — 상세는 click 하나로만 연다.
     let drag: { ox: number; oy: number; sx: number; sy: number; lx: number; ly: number; lt: number } | null = null;
     let dragged = false;
+    let swallow: number | null = null; // 방금 끝난 끌기의 pointerId
     const point = (e: PointerEvent) => {
       const rect = box.getBoundingClientRect();
       return [e.clientX - rect.left - PAD, e.clientY - rect.top - PAD];
@@ -162,6 +187,7 @@ import { site } from '../site.config.ts';
       const b = bodies.get(item.id)!;
       button.setPointerCapture(e.pointerId);
       dragged = false;
+      swallow = null;
       const [px, py] = point(e);
       drag = { ox: px - b.x, oy: py - b.y, sx: e.clientX, sy: e.clientY, lx: px, ly: py, lt: e.timeStamp };
       b.held = true;
@@ -193,11 +219,19 @@ import { site } from '../site.config.ts';
       b.vy *= k;
       if (dragged) touched = performance.now();
       drag = null;
+      swallow = dragged ? e.pointerId : null;
     };
     button.addEventListener('pointerup', release);
-    button.addEventListener('pointercancel', release);
-    button.addEventListener('click', () => {
-      if (!dragged) openDetail(item);
+    button.addEventListener('pointercancel', (e) => {
+      release(e);
+      swallow = null; // 취소된 포인터는 click을 만들지 않는다 — 다음 누름을 막지 않게
+    });
+    button.addEventListener('click', (e) => {
+      // 포인터가 만든 click인가: pointerId가 있으면 끌기를 끝낸 그 포인터인지, 없으면(옛 브라우저) detail>0로 본다. 키보드는 pointerId -1·detail 0.
+      const pointerId = (e as PointerEvent).pointerId;
+      const fromDrag = swallow !== null && (typeof pointerId === 'number' ? pointerId === swallow : e.detail > 0);
+      swallow = null;
+      if (!fromDrag) openDetail(item);
     });
   }
 
@@ -243,6 +277,14 @@ import { site } from '../site.config.ts';
     }).observe(box);
     box.addEventListener('dblclick', (e) => {
       if (e.target === box) nextMode();
+    });
+    // 정리 방식 단추: 이미 고른 것을 다시 누르면 그대로 둔다(다시 정리하거나 안내를 띄우지 않는다).
+    modes.hidden = false;
+    modes.addEventListener('click', (e) => {
+      const b = (e.target as HTMLElement).closest<HTMLElement>('[data-lost-mode]');
+      if (!b) return;
+      const next = Number(b.dataset.lostMode);
+      if (next !== mode) shift(next);
     });
 
     if (!reduced) {
