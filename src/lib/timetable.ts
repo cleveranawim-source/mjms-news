@@ -279,3 +279,8 @@ export function weekChangesBoxHTML(cls: ClassTimetable, weekDays: string[]): str
   const when = `<span class="sign-date">${weekRange(mondayOf(weekDays[0]))}</span>`;
   return `<section class="sign tt-changes" aria-labelledby="tt-changes-title"><div class="sign-head"><h2 id="tt-changes-title">이 주 바뀐 수업</h2>${when}</div>${list}</section>`;
 }
+
+/** 주간표 판을 더 밀 수 있는가: 표가 판보다 넓고 아직 오른쪽 끝이 아닐 때(끝에서 1px 안쪽은 끝으로 본다). */
+export function moreToScroll(p: { scrollWidth: number; clientWidth: number; scrollLeft: number }): boolean {
+  return p.scrollWidth - p.clientWidth - p.scrollLeft > 1;
+}
