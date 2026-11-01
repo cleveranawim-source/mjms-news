@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadTimetable, weekTableHTML, changesBoxHTML, changesTarget, changeItems, lastPeriod, nameSchoolEvents, eventName, weekChangesBoxHTML, weekGroups, weekRange } from '../src/lib/timetable.ts';
+import { loadTimetable, weekTableHTML, changesBoxHTML, changesTarget, changeItems, lastPeriod, nameSchoolEvents, eventName, weekChangesBoxHTML, weekGroups, weekRange, moreToScroll } from '../src/lib/timetable.ts';
 
 const cell = (period, subject, extra = {}) => ({ period, subject, special: false, changed: null, ...extra });
 const feed = {
@@ -329,4 +329,12 @@ test('weekChangesBoxHTML: 보고 있는 주의 바뀐 수업을 요일별 한 �
   assert.match(html, /<h2 id="tt-changes-title">이 주 바뀐 수업<\/h2><span class="sign-date">11\/9~13<\/span>/);
   assert.match(html, /<li><span>금 1~3교시<\/span><span><b>백마페스티벌<\/b><\/span><\/li><li><span>금 5교시<\/span><span><b>영어<\/b> <s><span class="sr-only">원래 <\/span>과학<\/s><\/span><\/li>/);
   assert.match(weekChangesBoxHTML(festival, ['2026-11-16', '2026-11-17', '2026-11-18', '2026-11-19', '2026-11-20']), /이 주 바뀐 수업 없어요/);
+});
+
+test('moreToScroll: 표가 판보다 넓고 끝까지 밀지 않았을 때만 「밀어 보라」 표시', () => {
+  assert.equal(moreToScroll({ scrollWidth: 330, clientWidth: 290, scrollLeft: 0 }), true);
+  assert.equal(moreToScroll({ scrollWidth: 330, clientWidth: 290, scrollLeft: 20 }), true);
+  assert.equal(moreToScroll({ scrollWidth: 330, clientWidth: 290, scrollLeft: 40 }), false); // 끝
+  assert.equal(moreToScroll({ scrollWidth: 330, clientWidth: 290, scrollLeft: 39.5 }), false); // 소수점 스크롤도 끝으로
+  assert.equal(moreToScroll({ scrollWidth: 360, clientWidth: 360, scrollLeft: 0 }), false); // 다 보임
 });

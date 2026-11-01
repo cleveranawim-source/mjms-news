@@ -403,3 +403,8 @@ test('바닥글: 학교 대표전화(tel 링크)와 학교 홈페이지 링크�
     assert.ok(!html.includes('학교 대표전화 '), f);
   }
 });
+
+test('시간표 화면: 주간표 판 오른쪽에 「밀어 보라」 표시 자리(처음엔 숨김)가 있다', () => {
+  const html = read('timetable/index.html');
+  assert.match(html, /<div class="tt-panel-wrap">\s*<div class="tt-panel" data-tt-grid[^>]*><\/div>\s*<span class="tt-more" data-tt-more aria-hidden="true" hidden>/);
+});

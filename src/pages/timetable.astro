@@ -32,7 +32,11 @@ const eventsJson = JSON.stringify(events).replace(/</g, '\\u003c');
           <div data-tt-changes />
           {/* 표가 판보다 실제로 넓을 때만 보이는 안내(스크립트가 재서 켠다). 끝까지 밀어도 틀리지 않는 말로. */}
           <p class="tt-scroll-note" id="tt-scroll-note" data-tt-scroll hidden>옆으로 밀면 다른 요일도 볼 수 있어요</p>
-          <div class="tt-panel" data-tt-grid role="region" aria-label="주간 시간표" tabindex="0" />
+          <div class="tt-panel-wrap">
+            <div class="tt-panel" data-tt-grid role="region" aria-label="주간 시간표" tabindex="0" />
+            {/* 판 오른쪽의 흰 그늘 + 꺾쇠: 표가 잘리고 아직 끝까지 안 밀었을 때만(스크립트). 읽기 프로그램에는 위 안내 글이 있다. */}
+            <span class="tt-more" data-tt-more aria-hidden="true" hidden><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" /></svg></span>
+          </div>
           <p class="tt-legend"><b>굵은 남색</b> = 바뀐 수업(줄 그은 과목이 원래 수업)</p>
         </div>
         <script type="application/json" data-tt-events set:html={eventsJson} />
@@ -42,7 +46,7 @@ const eventsJson = JSON.stringify(events).replace(/</g, '\\u003c');
 </Base>
 
 <script>
-  import { loadTimetable, nameSchoolEvents, weekTableHTML, changesTarget, changesBoxHTML, weekChangesBoxHTML, weekGroups, weekRange, mondayOf, type TimetableFeed } from '../lib/timetable.ts';
+  import { loadTimetable, nameSchoolEvents, weekTableHTML, changesTarget, changesBoxHTML, weekChangesBoxHTML, weekGroups, weekRange, mondayOf, moreToScroll, type TimetableFeed } from '../lib/timetable.ts';
   import { readClass, knownClass, forgetStaleClass } from '../lib/klass.ts';
   import { seoulToday, addDays, weekday } from '../lib/dates.ts';
   import { escapeHTML } from '../lib/html.ts';
@@ -57,6 +61,7 @@ const eventsJson = JSON.stringify(events).replace(/</g, '\\u003c');
     const weeksEl = $('[data-tt-weeks]');
     const panel = $('[data-tt-grid]');
     const scrollNote = $('[data-tt-scroll]');
+    const more = $('[data-tt-more]');
     const today = seoulToday();
 
     // undefined = 불러오는 중, null = 못 불러옴
@@ -91,6 +96,8 @@ const eventsJson = JSON.stringify(events).replace(/</g, '\\u003c');
       const table = panel.querySelector('table');
       const over = !view.hidden && !!table && panel.clientWidth > 0 && panel.scrollWidth > panel.clientWidth + 1;
       scrollNote.hidden = !over;
+      // 오른쪽 꺾쇠는 아직 끝까지 안 밀었을 때만(끝에 닿으면 감춘다)
+      more.hidden = !(over && moreToScroll(panel));
       // 읽기 프로그램에는 보일 때만 판 설명으로 잇는다(resize마다 읊지 않게 live 영역은 쓰지 않는다).
       if (over) panel.setAttribute('aria-describedby', scrollNote.id);
       else panel.removeAttribute('aria-describedby');
@@ -110,6 +117,7 @@ const eventsJson = JSON.stringify(events).replace(/</g, '\\u003c');
     };
     document.fonts?.ready.then(scheduleMeasure);
     addEventListener('pageshow', scheduleMeasure);
+    panel.addEventListener('scroll', scheduleMeasure, { passive: true });
 
     // 주 단추는 그대로 두고 눌림·글자와 표만 바꾼다(포커스가 단추에 남도록).
     const renderGrid = (cls: TimetableFeed['classes'][number]) => {
