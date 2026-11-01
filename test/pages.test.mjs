@@ -337,7 +337,7 @@ test('시간표 화면: 범례 한 줄, 실패 문구 + 다시 불러오기, 옛
   assert.match(html, /<button[^>]*data-open-class-sheet[^>]*>반 고르기<\/button>/);
   assert.ok(!html.includes('tt-reveal') && !html.includes('data-reveal') && !html.includes('strip-note'));
   // 가로 안내는 표 바로 앞, 처음엔 감춰 두고 표가 판보다 실제로 넓을 때만 스크립트가 켠다.
-  assert.match(html, /<p class="tt-scroll-note" id="tt-scroll-note" data-tt-scroll hidden>옆으로 밀면 다른 요일도 볼 수 있어요<\/p>\s*<div class="tt-panel" data-tt-grid/);
+  assert.match(html, /<p class="tt-scroll-note" id="tt-scroll-note" data-tt-scroll hidden>옆으로 밀면 다른 요일도 볼 수 있어요<\/p>\s*<div class="tt-panel-wrap">\s*<div class="tt-panel" data-tt-grid/);
 });
 
 test('학사일정을 못 받은 날: 첫 화면 일정 안내판과 학사일정 화면이 「불러오지 못했어요」', () => {
