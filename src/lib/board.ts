@@ -5,7 +5,7 @@ import type { Feed } from './feed.ts';
 import { badgeHTML } from './grades.ts';
 import { escapeHTML as escape } from './html.ts';
 import { pickMeal, type MealView } from './meal.ts';
-import { changeItems, changeWhyHTML, eventName, type ChangeItem, type TimetableFeed } from './timetable.ts';
+import { changeItems, changeWhyHTML, eventName, fullName, shortName, type ChangeItem, type TimetableFeed } from './timetable.ts';
 
 export type BoardEvent = { title: string; start: string; end: string; grades: number[] };
 export type BoardDday = { title: string; start: string; days: number; label: string; grades: number[] };
@@ -215,7 +215,7 @@ export function lessonsHTML(feed: TimetableFeed | null, classId: string, ymd: st
   const runs: (typeof cells)[] = [];
   for (const c of cells) {
     const last = runs.at(-1)?.at(-1);
-    if (last && last.changed && c.changed && last.period + 1 === c.period && last.subject === c.subject) runs.at(-1)!.push(c);
+    if (last && last.changed && c.changed && last.period + 1 === c.period && fullName(last) === fullName(c)) runs.at(-1)!.push(c);
     else runs.push([c]);
   }
   const lis = runs.map((run) => {
@@ -224,10 +224,13 @@ export function lessonsHTML(feed: TimetableFeed | null, classId: string, ymd: st
     const periods = run.length > 1 ? `${c.period}~${run.at(-1)!.period}` : `${c.period}`;
     const no = `<span aria-hidden="true">${periods}</span>`;
     if (!c.changed) return `<li aria-label="${periods}교시 ${escape(subject)}">${no}${escape(subject)}</li>`;
+    // 바뀐 칸: 칸에는 짧은 이름(「:」 앞, 겹낫표 없이), 읽기 이름에는 전체 이름 — 시간표 표와 같은 규칙.
+    const full = fullName(c) || '수업 없음';
+    const short = shortName(full) || full;
     const froms = run.map((x) => x.changed!.from).filter((f): f is string => !!f);
     const why = froms.length ? `원래 ${froms.join('·')}, ` : c.changed.note ? `${c.changed.note}, ` : '';
     const grow = run.length > 1 ? ` style="flex-grow: ${run.length}"` : '';
-    return `<li class="is-changed"${grow} aria-label="${periods}교시 ${escape(subject)}, ${escape(why)}바뀜">${no}<b>${escape(subject)}</b></li>`;
+    return `<li class="is-changed"${grow} aria-label="${periods}교시 ${escape(full)}, ${escape(why)}바뀜">${no}<b>${escape(short)}</b></li>`;
   });
   return `<h2 class="board-sub board-sub--lessons">${next ? '그날' : '오늘'} 수업</h2><ol class="board-lessons">${lis.join('')}</ol>`;
 }
