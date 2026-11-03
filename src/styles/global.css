@@ -2638,10 +2638,10 @@ html[data-grade] .docs[data-view='all'] > li {
   background: #fff;
 }
 
-/* 칸 3.75rem = 네 글자 과목(학교행사)이 한 줄에. 320px에서는 판 안에서 가로로 민다. */
+/* 칸 4rem = 네 글자 과목(학교행사)과 바뀐 칸의 다섯 글자(얼리어잡터, 14px)가 한 줄에. 320px에서는 판 안에서 가로로 민다. */
 .tt-grid {
   width: 100%;
-  min-width: calc(1.875rem + 5 * 3.75rem);
+  min-width: calc(1.875rem + 5 * 4rem);
   table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
@@ -2657,6 +2657,16 @@ html[data-grade] .docs[data-view='all'] > li {
   vertical-align: middle;
   overflow-wrap: break-word;
   word-break: keep-all;
+}
+
+/* 바뀐 칸의 행사 이름은 14px·좌우 여백 1px: 390px에서 「스카우트5」「얼리어잡터」 같은 다섯 글자가 한 줄에(15px·2px면 끊긴다). */
+.tt-grid td.tt-changed {
+  padding-left: 1px;
+  padding-right: 1px;
+}
+
+.tt-grid td.tt-changed b {
+  font-size: 0.875rem;
 }
 
 .tt-grid thead th,

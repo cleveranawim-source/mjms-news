@@ -90,11 +90,33 @@ export function nameSchoolEvents(feed: TimetableFeed | null, schedule: ScheduleE
   };
 }
 
+/** AI 교무실은 과목 이름을 19자에서 「…」으로 자르고 전체 이름을 같은 칸의 note 에 둔다. 잘린 이름이면 전체 이름을, 아니면 과목 그대로. */
+export function fullName(c: TtCell): string {
+  const note = c.changed?.note;
+  return note && c.subject.endsWith('…') && note.startsWith(c.subject.slice(0, -1).trimEnd()) ? note : c.subject;
+}
+
+/** 표 칸에 쓰는 짧은 이름: 겹낫표 밖의 첫 「:」 앞까지, 겹낫표(「」)는 뗀다 — 네 글자 폭 칸에서 「 가 홀로 남지 않게. 안내판·칠판은 전체 이름을 쓴다. */
+export function shortName(full: string): string {
+  let depth = 0;
+  let end = full.length;
+  for (let i = 0; i < full.length; i++) {
+    const ch = full[i];
+    if (ch === '「') depth++;
+    else if (ch === '」') depth = Math.max(0, depth - 1);
+    else if (ch === ':' && depth === 0) {
+      end = i;
+      break;
+    }
+  }
+  return full.slice(0, end).replace(/[「」]/g, '').trim();
+}
+
 /** 바뀐 칸 한 줄의 재료: 「1교시 영어」 + 원래 과목(줄긋기) 또는 학사일정 이름. 「오늘은 N교시까지」는 글자 그대로. */
 export type ChangeItem = { text: string; from: string | null; note: string | null };
 
 const itemOf = (c: TtCell): ChangeItem => ({
-  text: `${c.period}교시 ${c.subject || '수업 없음'}`,
+  text: `${c.period}교시 ${fullName(c) || '수업 없음'}`,
   from: c.changed?.from ?? null,
   note: c.changed?.from ? null : (c.changed?.note ?? null),
 });
@@ -113,7 +135,7 @@ function runs(cells: TtCell[]): TtCell[][] {
   const out: TtCell[][] = [];
   for (const c of cells) {
     const last = out.at(-1)?.at(-1);
-    if (last && last.period + 1 === c.period && last.subject === c.subject) out.at(-1)!.push(c);
+    if (last && last.period + 1 === c.period && fullName(last) === fullName(c)) out.at(-1)!.push(c);
     else out.push([c]);
   }
   return out;
@@ -128,7 +150,7 @@ export function changeItems(feed: TimetableFeed, classId: string, ymd: string, d
     // 원래 과목·학사일정 이름이 모두 같을 때만 남긴다(「5~6교시 영어 ~~체육~~」). 다르면 시간표 화면에서 본다.
     const all = run.map(itemOf);
     const same = (k: 'from' | 'note') => (all.every((i) => i[k] === one[k]) ? one[k] : null);
-    return { text: `${run[0].period}~${run.at(-1)!.period}교시 ${run[0].subject || '수업 없음'}`, from: same('from'), note: same('note') };
+    return { text: `${run[0].period}~${run.at(-1)!.period}교시 ${fullName(run[0]) || '수업 없음'}`, from: same('from'), note: same('note') };
   });
   if (until !== null) items.push(`${day} ${until}교시까지`);
   return items;
@@ -209,7 +231,9 @@ export function weekTableHTML(cls: ClassTimetable, weekDays: string[], today: st
       const cell = d.cells.find((c) => Number(c.period) === p);
       const cut = d.until !== null && p > d.until;
       if (!cell || cut || (cell.subject === '' && !cell.changed)) return `<td${at(d, cut ? 'tt-cut' : '')}></td>`;
-      const subject = cell.subject || '수업 없음';
+      // 바뀐 칸은 전체 이름(읽기 이름)과 칸에 보이는 짧은 이름이 다를 수 있다.
+      const full = fullName(cell) || '수업 없음';
+      const subject = cell.changed ? shortName(full) || full : full;
       const special = cell.special && cell.subject !== '창체';
       // 과목과 「창체」가 붙어 읽히지 않게 숨은 쉼표를 둔다
       const tag = special ? '<small class="tt-special"><span class="sr-only">, </span>창체</small>' : '';
@@ -220,12 +244,12 @@ export function weekTableHTML(cls: ClassTimetable, weekDays: string[], today: st
         const run = d.cells.filter((c) => c.changed && Number(c.period) >= p && Number(c.period) < p + span).sort((a, b) => a.period - b.period);
         const froms = run.map((c) => c.changed!.from).filter((f): f is string => !!f);
         const why = froms.map((f) => `<s>${escapeHTML(f)}</s>`).join('');
-        const label = `${weekday(d.ymd)}요일 ${p}~${p + span - 1}교시 ${subject}${special ? '(창체)' : ''}, ${froms.length ? `원래 ${froms.join('·')}, ` : ''}바뀜`;
+        const label = `${weekday(d.ymd)}요일 ${p}~${p + span - 1}교시 ${full}${special ? '(창체)' : ''}, ${froms.length ? `원래 ${froms.join('·')}, ` : ''}바뀜`;
         return `<td rowspan="${span}"${at(d, 'tt-changed tt-run')} aria-label="${escapeHTML(label)}"><b>${escapeHTML(subject)}</b>${why}${tag}</td>`;
       }
       const { from, note } = cell.changed;
       const why = from ? `<s>${escapeHTML(from)}</s>` : note ? `<small class="tt-note">${escapeHTML(note)}</small>` : '';
-      const label = `${weekday(d.ymd)}요일 ${p}교시 ${subject}${special ? '(창체)' : ''}, ${from ? `원래 ${from}, ` : note ? `${note}, ` : ''}바뀜`;
+      const label = `${weekday(d.ymd)}요일 ${p}교시 ${full}${special ? '(창체)' : ''}, ${from ? `원래 ${from}, ` : note ? `${note}, ` : ''}바뀜`;
       return `<td${at(d, 'tt-changed')} aria-label="${escapeHTML(label)}"><b>${escapeHTML(subject)}</b>${why}${tag}</td>`;
     });
     body.push(`<tr><th scope="row">${p}<span class="sr-only">교시</span></th>${tds.join('')}</tr>`);
@@ -251,7 +275,7 @@ export function changesBoxHTML(cls: ClassTimetable, ymd: string, label: string, 
     const all = run.map(itemOf);
     const same = (k: 'from' | 'note') => (all.every((i) => i[k] === all[0][k]) ? all[0][k] : null);
     const periods = run.length > 1 ? `${run[0].period}~${run.at(-1)!.period}교시` : `${run[0].period}교시`;
-    return `<li><span>${periods}</span><span><b>${escapeHTML(run[0].subject || '수업 없음')}</b>${changeWhyHTML({ from: same('from'), note: same('note') })}</span></li>`;
+    return `<li><span>${periods}</span><span><b>${escapeHTML(fullName(run[0]) || '수업 없음')}</b>${changeWhyHTML({ from: same('from'), note: same('note') })}</span></li>`;
   });
   if (until !== null) rows.push(`<li><span>${until + 1}교시부터</span><span>수업 없음</span></li>`);
   // 피드에 그 날짜가 없으면 「바뀐 수업 없음」이라고 단정하지 않는다.
@@ -270,7 +294,7 @@ export function weekChangesBoxHTML(cls: ClassTimetable, weekDays: string[]): str
       const all = run.map(itemOf);
       const same = (k: 'from' | 'note') => (all.every((i) => i[k] === all[0][k]) ? all[0][k] : null);
       const periods = run.length > 1 ? `${run[0].period}~${run.at(-1)!.period}교시` : `${run[0].period}교시`;
-      return `<li><span>${wd} ${periods}</span><span><b>${escapeHTML(run[0].subject || '수업 없음')}</b>${changeWhyHTML({ from: same('from'), note: same('note') })}</span></li>`;
+      return `<li><span>${wd} ${periods}</span><span><b>${escapeHTML(fullName(run[0]) || '수업 없음')}</b>${changeWhyHTML({ from: same('from'), note: same('note') })}</span></li>`;
     });
     if (until !== null) lines.push(`<li><span>${wd} ${until + 1}교시부터</span><span>수업 없음</span></li>`);
     return lines;

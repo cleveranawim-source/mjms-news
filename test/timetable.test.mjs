@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadTimetable, weekTableHTML, changesBoxHTML, changesTarget, changeItems, lastPeriod, nameSchoolEvents, eventName, weekChangesBoxHTML, weekGroups, weekRange, moreToScroll } from '../src/lib/timetable.ts';
+import { loadTimetable, weekTableHTML, changesBoxHTML, changesTarget, changeItems, lastPeriod, nameSchoolEvents, eventName, weekChangesBoxHTML, weekGroups, weekRange, moreToScroll, fullName, shortName } from '../src/lib/timetable.ts';
 
 const cell = (period, subject, extra = {}) => ({ period, subject, special: false, changed: null, ...extra });
 const feed = {
@@ -337,4 +337,44 @@ test('moreToScroll: 표가 판보다 넓고 끝까지 밀지 않았을 때만 �
   assert.equal(moreToScroll({ scrollWidth: 330, clientWidth: 290, scrollLeft: 40 }), false); // 끝
   assert.equal(moreToScroll({ scrollWidth: 330, clientWidth: 290, scrollLeft: 39.5 }), false); // 소수점 스크롤도 끝으로
   assert.equal(moreToScroll({ scrollWidth: 360, clientWidth: 360, scrollLeft: 0 }), false); // 다 보임
+});
+
+// AI 교무실은 과목 이름을 19자에서 「…」으로 자르고 전체 이름은 changed.note 에 둔다(같은 칸).
+const cut = (period, from, note) => cell(period, `${note.slice(0, 19)}…`, { special: true, changed: { from, note } });
+const scout = '스카우트5 「얼리어잡터」 영상 시청: 서울여상·리라아트고';
+const hi = '고등학교 교육과정 이해와 진로 탐색 설명회';
+const longFeed = {
+  version: 1, generatedAt: '', days: ['2026-11-04', '2026-11-05'],
+  classes: [{ id: 'c31', name: '3-1', grade: 3, days: [
+    { ymd: '2026-11-04', off: null, until: null, cells: [cut(5, '과학', hi), cut(6, '창체', hi)] },
+    { ymd: '2026-11-05', off: null, until: null, cells: [cell(1, '국어'), cut(5, '음악', scout), cut(6, '과학', scout), cut(7, '가정', scout)] },
+  ] }],
+};
+
+test('fullName: 「…」으로 잘린 과목은 note 의 전체 이름, 아니면 과목 그대로', () => {
+  assert.equal(fullName(cut(5, '음악', scout)), scout);
+  assert.equal(fullName(cell(1, '국어')), '국어');
+  // note 가 잘린 글자로 시작하지 않으면(다른 글) 과목을 믿는다
+  assert.equal(fullName(cell(1, '학교 행사…', { changed: { from: null, note: '기말고사' } })), '학교 행사…');
+});
+
+test('shortName: 표 칸 이름은 「:」 앞까지(겹낫표 안의 「:」은 빼고), 겹낫표는 뗀다', () => {
+  assert.equal(shortName(scout), '스카우트5 얼리어잡터 영상 시청');
+  assert.equal(shortName(hi), hi);
+  assert.equal(shortName('독서의 날(전일제): 독서 및 구절 찾기'), '독서의 날(전일제)');
+  assert.equal(shortName('직업계고 영상 「다시 쓰는 성공 방정식: 영크크는 출근 중」'), '직업계고 영상 다시 쓰는 성공 방정식: 영크크는 출근 중');
+  assert.equal(shortName('「인턴」을 통해 직업세계 탐구하고 학습지 작성하기'), '인턴을 통해 직업세계 탐구하고 학습지 작성하기');
+});
+
+test('weekTableHTML: 잘린 이름 대신 짧은 이름을 칸에, 읽기 이름에는 전체 이름, 「…」은 없다', () => {
+  const html = weekTableHTML(longFeed.classes[0], ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06'], '2026-11-05');
+  assert.doesNotMatch(html, /…/);
+  assert.match(html, /<td rowspan="3" class="tt-today tt-changed tt-run" aria-label="목요일 5~7교시 스카우트5 「얼리어잡터」 영상 시청: 서울여상·리라아트고\(창체\), 원래 음악·과학·가정, 바뀜"><b>스카우트5 얼리어잡터 영상 시청<\/b>/);
+  assert.match(html, /<td rowspan="2" class="tt-changed tt-run" aria-label="수요일 5~6교시 고등학교 교육과정 이해와 진로 탐색 설명회\(창체\), 원래 과학·창체, 바뀜"><b>고등학교 교육과정 이해와 진로 탐색 설명회<\/b>/);
+});
+
+test('changesBoxHTML·changeItems: 안내판과 칠판에는 전체 이름(겹낫표·「:」 뒤까지)', () => {
+  assert.match(changesBoxHTML(longFeed.classes[0], '2026-11-05', '오늘 바뀐 수업'), /<li><span>5~7교시<\/span><span><b>스카우트5 「얼리어잡터」 영상 시청: 서울여상·리라아트고<\/b><\/span><\/li>/);
+  assert.deepEqual(changeItems(longFeed, 'c31', '2026-11-05'), [{ text: `5~7교시 ${scout}`, from: null, note: null }]);
+  assert.match(weekChangesBoxHTML(longFeed.classes[0], ['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06']), /<b>고등학교 교육과정 이해와 진로 탐색 설명회<\/b>/);
 });

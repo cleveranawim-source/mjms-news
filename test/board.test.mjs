@@ -328,3 +328,14 @@ test('칠판에는 오늘 수업 줄 자리가 바뀐 수업 자리 다음, 챙�
   const html = boardHTML(boardFromFeed('2026-10-22', { letters: [], daysOff: [], meals: [] }), '/');
   assert.match(html, /<div data-board-changes><\/div><div data-board-lessons><\/div><section class="board-group board-bring">/);
 });
+
+test('칠판 「오늘 수업」 칸: 교무실이 「…」으로 자른 이름 대신 짧은 이름(「:」 앞, 겹낫표 없이), 읽기 이름은 전체', () => {
+  const note = '스카우트5 「얼리어잡터」 영상 시청: 서울여상·리라아트고';
+  const cut = (period, from) => ({ period, subject: `${note.slice(0, 19)}…`, special: true, changed: { from, note } });
+  const tt = { version: 1, generatedAt: '', days: [], classes: [{ id: 'class-3_1', name: '3-1', grade: 3, days: [
+    { ymd: '2026-11-05', off: null, until: null, cells: [cut(5, '음악'), cut(6, '과학'), cut(7, '가정')] },
+  ] }] };
+  const html = lessonsHTML(tt, 'class-3_1', '2026-11-05');
+  assert.doesNotMatch(html, /…/);
+  assert.match(html, /<li class="is-changed" style="flex-grow: 3" aria-label="5~7교시 스카우트5 「얼리어잡터」 영상 시청: 서울여상·리라아트고, 원래 음악·과학·가정, 바뀜"><span aria-hidden="true">5~7<\/span><b>스카우트5 얼리어잡터 영상 시청<\/b><\/li>/);
+});
