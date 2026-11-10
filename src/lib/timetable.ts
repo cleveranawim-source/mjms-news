@@ -44,7 +44,7 @@ export async function loadTimetable(api: string, fetcher: typeof fetch = fetch):
 
 // 선생님이 시간표 교체를 과목 「학교 행사」로만 적은 칸(시험·체험학습 날)에는 그날 학사일정 이름을 붙인다.
 const SCHOOL_EVENT = '학교 행사';
-type ScheduleEvent = { title: string; start: string; end: string; grades: number[]; kind: string };
+type ScheduleEvent = { title: string; start: string; end: string; grades: number[]; kind: string; periods?: [number, number] };
 
 // 행사 제목 끝의 때: 「(1교시)」「(2~4교시)」 또는 「(08:30~09:10)」 같은 시각.
 const PERIOD_TAIL = /\((\d+)(?:\s*~\s*(\d+))?교시\)\s*$/;
@@ -55,10 +55,12 @@ export const eventName = (title: string) => title.replace(PERIOD_TAIL, '').repla
 
 // 행사 제목 끝의 때와 그 칸 교시의 맞음새: 교시가 적혔으면 그 교시일 때 2(콕 집음), 아니면 0.
 // 안 적혔으면 어느 교시든 1. 시각이면 조회 시간 행사라 교시 수업 칸의 후보가 아니다(0).
-function periodFit(title: string, period: number): 0 | 1 | 2 {
-  const m = PERIOD_TAIL.exec(title);
+// 제목에 교시를 적지 않는 행사(예배)는 학사일정표가 periods 로 교시를 알려 주면 그것이 제목보다 먼저다.
+function periodFit(e: Pick<ScheduleEvent, 'title' | 'periods'>, period: number): 0 | 1 | 2 {
+  if (e.periods) return e.periods[0] <= period && period <= e.periods[1] ? 2 : 0;
+  const m = PERIOD_TAIL.exec(e.title);
   if (m) return Number(m[1]) <= period && period <= Number(m[2] ?? m[1]) ? 2 : 0;
-  return CLOCK_TAIL.test(title) ? 0 : 1;
+  return CLOCK_TAIL.test(e.title) ? 0 : 1;
 }
 
 /**
@@ -69,13 +71,13 @@ function periodFit(title: string, period: number): 0 | 1 | 2 {
 export function nameSchoolEvents(feed: TimetableFeed | null, schedule: ScheduleEvent[] | null | undefined): TimetableFeed | null {
   if (!feed || !schedule) return feed;
   const nameFor = (grade: number, ymd: string, period: number): string | null => {
-    const on = schedule.filter((e) => e.kind === 'event' && e.start <= ymd && ymd <= e.end && periodFit(e.title, period) > 0);
+    const on = schedule.filter((e) => e.kind === 'event' && e.start <= ymd && ymd <= e.end && periodFit(e, period) > 0);
     const mine = on.filter((e) => e.grades.includes(grade));
     const all = on.filter((e) => e.grades.length === 0);
     const pool = mine.length ? mine : all;
     // 교시를 콕 집은 행사(「(2~4교시)」)가 있으면 교시가 안 적힌 행사(예배)보다 우선.
-    const best = Math.max(0, ...pool.map((e) => periodFit(e.title, period)));
-    const pick = pool.filter((e) => periodFit(e.title, period) === best);
+    const best = Math.max(0, ...pool.map((e) => periodFit(e, period)));
+    const pick = pool.filter((e) => periodFit(e, period) === best);
     return pick.length === 1 ? eventName(pick[0].title) : null;
   };
   return {
@@ -90,13 +92,29 @@ export function nameSchoolEvents(feed: TimetableFeed | null, schedule: ScheduleE
   };
 }
 
+/**
+ * 알림장이 쉬는 날로 아는 날(피드의 쉬는 날 + 학사일정의 전 학년 공휴일·쉬는 날)은 시간표에서도 쉬는 날로 그린다.
+ * AI 교무실 시간표가 그날을 수업일로 보내도(2026-11-19 수능일) 달력·칠판과 어긋나지 않게. 이미 쉬는 날이면 그 이름 그대로.
+ */
+export function markDaysOff(feed: TimetableFeed | null, offs: { title: string; start: string; end: string }[] | null | undefined): TimetableFeed | null {
+  if (!feed || !offs?.length) return feed;
+  const titleOn = (ymd: string) => offs.find((o) => o.start <= ymd && ymd <= o.end)?.title ?? null;
+  return {
+    ...feed,
+    classes: feed.classes.map((c) => {
+      if (!c.days.some((d) => !d.off && titleOn(d.ymd))) return c;
+      return { ...c, days: c.days.map((d) => (d.off ? d : { ...d, off: titleOn(d.ymd) })) };
+    }),
+  };
+}
+
 /** AI 교무실은 과목 이름을 19자에서 「…」으로 자르고 전체 이름을 같은 칸의 note 에 둔다. 잘린 이름이면 전체 이름을, 아니면 과목 그대로. */
 export function fullName(c: TtCell): string {
   const note = c.changed?.note;
   return note && c.subject.endsWith('…') && note.startsWith(c.subject.slice(0, -1).trimEnd()) ? note : c.subject;
 }
 
-/** 표 칸에 쓰는 짧은 이름: 겹낫표 밖의 첫 「:」 앞까지, 겹낫표(「」)는 뗀다 — 네 글자 폭 칸에서 「 가 홀로 남지 않게. 안내판·칠판은 전체 이름을 쓴다. */
+/** 표 칸에 쓰는 짧은 이름: 겹낫표 밖의 첫 「:」이나 줄바꿈 앞까지, 겹낫표(「」)는 뗀다 — 네 글자 폭 칸에서 「 가 홀로 남지 않게. 안내판·칠판은 전체 이름을 쓴다. */
 export function shortName(full: string): string {
   let depth = 0;
   let end = full.length;
@@ -104,7 +122,7 @@ export function shortName(full: string): string {
     const ch = full[i];
     if (ch === '「') depth++;
     else if (ch === '」') depth = Math.max(0, depth - 1);
-    else if (ch === ':' && depth === 0) {
+    else if ((ch === ':' || ch === '\n') && depth === 0) {
       end = i;
       break;
     }

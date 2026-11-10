@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { loadTimetable, weekTableHTML, changesBoxHTML, changesTarget, changeItems, lastPeriod, nameSchoolEvents, eventName, weekChangesBoxHTML, weekGroups, weekRange, moreToScroll, fullName, shortName } from '../src/lib/timetable.ts';
+import { loadTimetable, weekTableHTML, changesBoxHTML, changesTarget, changeItems, lastPeriod, nameSchoolEvents, eventName, weekChangesBoxHTML, weekGroups, weekRange, moreToScroll, fullName, shortName, markDaysOff } from '../src/lib/timetable.ts';
 
 const cell = (period, subject, extra = {}) => ({ period, subject, special: false, changed: null, ...extra });
 const feed = {
@@ -364,6 +364,43 @@ test('shortName: 표 칸 이름은 「:」 앞까지(겹낫표 안의 「:」은
   assert.equal(shortName('독서의 날(전일제): 독서 및 구절 찾기'), '독서의 날(전일제)');
   assert.equal(shortName('직업계고 영상 「다시 쓰는 성공 방정식: 영크크는 출근 중」'), '직업계고 영상 다시 쓰는 성공 방정식: 영크크는 출근 중');
   assert.equal(shortName('「인턴」을 통해 직업세계 탐구하고 학습지 작성하기'), '인턴을 통해 직업세계 탐구하고 학습지 작성하기');
+  // 이름에 줄바꿈이 들어 있으면(「…설계하기⏎[1차시]. …」) 첫 줄까지
+  assert.equal(shortName('다양한 직업 세계 탐색 및 나의 진로 설계하기\n[1차시]. 아이돌의 세계를 통해 알아보는 직업의 준비 과정과 현장 탐색'), '다양한 직업 세계 탐색 및 나의 진로 설계하기');
+});
+
+test('nameSchoolEvents: 제목에 교시를 적지 않는 행사(예배)는 periods 로 교시를 알리면 그 교시 칸에만, 교시 없는 다른 행사보다 먼저', () => {
+  const ev = (title, start, end = start, extra = {}) => ({ title, start, end, grades: [], kind: 'event', ...extra });
+  // 2026-11-18: 여러 날 전시마당 + 예배(1교시) + 학생회장단선거 — periods 가 없으면 후보가 셋이라 이름을 못 고른다
+  const plain = [ev('전시마당', '2026-11-09', '2026-11-18'), ev('감사하는 삶', '2026-11-18'), ev('학생회장단선거', '2026-11-18')];
+  const hinted = [plain[0], ev('감사하는 삶', '2026-11-18', '2026-11-18', { periods: [1, 1] }), plain[2]];
+  const ch = (p, subject, from) => cell(p, subject, { changed: { from, note: null } });
+  const tt = { ...feed, classes: [{ id: 'c1', name: '1-5', grade: 1, days: [{ ymd: '2026-11-18', off: null, until: null, cells: [ch(1, '학교 행사', '미술'), ch(4, '학교 행사', '도덕')] }] }] };
+  const names = (schedule) => nameSchoolEvents(tt, schedule).classes[0].days[0].cells.map((c) => c.subject);
+  assert.deepEqual(names(plain), ['학교 행사', '학교 행사']);
+  // 1교시는 예배 제목, 4교시는 예배가 후보에서 빠져도 남은 둘 중 고를 수 없으니 그대로
+  assert.deepEqual(names(hinted), ['감사하는 삶', '학교 행사']);
+});
+
+test('markDaysOff: 알림장이 쉬는 날로 아는 날은 시간표가 수업일로 보내도 쉬는 날로(수능일), 이미 쉬는 날·다른 날은 그대로', () => {
+  const day = (ymd, off = null) => ({ ymd, off, until: null, cells: [cell(1, '국어')] });
+  const tt = { ...feed, days: ['2026-11-18', '2026-11-19', '2026-11-20'], classes: [
+    { id: 'c1', name: '1-5', grade: 1, days: [day('2026-11-18'), day('2026-11-19'), day('2026-11-20', '재량휴업일')] },
+    { id: 'c2', name: '2-1', grade: 2, days: [day('2026-11-18')] },
+  ] };
+  const offs = [{ title: '대학수학능력시험', start: '2026-11-19', end: '2026-11-19' }, { title: '쉬는 날', start: '2026-11-20', end: '2026-11-20' }];
+  const out = markDaysOff(tt, offs);
+  assert.deepEqual(out.classes[0].days.map((d) => d.off), [null, '대학수학능력시험', '재량휴업일']);
+  // 칸은 그대로 두고 쉬는 날 이름만 붙인다. 쉬는 날이 없는 반과 원본은 건드리지 않는다.
+  assert.deepEqual(out.classes[0].days[1].cells, [cell(1, '국어')]);
+  assert.equal(out.classes[1], tt.classes[1]);
+  assert.equal(tt.classes[0].days[1].off, null);
+  // 쉬는 날 목록이 없거나 시간표를 못 받았으면 그대로
+  assert.equal(markDaysOff(tt, []), tt);
+  assert.equal(markDaysOff(tt, null), tt);
+  assert.equal(markDaysOff(null, offs), null);
+  // 쉬는 날이 된 날은 안내판·칠판이 건너뛴다: 11/19(목)에 보면 다음 등교일은 11/23(월)
+  assert.equal(changesTarget(out.classes[0], '2026-11-19').ymd, '2026-11-23');
+  assert.equal(lastPeriod(out, 'c1', '2026-11-19'), null);
 });
 
 test('weekTableHTML: 잘린 이름 대신 짧은 이름을 칸에, 읽기 이름에는 전체 이름, 「…」은 없다', () => {

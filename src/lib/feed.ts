@@ -9,7 +9,8 @@ export type FeedLetter = {
   attachments: string[]; sourceUrl: string; postedOn: string; publishedOn: string;
 };
 export type FeedEvent = { title: string; start: string; end: string; grades: number[] };
-export type FeedScheduleItem = { title: string; start: string; end: string; grades: number[]; kind: 'holiday' | 'dayoff' | 'event' };
+// periods: 제목에 교시를 적지 않는 행사(예배)가 몇 교시인지 — 학교 학사일정표(schedule-fix)에서만 붙는다. 시간표 「학교 행사」 칸의 이름을 고를 때만 쓴다.
+export type FeedScheduleItem = { title: string; start: string; end: string; grades: number[]; kind: 'holiday' | 'dayoff' | 'event'; periods?: [number, number] };
 export type FeedDayOff = { title: string; start: string; end: string };
 export type FeedMeal = { ymd: string; dishes: { name: string; allergens: number[] }[] };
 export type Feed = {

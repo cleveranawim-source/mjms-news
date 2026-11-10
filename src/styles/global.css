@@ -945,7 +945,73 @@ p.sheet-status {
   color: var(--chalk-yellow);
 }
 
-[data-board-changes]:focus {
+/* 긴 이름이 있는 날의 「오늘 수업」(2026-11-10 시안 C): 교시 줄 대신 목록 — 왼쪽 교시(13px 흐린 분필), 오른쪽 과목 17px. 바뀐 교시는 분필 노랑 굵게 + 줄 그은 원래 과목. */
+.board-sub--lessons small {
+  font-size: inherit;
+  font-weight: 500;
+  color: var(--chalk-dim);
+}
+
+.board-sub--lessons small b {
+  font-weight: 800;
+  color: var(--chalk-yellow);
+}
+
+.board-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.board-list > li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 0;
+  font-size: var(--fs-17);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.board-list > li + li {
+  border-top: 1px solid rgb(238 241 234 / 0.12);
+}
+
+.board-list > li > :last-child {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.board-list-no {
+  flex: none;
+  min-width: 3.25rem; /* 「5~6교시」까지 같은 폭 — 과목이 한 줄에서 시작한다 */
+  font-size: var(--fs-13);
+  font-weight: 500;
+  color: var(--chalk-dim);
+  white-space: nowrap;
+}
+
+.board-list .is-changed b {
+  font-weight: 800;
+  color: var(--chalk-yellow);
+}
+
+.board-list s {
+  font-size: var(--fs-15);
+  font-weight: 400;
+  color: var(--chalk-dim);
+  text-decoration-thickness: 1.5px;
+}
+
+.board-list small {
+  font-size: var(--fs-13);
+  font-weight: 500;
+  color: var(--chalk-dim);
+}
+
+[data-board-changes]:focus,
+[data-board-lessons]:focus {
   outline: none;
 }
 
