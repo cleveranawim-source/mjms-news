@@ -40,4 +40,10 @@ test('2026년 11·12월 표: 학생·학부모용 학사일정 그대로, 날짜
   assert.deepEqual(on('2026-12-25'), [['성탄절', [], 'holiday']]);
   assert.deepEqual(on('2026-12-31'), [['종업식(1교시)', [1, 2], 'event'], ['안전교육(2교시)', [1, 2], 'event'], ['학교폭력예방교육(3교시)', [1, 2], 'event'], ['졸업식(1~4교시)', [3], 'event']]);
   assert.equal(SCHEDULE_FIXES.items.length, 26);
+  // 예배 제목에는 교시를 적지 않고 periods 로만 알린다: 11/18 「감사하는 삶」은 1교시(시간표 「학교 행사」 칸 이름 고르기)
+  assert.deepEqual(SCHEDULE_FIXES.items.filter((i) => i.periods).map((i) => [i.title, i.start, i.periods]), [['감사하는 삶', '2026-11-18', [1, 1]]]);
+  // 바꿔 끼운 일정에도 periods 가 실리고, 표의 배열을 그대로 물려주지 않는다
+  const out = withScheduleFixes([]).find((i) => i.title === '감사하는 삶');
+  assert.deepEqual(out.periods, [1, 1]);
+  assert.notEqual(out.periods, SCHEDULE_FIXES.items.find((i) => i.title === '감사하는 삶').periods);
 });

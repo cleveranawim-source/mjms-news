@@ -360,6 +360,15 @@ test('시간표 화면: 「학교 행사」 칸 이름을 붙일 학사일정(�
   assert.ok(events.every((e) => e.kind === 'event' && e.end >= '2026-10-22'));
 });
 
+test('시간표 화면: 알림장이 쉬는 날로 아는 날(빌드한 날부터)을 JSON으로 싣는다 — 시간표가 수업일로 보내도 쉬는 날로 그리게', () => {
+  const html = read('timetable/index.html');
+  const offs = JSON.parse(html.match(/<script type="application\/json" data-tt-offs>(.*?)<\/script>/s)[1]);
+  assert.ok(offs.every((o) => o.end >= '2026-10-22'));
+  // 피드의 쉬는 날에 없는 수능일(학교 학사일정표의 쉬는 날)과 fixture 의 10/30 재량휴업일
+  assert.ok(offs.some((o) => o.start === '2026-11-19' && o.title === '대학수학능력시험'));
+  assert.ok(offs.some((o) => o.start === '2026-10-30' && o.end === '2026-10-30'));
+});
+
 test('가정통신문 한 건: 이알리미 PDF 글은 아래 원문 링크가 「원문 보기(PDF)」', () => {
   const html = read('notices/L-2026-1020-2/index.html');
   assert.match(html, /class="letter-src"[^>]*>\s*원문 보기\(PDF\)\s*</);

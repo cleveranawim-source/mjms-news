@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { boardFromFeed, boardHTML, changesStateHTML, changesFor, lessonsHTML } from '../src/lib/board.ts';
+import { boardFromFeed, boardHTML, changesStateHTML, changesFor, lessonsHTML, lessonsListHTML, LONG_NAME } from '../src/lib/board.ts';
 
 const letter = (o) => ({
   id: 'x', number: null, subject: '제목', grades: [1, 2, 3], classes: null, eventDate: null, eventEnd: null,
@@ -338,4 +338,45 @@ test('칠판 「오늘 수업」 칸: 교무실이 「…」으로 자른 이름
   const html = lessonsHTML(tt, 'class-3_1', '2026-11-05');
   assert.doesNotMatch(html, /…/);
   assert.match(html, /<li class="is-changed" style="flex-grow: 3" aria-label="5~7교시 스카우트5 「얼리어잡터」 영상 시청: 서울여상·리라아트고, 원래 음악·과학·가정, 바뀜"><span aria-hidden="true">5~7<\/span><b>스카우트5 얼리어잡터 영상 시청<\/b><\/li>/);
+});
+
+test('칠판 「오늘 수업」 목록: 바뀐 칸의 짧은 이름이 10자를 넘는 날만 교시 목록 하나로, 아니면 빈 문자열(바뀐 수업 + 한 줄 그대로)', () => {
+  const cell = (period, subject, changed = null) => ({ period, subject, special: false, changed });
+  const long = '일반고 vs 특성화고 정시 분석 및 진학 프로젝트 설명';
+  const tt = { version: 1, generatedAt: '', days: [], classes: [{ id: 'class-3_1', name: '3-1', grade: 3, days: [
+    { ymd: '2026-11-10', off: null, until: null, cells: [
+      cell(1, '양푼이 비빔밥 데이', { from: null, note: null }), cell(2, '양푼이 비빔밥 데이', { from: null, note: null }),
+      cell(3, '일반고 vs 특성화고 정시 분석 및 진…', { from: '수학', note: long }), cell(4, '음악'), cell(7, '영어'),
+    ] },
+    // 긴 이름이 없는 날: 「학교폭력예방교육」(8자), 「독서의 날(전일제): …」은 짧은 이름이 10자
+    { ymd: '2026-11-11', off: null, until: null, cells: [cell(1, '학교폭력예방교육', { from: '수학', note: null }), cell(2, '독서의 날(전일제): 독서 및 구절 찾기', { from: null, note: null }), cell(3, '국어')] },
+    // 「4교시까지」로 잘린 날 + 같은 묶음의 원래 과목이 다르면 줄 긋지 않는다
+    { ymd: '2026-11-12', off: null, until: 4, cells: [cell(1, '아크릴 무드등 만들기', { from: '국어', note: null }), cell(2, '아크릴 무드등 만들기', { from: '역사', note: null }), cell(3, '체육'), cell(4, '창체', { from: null, note: '동아리활동' }), cell(5, '', { from: '음악', note: null })] },
+    { ymd: '2026-11-20', off: '재량휴업일', until: null, cells: [cell(1, long, { from: '수학', note: null })] },
+  ] }] };
+  assert.equal(LONG_NAME, 10);
+  const html = lessonsListHTML(tt, 'class-3_1', '2026-11-10');
+  assert.match(html, /^<h2 class="board-sub board-sub--lessons">오늘 수업 <small>· <b>노랑<\/b>은 바뀐 수업<\/small><\/h2><ol class="board-list">/);
+  // 이어진 교시는 한 줄(「1~2교시」), 바뀐 줄은 전체 이름(잘린 이름 대신) + 읽기용 「바뀜」 + 줄 그은 원래 과목, 안 바뀐 줄은 과목만
+  assert.match(html, /<li class="is-changed"><span class="board-list-no">1~2교시<\/span><span><b>양푼이 비빔밥 데이<\/b><span class="sr-only">, 바뀜<\/span><\/span><\/li>/);
+  assert.ok(html.includes(`<li class="is-changed"><span class="board-list-no">3교시</span><span><b>${long}</b><span class="sr-only">, 바뀜</span> <s><span class="sr-only">원래 </span>수학</s></span></li>`));
+  assert.match(html, /<li><span class="board-list-no">4교시<\/span><span>음악<\/span><\/li><li><span class="board-list-no">7교시<\/span><span>영어<\/span><\/li><\/ol>$/);
+  assert.ok(!html.includes('…'));
+  assert.equal((html.match(/<li/g) ?? []).length, 4);
+  // 긴 이름이 없으면 목록을 쓰지 않는다
+  assert.equal(lessonsListHTML(tt, 'class-3_1', '2026-11-11'), '');
+  // 잘린 날: 끝에 「5교시부터 수업 없음」, 원래 과목이 서로 다른 묶음은 줄 긋지 않고, 원래 과목 없는 칸은 학사일정 이름을 작게. 다음 등교일이면 「그날 수업」
+  const cut = lessonsListHTML(tt, 'class-3_1', '2026-11-12', true);
+  assert.match(cut, /그날 수업 <small>/);
+  assert.match(cut, /<span class="board-list-no">1~2교시<\/span><span><b>아크릴 무드등 만들기<\/b><span class="sr-only">, 바뀜<\/span><\/span><\/li>/);
+  assert.match(cut, /<b>창체<\/b><span class="sr-only">, 바뀜<\/span> <small>동아리활동<\/small>/);
+  assert.match(cut, /<li><span class="board-list-no">5교시부터<\/span><span>수업 없음<\/span><\/li><\/ol>$/);
+  // 쉬는 날, 피드에 없는 날·반, 못 받은 피드는 빈 문자열. 오는 글자는 escape 한다
+  assert.equal(lessonsListHTML(tt, 'class-3_1', '2026-11-20'), '');
+  assert.equal(lessonsListHTML(tt, 'class-3_1', '2026-11-30'), '');
+  assert.equal(lessonsListHTML(tt, 'class-9_9', '2026-11-10'), '');
+  assert.equal(lessonsListHTML(null, 'class-3_1', '2026-11-10'), '');
+  const evil = { ...tt, classes: [{ ...tt.classes[0], days: [{ ymd: '2026-11-10', off: null, until: null, cells: [cell(1, '<b>끊기</b> 시험용 아주 긴 이름입니다', { from: '<i>수학</i>', note: null })] }] }] };
+  const out = lessonsListHTML(evil, 'class-3_1', '2026-11-10');
+  assert.ok(out.includes('&lt;b&gt;끊기&lt;/b&gt;') && out.includes('&lt;i&gt;수학&lt;/i&gt;') && !out.includes('<i>'));
 });

@@ -92,7 +92,8 @@ const chevron = (d: string) => `<svg viewBox="0 0 24 24" aria-hidden="true"><pat
   if (root) {
     const q = <T extends HTMLElement = HTMLElement>(s: string) => root.querySelector<T>(s)!;
     const items: FeedScheduleItem[] = JSON.parse(q('[data-cal-json]').textContent!);
-    const today = seoulToday();
+    // 화면을 열어 둔 채 날이 바뀌면 돌아왔을 때 「오늘」 칸과 「남은 일정」을 다시 그린다(아래 visibilitychange).
+    let today = seoulToday();
     const months = monthsOf(items, today);
     const prev = q<HTMLButtonElement>('[data-cal-prev]');
     const next = q<HTMLButtonElement>('[data-cal-next]');
@@ -188,6 +189,16 @@ const chevron = (d: string) => `<svg viewBox="0 0 24 24" aria-hidden="true"><pat
       all = false;
       selected = firstDay();
       draw();
+    });
+    const revisit = () => {
+      const now = seoulToday();
+      if (document.visibilityState !== 'visible' || now === today) return;
+      today = now;
+      draw();
+    };
+    document.addEventListener('visibilitychange', revisit);
+    addEventListener('pageshow', (e) => {
+      if (e.persisted) revisit();
     });
     draw();
     // 처음 그림은 읽어 주지 않고, 그 뒤 고른 날이 바뀌면 읽어 준다

@@ -36,7 +36,7 @@ const boardJson = JSON.stringify({ base, letters, schedule: feed.schedule, daysO
 </section>
 
 <script>
-  import { boardFromFeed, boardHTML, changesFor, changesStateHTML, lessonsHTML } from '../lib/board.ts';
+  import { boardFromFeed, boardHTML, changesFor, changesStateHTML, lessonsHTML, lessonsListHTML, type Board } from '../lib/board.ts';
   import { seoulToday } from '../lib/dates.ts';
   import { forgetStaleClass, isStaleClass, readClass } from '../lib/klass.ts';
   import { mealHTML } from '../lib/meal.ts';
@@ -46,62 +46,92 @@ const boardJson = JSON.stringify({ base, letters, schedule: feed.schedule, daysO
   if (board) {
     const data = JSON.parse(board.querySelector('[data-board-json]')!.textContent!);
     const groups = board.querySelector<HTMLElement>('[data-board-groups]')!;
-    const today = seoulToday();
-    const view = boardFromFeed(today, data);
-
-    // 빌드한 날과 오늘이 다르면 칠판과 급식 안내판을 오늘 것으로 다시 그린다.
-    if (board.dataset.today !== today) {
-      board.dataset.today = today;
-      groups.innerHTML = boardHTML(view, data.base);
-      const meal = document.querySelector<HTMLElement>('[data-meal-sign]');
-      if (meal) {
-        meal.innerHTML = mealHTML(view.meal, data.noLunch, data.base);
-        meal.hidden = !view.meal;
-      }
-    }
-
-    // 바뀐 수업과 몇 교시까지: 반을 골랐을 때만. 등교일이면 오늘, 주말·쉬는 날이면 다음 등교일 것.
     const api = board.dataset.ttApi;
-    const day = view.closed ? view.next : today;
+    // 돌아왔을 때 이만큼 지났으면 시간표를 다시 받는다 — AI 교무실 시간표 캐시(max-age=60)와 같다.
+    const STALE_MS = 60_000;
+
+    let today = '';
+    let view: Board;
+    let day = ''; // 바뀐 수업과 몇 교시까지를 보일 날: 등교일이면 오늘, 주말·쉬는 날이면 다음 등교일
     let ticket = 0;
-    const draw = async (retried = false) => {
+    let drawnAt = 0;
+    // 칸마다 마지막으로 넣은 HTML: 같은 내용이면 다시 넣지 않는다(돌아올 때마다 초점·읽기가 흔들리지 않게). 칠판을 다시 그리면 칸이 새로 생겨 저절로 비워진다.
+    const shown = new WeakMap<HTMLElement, string>();
+    const put = (el: HTMLElement | null, html: string) => {
+      if (!el || shown.get(el) === html) return;
+      shown.set(el, html);
+      el.innerHTML = html;
+    };
+
+    // 서울 날짜가 바뀌었으면(처음, 또는 화면을 열어 둔 채 자정을 넘김) 오늘 기준을 다시 잡는다. 바뀌었으면 true.
+    // 화면에 그려진 날(빌드한 날 또는 어제)과 다르면 칠판과 급식 안내판도 오늘 것으로 다시 그린다.
+    const paint = () => {
+      const now = seoulToday();
+      if (now === today) return false;
+      today = now;
+      view = boardFromFeed(today, data);
+      day = view.closed ? view.next : today;
+      if (board.dataset.today !== today) {
+        board.dataset.today = today;
+        groups.innerHTML = boardHTML(view, data.base);
+        const meal = document.querySelector<HTMLElement>('[data-meal-sign]');
+        if (meal) {
+          meal.innerHTML = mealHTML(view.meal, data.noLunch, data.base);
+          meal.hidden = !view.meal;
+        }
+      }
+      return true;
+    };
+
+    // 바뀐 수업과 몇 교시까지: 반을 골랐을 때만.
+    // quiet(돌아왔을 때 다시 받기): 「불러오는 중」으로 바꾸지 않고 보이던 내용을 둔 채 받고, 못 받으면 그대로 둔다.
+    const draw = async (retried = false, quiet = false) => {
       const slot = groups.querySelector<HTMLElement>('[data-board-changes]');
       const lessonsEl = groups.querySelector<HTMLElement>('[data-board-lessons]');
       const untilEl = groups.querySelector<HTMLElement>('[data-board-until]');
       const classId = readClass();
       const mine = ++ticket;
       if (!slot) return;
-      if (untilEl) untilEl.textContent = '';
-      if (lessonsEl) lessonsEl.innerHTML = '';
+      const until = (text: string) => {
+        if (untilEl) untilEl.textContent = text;
+      };
       if (!api || !classId) {
         // 반을 안 골랐으면 빈 초록 대신 「우리 반을 고르면 바뀐 수업이 보여요」 + 반 고르기 단추(피드 주소가 없으면 비움).
-        slot.innerHTML = api ? changesStateHTML({ kind: 'pick' }, view.closed) : '';
+        until('');
+        put(lessonsEl, '');
+        put(slot, api ? changesStateHTML({ kind: 'pick' }, view.closed) : '');
         return;
       }
-      slot.innerHTML = changesStateHTML({ kind: 'loading' }, view.closed);
+      if (!quiet) {
+        until('');
+        put(lessonsEl, '');
+        put(slot, changesStateHTML({ kind: 'loading' }, view.closed));
+      }
       // 「학교 행사」로만 적힌 칸은 그날 학사일정 이름으로(「1~6교시 기말고사」)
       const feed = nameSchoolEvents(await loadTimetable(api), data.schedule);
       if (mine !== ticket) return; // 그새 반을 바꿨으면 늦게 온 답은 버린다
+      if (quiet && !feed) return;
+      drawnAt = Date.now();
       // 저장된 반이 피드에 없으면 지운다 — 'mjms:class'로 다시 그려지므로 여기서 끝낸다.
       if (isStaleClass(feed?.classes, classId)) return forgetStaleClass(feed!.classes);
       const state = changesFor(feed, classId, day, view.closed);
-      slot.innerHTML = state ? changesStateHTML(state, view.closed) : '';
+      // 긴 이름이 있는 날(3학년 전환기 프로그램)은 「바뀐 수업」 줄과 교시 한 줄 대신 교시 목록 하나로(같은 이름을 두 번 쓰지 않는다).
+      const list = lessonsEl ? lessonsListHTML(feed, classId, day, view.closed) : '';
+      put(slot, list ? '' : state ? changesStateHTML(state, view.closed) : '');
       // 「오늘 수업」 한 줄: 바뀐 수업 아래. 피드가 없거나 쉬는 날이면 자리를 비워 숨긴다.
-      if (lessonsEl) lessonsEl.innerHTML = lessonsHTML(feed, classId, day, view.closed);
-      // 오늘 일정 줄이 바뀐 수업과 같은 행사면(「1~6교시 기말고사」와 「기말고사」) 한 번만 보이게 감춘다.
-      if (!view.closed && state?.kind === 'lines') {
-        const named = new Set(state.lines.flatMap((x) => (typeof x === 'string' ? [] : [x.text.replace(/^[\d~]+교시 /, '')])));
-        const events = groups.querySelector<HTMLElement>('.board-events');
-        // 일정 제목의 교시 꼬리표(「(1교시)」)는 시간표 칸에서 떼었으므로 뗀 이름끼리 견준다.
-        for (const li of events?.querySelectorAll<HTMLElement>('[data-event]') ?? []) li.hidden = named.has(eventName(li.dataset.event!));
-        if (events) events.hidden = [...events.querySelectorAll('li')].every((li) => li.hidden);
-      }
+      put(lessonsEl, list || lessonsHTML(feed, classId, day, view.closed));
+      // 오늘 일정 줄이 바뀐 수업과 같은 행사면(「1~6교시 기말고사」와 「기말고사」) 한 번만 보이게 감춘다. 바뀐 수업이 없어졌으면 다시 보인다.
+      const named = new Set(!view.closed && state?.kind === 'lines' ? state.lines.flatMap((x) => (typeof x === 'string' ? [] : [x.text.replace(/^[\d~]+교시 /, '')])) : []);
+      const events = groups.querySelector<HTMLElement>('.board-events');
+      // 일정 제목의 교시 꼬리표(「(1교시)」)는 시간표 칸에서 떼었으므로 뗀 이름끼리 견준다.
+      for (const li of events?.querySelectorAll<HTMLElement>('[data-event]') ?? []) li.hidden = named.has(eventName(li.dataset.event!));
+      if (events) events.hidden = [...events.querySelectorAll('li')].every((li) => li.hidden);
       const last = lastPeriod(feed, classId, day);
-      if (untilEl && last !== null) untilEl.textContent = `${last}교시까지`;
+      until(last !== null ? `${last}교시까지` : '');
       // 「다시 불러오기」를 눌렀으면 초점을 결과로 옮긴다(단추가 사라지므로). 칸이 비면(시간표가 쉬는 날로 적음) 칠판 날짜로.
       if (retried) {
         const again = slot.querySelector<HTMLElement>('[data-retry-changes]');
-        const target = again ?? (slot.innerHTML ? slot : board.querySelector<HTMLElement>('#board-date')!);
+        const target = again ?? (slot.innerHTML ? slot : lessonsEl?.innerHTML ? lessonsEl : board.querySelector<HTMLElement>('#board-date')!);
         if (!again) target.tabIndex = -1;
         target.focus();
       }
@@ -111,6 +141,18 @@ const boardJson = JSON.stringify({ base, letters, schedule: feed.schedule, daysO
     });
     // 반 고르기 창에서 반을 바꾸면 새로 고침 없이 다시 그린다(학년 거르기는 <html data-grade>로 CSS가 한다).
     document.addEventListener('mjms:class', () => draw());
+    // 다른 앱·탭에 갔다 돌아왔을 때(밤새 열어 둔 화면을 아침에 다시 봄): 날이 바뀌었으면 칠판·급식을 오늘 것으로 다시 그리고,
+    // 같은 날이어도 받은 지 오래됐으면 바뀐 수업을 조용히 다시 받는다(아침에 선생님이 바꾼 수업).
+    const revisit = () => {
+      if (document.visibilityState !== 'visible') return;
+      const newDay = paint();
+      if (newDay || Date.now() - drawnAt >= STALE_MS) draw(false, !newDay);
+    };
+    document.addEventListener('visibilitychange', revisit);
+    addEventListener('pageshow', (e) => {
+      if (e.persisted) revisit();
+    });
+    paint();
     draw();
   }
 </script>

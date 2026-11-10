@@ -1,6 +1,7 @@
 // 나이스 공개 학사일정이 학교가 나눠 준 학사일정표와 다른 달은, 그 달을 통째로 표의 일정으로 바꿔 끼운다.
 // 2026년 11·12월: 「2026 학사일정(학생·학부모용).xlsx」(2026-10-30 이승열 P) 기준 — 나이스는 방송제·동아리·백마페스티벌 날짜가 하루씩 밀려 있었고
 // 소방합동훈련·전시마당·크리스마스 페스티벌 등이 빠져 있었다. 교시는 표에 적힌 대로 제목 끝에 「(5~6교시)」로 붙인다(예배 제목은 다른 달처럼 교시 없이).
+// 예배가 그날의 다른 교시 없는 행사와 겹치면(11/18 전시마당·학생회장단선거) 시간표 「학교 행사」 칸이 이름을 못 고르므로, 제목은 그대로 두고 periods 로 교시만 알린다.
 // 학년도마다 이 표를 다시 본다. 쉬는 날(daysOff)은 피드 것을 그대로 쓴다.
 import type { FeedScheduleItem } from './feed.ts';
 
@@ -18,7 +19,7 @@ export const SCHEDULE_FIXES: Fixes = {
     ev('방송제(5~6교시)', '2026-11-11'),
     ev('동아리활동(5~6교시)', '2026-11-12'),
     ev('백마페스티벌(1~7교시)', '2026-11-13'),
-    ev('감사하는 삶', '2026-11-18'),
+    { ...ev('감사하는 삶', '2026-11-18'), periods: [1, 1] }, // 1교시(2026-11-10 이승열 P 확인)
     ev('학생회장단선거', '2026-11-18'),
     ev('대학수학능력시험', '2026-11-19', '2026-11-19', [], 'dayoff'),
     ev('재량휴업일', '2026-11-20', '2026-11-20', [], 'dayoff'),
@@ -44,5 +45,5 @@ export const SCHEDULE_FIXES: Fixes = {
 export function withScheduleFixes(schedule: FeedScheduleItem[] | null, fixes: Fixes = SCHEDULE_FIXES): FeedScheduleItem[] | null {
   if (!schedule) return schedule;
   const kept = schedule.filter((i) => !fixes.months.includes(i.start.slice(0, 7)));
-  return [...kept, ...fixes.items.map((i) => ({ ...i, grades: [...i.grades] }))];
+  return [...kept, ...fixes.items.map((i) => ({ ...i, grades: [...i.grades], ...(i.periods ? { periods: [...i.periods] as [number, number] } : {}) }))];
 }

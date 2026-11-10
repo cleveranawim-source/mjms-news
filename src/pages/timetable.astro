@@ -1,15 +1,19 @@
 ---
 import Base from '../layouts/Base.astro';
 import Plate from '../components/Plate.astro';
-import { buildToday } from '../lib/dates.ts';
+import { buildToday, offRanges } from '../lib/dates.ts';
 import { getFeed } from '../lib/feed.ts';
 import { site } from '../site.config.ts';
 
 // 「학교 행사」로만 적힌 바뀐 칸에 붙일 학사일정 이름: 빌드한 날부터의 행사만 싣는다.
 const today = buildToday();
-const events = ((await getFeed()).schedule ?? []).filter((e) => e.kind === 'event' && e.end >= today);
+const feed = await getFeed();
+const events = (feed.schedule ?? []).filter((e) => e.kind === 'event' && e.end >= today);
+// 알림장이 쉬는 날로 아는 날(달력·칠판과 같은 기준): 시간표 피드가 수업일로 보내도 쉬는 날로 그린다.
+const offs = offRanges(feed).filter((o) => o.end >= today);
 // <script> 안의 JSON이 </script>로 끊기지 않도록 <를 이스케이프한다.
 const eventsJson = JSON.stringify(events).replace(/</g, '\\u003c');
+const offsJson = JSON.stringify(offs).replace(/</g, '\\u003c');
 ---
 
 <Base title="시간표" description="우리 반 이번 주·다음 주 시간표와 오늘 바뀐 수업을 한눈에 볼 수 있습니다.">
@@ -40,13 +44,14 @@ const eventsJson = JSON.stringify(events).replace(/</g, '\\u003c');
           <p class="tt-legend"><b>굵은 남색</b> = 바뀐 수업(줄 그은 과목이 원래 수업)</p>
         </div>
         <script type="application/json" data-tt-events set:html={eventsJson} />
+        <script type="application/json" data-tt-offs set:html={offsJson} />
       </div>
     )
   }
 </Base>
 
 <script>
-  import { loadTimetable, nameSchoolEvents, weekTableHTML, changesTarget, changesBoxHTML, weekChangesBoxHTML, weekGroups, weekRange, mondayOf, moreToScroll, type TimetableFeed } from '../lib/timetable.ts';
+  import { loadTimetable, markDaysOff, nameSchoolEvents, weekTableHTML, changesTarget, changesBoxHTML, weekChangesBoxHTML, weekGroups, weekRange, mondayOf, moreToScroll, type TimetableFeed } from '../lib/timetable.ts';
   import { readClass, knownClass, forgetStaleClass } from '../lib/klass.ts';
   import { seoulToday, addDays, weekday } from '../lib/dates.ts';
   import { escapeHTML } from '../lib/html.ts';
@@ -62,7 +67,13 @@ const eventsJson = JSON.stringify(events).replace(/</g, '\\u003c');
     const panel = $('[data-tt-grid]');
     const scrollNote = $('[data-tt-scroll]');
     const more = $('[data-tt-more]');
-    const today = seoulToday();
+    // 화면을 열어 둔 채 날이 바뀌면 돌아왔을 때 다시 맞춘다(revisit).
+    let today = seoulToday();
+    const events = JSON.parse($('[data-tt-events]').textContent!);
+    const offs = JSON.parse($('[data-tt-offs]').textContent!);
+    // 돌아왔을 때 이만큼 지났으면 시간표를 다시 받는다 — AI 교무실 시간표 캐시(max-age=60)와 같다.
+    const STALE_MS = 60_000;
+    let loadedAt = 0;
 
     // undefined = 불러오는 중, null = 못 불러옴
     let feed: TimetableFeed | null | undefined;
@@ -152,24 +163,53 @@ const eventsJson = JSON.stringify(events).replace(/</g, '\\u003c');
       renderGrid(cls);
     };
 
-    // 늦게 온 답이라 버렸으면 false
-    const load = async () => {
+    // 늦게 온 답이라 버렸으면 false.
+    // quiet(돌아왔을 때 다시 받기): 보이던 표를 그대로 둔 채 받고, 보던 주를 지키며, 못 받으면 보이던 표를 그대로 둔다.
+    const load = async (quiet = false) => {
       const my = ++ticket;
-      feed = undefined;
-      render();
-      const got = nameSchoolEvents(await loadTimetable(root.dataset.api!), JSON.parse($('[data-tt-events]').textContent!));
+      if (!quiet) {
+        feed = undefined;
+        render();
+      }
+      const got = markDaysOff(nameSchoolEvents(await loadTimetable(root.dataset.api!), events), offs);
       if (my !== ticket) return false; // 그새 다시 불렀으면 늦게 온 답은 버린다
-      feed = got && got.classes.length && got.days.length ? got : null;
+      const fresh = got && got.classes.length && got.days.length ? got : null;
+      if (quiet && !fresh) return true;
+      const seen = quiet && groups[week] ? mondayOf(groups[week].days[0]) : null;
+      feed = fresh;
+      loadedAt = Date.now();
       if (feed) {
         groups = weekGroups(feed.days, today);
-        week = firstWeek();
-        weeksEl.innerHTML = '';
+        const kept = seen ? groups.findIndex((w) => mondayOf(w.days[0]) === seen) : -1;
+        week = kept >= 0 ? kept : firstWeek();
+        // 조용히 받을 때는 주 단추를 지우지 않는다(초점이 남게) — 수가 달라지면 render가 다시 만든다.
+        if (!quiet) weeksEl.innerHTML = '';
         // 저장된 반이 피드에 없으면 지우고 알린다(명패·본문이 「반 고르기」로).
         forgetStaleClass(feed.classes);
       }
       render();
       return true;
     };
+
+    // 다른 앱·탭에 갔다 돌아왔을 때: 날이 바뀌었으면 「오늘」과 처음 보일 주를 다시 잡고, 받은 지 오래됐으면 조용히 다시 받는다.
+    const revisit = () => {
+      if (document.visibilityState !== 'visible' || feed === undefined) return;
+      const now = seoulToday();
+      const newDay = now !== today;
+      if (!newDay && Date.now() - loadedAt < STALE_MS) return;
+      today = now;
+      if (!feed) return void load(); // 못 불러온 채였으면 다시 불러 본다
+      if (newDay) {
+        groups = weekGroups(feed.days, today);
+        week = firstWeek();
+        render();
+      }
+      load(true);
+    };
+    document.addEventListener('visibilitychange', revisit);
+    addEventListener('pageshow', (e) => {
+      if (e.persisted) revisit();
+    });
 
     document.addEventListener('mjms:class', (e) => {
       classId = (e as CustomEvent<string>).detail;

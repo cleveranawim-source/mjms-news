@@ -5,7 +5,7 @@ import type { Feed } from './feed.ts';
 import { badgeHTML } from './grades.ts';
 import { escapeHTML as escape } from './html.ts';
 import { pickMeal, type MealView } from './meal.ts';
-import { changeItems, changeWhyHTML, eventName, fullName, shortName, type ChangeItem, type TimetableFeed } from './timetable.ts';
+import { changeItems, changeWhyHTML, eventName, fullName, shortName, type ChangeItem, type TimetableFeed, type TtCell } from './timetable.ts';
 
 export type BoardEvent = { title: string; start: string; end: string; grades: number[] };
 export type BoardDday = { title: string; start: string; days: number; label: string; grades: number[] };
@@ -200,28 +200,68 @@ export function changesFor(feed: TimetableFeed | null, classId: string, ymd: str
   return lines.length ? { kind: 'lines', lines } : { kind: 'none' };
 }
 
-/**
- * 칠판 「오늘 수업」 줄(쉬는 날이면 「그날 수업」): 교시 번호 + 과목을 한 줄에. 바뀐 교시는 굵게(원래 과목은 읽기 이름에만 — 바로 위 「바뀐 수업」 줄이 보여 준다).
- * 「N교시까지」 뒤 교시와 빈 칸은 그리지 않는다. 쉬는 날이거나 그날·반이 피드에 없으면 빈 문자열(자리를 숨긴다).
- */
-export function lessonsHTML(feed: TimetableFeed | null, classId: string, ymd: string, next = false): string {
+type Run = TtCell[];
+
+// 「오늘 수업」에 그릴 칸: 「N교시까지」 뒤 교시와 빈 칸은 빼고, 이어진 교시가 같은 과목으로 바뀌었으면(행사 날) 한 묶음 — 칠판·시간표와 같은 규칙.
+// 쉬는 날이거나 그날·반이 피드에 없으면 null.
+function lessonRuns(feed: TimetableFeed | null, classId: string, ymd: string): { runs: Run[]; cutFrom: number | null } | null {
   const day = feed?.classes.find((c) => c.id === classId)?.days.find((d) => d.ymd === ymd);
-  if (!day || day.off) return '';
+  if (!day || day.off) return null;
   const cells = [...day.cells]
     .filter((c) => (day.until === null || c.period <= day.until) && (c.subject !== '' || c.changed))
     .sort((a, b) => a.period - b.period);
-  if (!cells.length) return '';
-  // 이어진 교시가 같은 과목으로 바뀌었으면(행사 날) 한 칸으로 묶는다 — 칠판·시간표와 같은 규칙.
-  const runs: (typeof cells)[] = [];
+  const runs: Run[] = [];
   for (const c of cells) {
     const last = runs.at(-1)?.at(-1);
     if (last && last.changed && c.changed && last.period + 1 === c.period && fullName(last) === fullName(c)) runs.at(-1)!.push(c);
     else runs.push([c]);
   }
+  // 「N교시까지」로 잘린 날(뒤 교시를 비운 바뀐 칸이 있다): 목록 끝에 「N+1교시부터 수업 없음」.
+  const cut = day.until !== null && day.cells.some((c) => c.changed && c.subject === '' && c.period > day.until!);
+  return { runs, cutFrom: cut ? day.until! + 1 : null };
+}
+
+const periodsOf = (run: Run) => (run.length > 1 ? `${run[0].period}~${run.at(-1)!.period}` : `${run[0].period}`);
+
+/** 한 줄 칸에 담기 어려운 이름의 기준: 바뀐 칸의 짧은 이름(표 칸에 쓰는 이름)이 이 글자 수를 넘으면 긴 이름. 「학교폭력예방교육」(8자)·「독서의 날(전일제)」(10자)은 한 줄에 남는다. */
+export const LONG_NAME = 10;
+const isLong = (run: Run) => !!run[0].changed && [...shortName(fullName(run[0]))].length > LONG_NAME;
+
+/**
+ * 긴 이름이 있는 날의 칠판 「오늘 수업」(2026-11-10 시안 C): 교시 줄 대신 교시 목록 하나로 — 「바뀐 수업」 줄과 합친다(같은 이름을 두 번 쓰지 않는다).
+ * 줄 = 교시 · 과목. 바뀐 교시는 분필 노랑 굵게 전체 이름 + 줄 그은 원래 과목(모두 같을 때만, 「바뀐 수업」 줄과 같은 규칙).
+ * 긴 이름이 없는 날, 쉬는 날, 그날·반이 피드에 없으면 빈 문자열(지금처럼 「바뀐 수업」 + 한 줄).
+ */
+export function lessonsListHTML(feed: TimetableFeed | null, classId: string, ymd: string, next = false): string {
+  const got = lessonRuns(feed, classId, ymd);
+  if (!got || !got.runs.some(isLong)) return '';
+  const lis = got.runs.map((run) => {
+    const c = run[0];
+    const no = `<span class="board-list-no">${periodsOf(run)}교시</span>`;
+    if (!c.changed) return `<li>${no}<span>${escape(c.subject)}</span></li>`;
+    const full = fullName(c) || '수업 없음';
+    const same = (k: 'from' | 'note') => (run.every((x) => x.changed![k] === c.changed![k]) ? c.changed![k] : null);
+    const from = same('from');
+    // 학사일정 이름(note)은 원래 과목이 없을 때만, 과목 이름과 같으면(잘린 이름의 전체 이름) 되풀이하지 않는다.
+    const note = from ? null : same('note');
+    return `<li class="is-changed">${no}<span><b>${escape(full)}</b><span class="sr-only">, 바뀜</span>${changeWhyHTML({ from, note: note === full ? null : note })}</span></li>`;
+  });
+  if (got.cutFrom !== null) lis.push(`<li><span class="board-list-no">${got.cutFrom}교시부터</span><span>수업 없음</span></li>`);
+  const head = `<h2 class="board-sub board-sub--lessons">${next ? '그날' : '오늘'} 수업 <small>· <b>노랑</b>은 바뀐 수업</small></h2>`;
+  return `${head}<ol class="board-list">${lis.join('')}</ol>`;
+}
+
+/**
+ * 칠판 「오늘 수업」 줄(쉬는 날이면 「그날 수업」): 교시 번호 + 과목을 한 줄에. 바뀐 교시는 굵게(원래 과목은 읽기 이름에만 — 바로 위 「바뀐 수업」 줄이 보여 준다).
+ * 「N교시까지」 뒤 교시와 빈 칸은 그리지 않는다. 쉬는 날이거나 그날·반이 피드에 없으면 빈 문자열(자리를 숨긴다).
+ */
+export function lessonsHTML(feed: TimetableFeed | null, classId: string, ymd: string, next = false): string {
+  const runs = lessonRuns(feed, classId, ymd)?.runs ?? [];
+  if (!runs.length) return '';
   const lis = runs.map((run) => {
     const c = run[0];
     const subject = c.subject || '수업 없음';
-    const periods = run.length > 1 ? `${c.period}~${run.at(-1)!.period}` : `${c.period}`;
+    const periods = periodsOf(run);
     const no = `<span aria-hidden="true">${periods}</span>`;
     if (!c.changed) return `<li aria-label="${periods}교시 ${escape(subject)}">${no}${escape(subject)}</li>`;
     // 바뀐 칸: 칸에는 짧은 이름(「:」 앞, 겹낫표 없이), 읽기 이름에는 전체 이름 — 시간표 표와 같은 규칙.
