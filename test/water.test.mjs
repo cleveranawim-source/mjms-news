@@ -1,7 +1,7 @@
 // AI 교무실 tests/unit/lost-found-water.test.ts를 node:test로 옮겼다.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { arrange, gravityVector, groupItems, shakeDetector, step } from '../src/lib/water.ts';
+import { arrange, gravityVector, groupItems, shakeDetector, step, walker } from '../src/lib/water.ts';
 
 const world = { w: 400, h: 600, size: 100 };
 const body = (id, x, y) => ({ id, x, y, vx: 0, vy: 0, a: 0, phase: 0 });
@@ -70,6 +70,60 @@ test('물살이 잦아들면(stir 0) 멈춘다', () => {
 });
 
 const ids = (n, p) => Array.from({ length: n }, (_, i) => `${p}${i}`);
+
+// 물건이 많아져 깊게 쌓일 때(2026-11-16, AI 교무실과 같은 시험). 휴대폰에서 잰 함 넓이 332x556, 처음 자리는 R2 수열.
+const R2 = 1.32471795724;
+const heap = (n, size) => Array.from({ length: n }, (_, i) => (
+  { id: String(i), x: ((0.5 + i / R2) % 1) * (332 - size), y: ((0.5 + i / (R2 * R2)) % 1) * (556 - size), vx: 0, vy: 0, a: 0, phase: i * 2.3 }));
+/** 세워 든 채 초당 hz장으로 그리는 화면에서 18초 쌓인 뒤, 5초 동안 사진 한 장이 한 프레임에 가장 많이 움직인 거리(px). 프레임 간격은 진짜 화면처럼 ±0.7ms 흔들린다. */
+const shiver = (n, size, hz) => {
+  const bodies = heap(n, size), box = { w: 332, h: 556, size }, walk = walker();
+  let now = 0, worst = 0, seed = 7;
+  const wobble = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648 - 0.5) * 0.0014;
+  const frame = () => { now += 1 / hz + wobble(); walk(bodies, box, 0, 0.85, now, Math.max(0, 1 - now / 5)); };
+  for (let i = 0; i < 18 * hz; i++) frame();
+  for (let i = 0; i < 5 * hz; i++) {
+    const before = bodies.map((b) => [b.x, b.y]);
+    frame();
+    bodies.forEach((b, k) => { worst = Math.max(worst, Math.hypot(b.x - before[k][0], b.y - before[k][1])); });
+  }
+  return worst;
+};
+
+test('많이 쌓여도 가만히: 30개(여섯 줄) — 초당 30장으로 그리는 화면(저전력)에서도', () => {
+  assert.ok(shiver(30, 98 * 0.58, 30) < 0.5); // 한 프레임 한 걸음이면 50px씩 튄다
+  assert.ok(shiver(30, 98 * 0.58, 60) < 0.5);
+});
+
+test('많이 쌓여도 가만히: 50개도 초당 60장 화면에서 튀지 않는다', () => {
+  assert.ok(shiver(50, 98 * 0.5, 60) < 0.5);
+});
+
+test('늦게 그려진 프레임도 실제 시간만큼 간다(슬로모션 없음)', () => {
+  const slow = body('a', 150, 0), smooth = body('b', 150, 0);
+  const late = walker(), fine = walker();
+  late([slow], world, 0, 1, 0, 0);
+  assert.ok(Math.abs(late([slow], world, 0, 1, 0.05, 0) - 0.05) < 0.005);
+  for (let i = 0; i <= 3; i++) fine([smooth], world, 0, 1, i / 60, 0);
+  assert.ok(slow.y > 1);
+  assert.ok(Math.abs(slow.y - smooth.y) < 0.001);
+});
+
+test('오래 멈췄다 돌아온 프레임은 0.1초만 걷고, 밀린 시간을 뒤에 몰아 걷지 않는다', () => {
+  const walk = walker(), b = [body('a', 150, 250)];
+  walk(b, world, 0, 0, 0, 0);
+  assert.ok(Math.abs(walk(b, world, 0, 0, 5, 0) - 0.1) < 0.005);
+  assert.ok(walk(b, world, 0, 0, 5 + 1 / 60, 0) < 0.02);
+});
+
+test('살짝 기울여도 흐른다 — 걸음을 나눠도 멈춤 판정은 초당 60장 한 걸음일 때와 같다', () => {
+  const gentle = body('a', 150, 250), flat = body('b', 150, 250);
+  const one = walker(), two = walker();
+  for (let i = 0; i <= 60; i++) one([gentle], world, 0.15, 0, i / 60, 0);
+  for (let i = 0; i <= 60; i++) two([flat], world, 0.05, 0, i / 60, 0);
+  assert.ok(gentle.x > 180);
+  assert.ok(flat.x - 150 < 1);
+});
 
 test('흔들어 정리: 무리마다 이름 줄 아래 새 줄에서 시작하고, 다 들어가게 사진을 줄인다', () => {
   const fits = arrange([{ label: '가', ids: ids(5, 'a') }, { label: '나', ids: ['b0'] }], world); // 400 너비면 한 줄 3장(100+8)

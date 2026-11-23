@@ -14,13 +14,15 @@ export const WATER = {
   drag: 1.6, // 물의 끌림: 1초에 속도가 e^-1.6 ≈ 20%로
   bounce: 0.45, // 벽·서로 부딪힌 뒤 남는 속도
   current: 24, // 가만히 둘 때 잔잔한 물살(px/s²) — stir만큼만
-  rest: 3, // 물살이 잦아든 뒤 이보다 느리면(px/s) 멈춘 것으로
+  rest: 3, // 물살이 잦아든 뒤 이보다 느리면(px/s) 멈춘 것으로 — 1/60초 걸음 기준, 걸음이 짧으면 그만큼 낮춘다(step)
   settle: 60, // 이보다 느리게 닿으면(px/s) 튕기지 않고 붙는다 — 쌓인 사진이 떨지 않게
   maxFling: 2500, // 손으로 밀 때 최고 속도(px/s)
   spring: 40, // 정리했을 때 제자리로 당기는 힘(1/s²)
   hold: 9, // 정리했을 때 제자리에서 출렁임이 잦아드는 빠르기(1/s)
   lean: 0.12, // 정리했을 때 기울임이 미치는 몫 — 무리째 살짝만 쏠린다
   shake: 14, // 흔듦으로 볼 가속(m/s², 중력 뺀 것)
+  stride: 1 / 240, // 한 걸음의 길이(초) — 화면 한 프레임을 이만큼씩 나눠 걷는다(walker). 100개도 프레임당 0.5ms 아래
+  maxFrame: 0.1, // 한 프레임에 걷는 가장 긴 시간(초) — 탭을 다시 열었을 때 한꺼번에 멀리 가지 않게
 };
 
 const clamp = (v: number, lo = -1, hi = 1) => Math.min(hi, Math.max(lo, v));
@@ -103,12 +105,32 @@ export function step(bodies: Body[], world: World, gx: number, gy: number, t: nu
       if (b.y < 0) { b.y = 0; if (b.vy < 0) b.vy = wall(b.vy); }
       if (b.y > maxY) { b.y = maxY; if (b.vy > 0) b.vy = wall(b.vy); }
     }
-    if (!b.held && !current && Math.hypot(b.vx, b.vy) < WATER.rest) b.vx = b.vy = 0;
+    // 멈춤 판정은 걸음 길이에 맞춘다: 짧은 걸음은 한 번에 얻는 속도도 작아, 그대로 두면 살짝 기울인 흐름까지 멈춘다.
+    if (!b.held && !current && Math.hypot(b.vx, b.vy) < WATER.rest * Math.min(1, dt * 60)) b.vx = b.vy = 0;
     // 흐르는 쪽으로 살짝 기울고, 물살이 있을 때만 천천히 흔들린다. 거의 다 왔으면 딱 맞춰 멈춘다.
     const target = clamp(b.vx * 0.04, -18, 18) + 5 * stir * Math.sin(t * 0.5 + b.phase);
     const next = b.a + (target - b.a) * (1 - Math.exp(-3 * dt));
     b.a = Math.abs(target - next) < 0.05 ? target : next;
   }
+}
+
+/**
+ * 화면 그리기 루프의 시계 — 화면은 step을 바로 부르지 않고 이것으로 걷는다. 프레임마다 지금 시각(now, 초)을 넣으면 그 프레임에 걸은 시간(초)을 돌려준다.
+ * 늘 같은 걸음(WATER.stride)으로 여러 번 걷고, 한 걸음이 안 되는 자투리는 다음 프레임으로 넘긴다(2026-11-16).
+ * step은 한 걸음에 겹침을 한 번만 풀어서, 물건이 많아 깊게 쌓이면(30개 = 여섯 줄) 걸음이 길수록 더미가 떨리고 초당 30장으로 그리는 화면(저전력)에서는
+ * 한 프레임에 수십 px씩 튀었다. 프레임을 똑같이 나누는 것으로는 모자란다 — 진짜 화면은 프레임 간격이 조금씩 흔들려 걸음 길이가 바뀌고, 그때마다 더미가 들썩인다.
+ * 늦은 프레임도 실제 시간만큼 걸어 슬로모션이 되지 않고, 오래 멈췄다 돌아오면(탭을 다시 엶) WATER.maxFrame만 걷고 나머지는 버린다.
+ */
+export function walker() {
+  let last: number | null = null;
+  return (bodies: Body[], world: World, gx: number, gy: number, now: number, stir = 1): number => {
+    if (last === null) { last = now; return 0; }
+    const behind = now - last;
+    const strides = Math.max(0, Math.floor(Math.min(behind, WATER.maxFrame) / WATER.stride + 1e-9));
+    for (let i = 0; i < strides; i++) step(bodies, world, gx, gy, last + i * WATER.stride, WATER.stride, stir);
+    last = behind > WATER.maxFrame ? now : last + strides * WATER.stride;
+    return strides * WATER.stride;
+  };
 }
 
 export type Group = { label: string; ids: string[] };

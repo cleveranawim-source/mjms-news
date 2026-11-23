@@ -46,7 +46,7 @@ import { site } from '../site.config.ts';
   // AI 교무실 app/(main)/lost-found/FloatingBox.tsx(학생용 보기)를 React 없이 옮겼다. 움직임 셈은 lib/water.ts.
   import { loadLost, lostTitle, lostMeta, type LostItem } from '../lib/lost.ts';
   import { seoulToday } from '../lib/dates.ts';
-  import { arrange, ARRANGE, gravityVector, groupItems, shakeDetector, step, WATER, type Body, type Group, type World } from '../lib/water.ts';
+  import { arrange, ARRANGE, gravityVector, groupItems, shakeDetector, step, walker, WATER, type Body, type Group, type World } from '../lib/water.ts';
 
   type OrientationAPI = typeof DeviceOrientationEvent & { requestPermission?: () => Promise<string> };
   type MotionAPI = typeof DeviceMotionEvent & { requestPermission?: () => Promise<string> };
@@ -287,13 +287,12 @@ import { site } from '../site.config.ts';
     });
 
     if (!reduced) {
-      let last = performance.now();
+      // 늘 같은 걸음으로 나눠 걷는다(walker) — 많이 쌓여도 떨지 않고, 프레임이 늦어도 슬로모션이 되지 않는다.
+      const walk = walker();
       const tick = (now: number) => {
-        const dt = Math.min(0.033, (now - last) / 1000);
-        last = now;
         const stir = Math.max(0, 1 - (now - touched) / STIR_MS);
+        const dt = walk([...bodies.values()], world, gravity[0], gravity[1], now / 1000, stir);
         zoom.now = Math.abs(zoom.to - zoom.now) < 0.005 ? zoom.to : zoom.now + (zoom.to - zoom.now) * (1 - Math.exp(-6 * dt));
-        step([...bodies.values()], world, gravity[0], gravity[1], now / 1000, dt, stir);
         draw();
         requestAnimationFrame(tick);
       };
